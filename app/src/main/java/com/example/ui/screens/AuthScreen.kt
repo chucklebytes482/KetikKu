@@ -226,7 +226,7 @@ fun AuthScreen(
                     .testTag("local_mode_button")
             ) {
                 Text(
-                    text = "Gunakan Mode Lokal Saja",
+                    text = "Lanjut Tanpa Login Drive (Mode Lokal)",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )

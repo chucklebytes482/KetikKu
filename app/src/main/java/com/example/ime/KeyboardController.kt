@@ -6,8 +6,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.example.data.DictionaryEngine
+import com.example.data.FontStyleConverter
 import com.example.data.KeyPoint
-import com.example.model.KeyboardLanguage
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 
@@ -50,14 +50,12 @@ interface ImeTarget {
     fun moveCursorToEdge(toStart: Boolean)
     fun selectAll()
     fun performEnterAction(actionType: EnterActionType)
-    fun switchLanguageOrIme() {}
     fun openAppSettings() {}
 }
 
 class TextFieldImeTarget(
     private val getValue: () -> TextFieldValue,
-    private val setValue: (TextFieldValue) -> Unit,
-    private val onSwitchLanguage: () -> Unit = {}
+    private val setValue: (TextFieldValue) -> Unit
 ) : ImeTarget {
 
     override fun getTextBeforeCursor(n: Int): String {
@@ -141,10 +139,6 @@ class TextFieldImeTarget(
     override fun performEnterAction(actionType: EnterActionType) {
         commitText("\n")
     }
-
-    override fun switchLanguageOrIme() {
-        onSwitchLanguage()
-    }
 }
 
 class KeyboardController(
@@ -165,8 +159,6 @@ class KeyboardController(
     var enterActionType by mutableStateOf(EnterActionType.ENTER)
         private set
     var isPasswordField by mutableStateOf(false)
-        private set
-    var showToolbarIcons by mutableStateOf(true)
         private set
 
     private var lastShiftTapMillis = 0L
@@ -196,10 +188,6 @@ class KeyboardController(
         utilityPanel = if (utilityPanel == panel) UtilityPanel.NONE else panel
     }
 
-    fun toggleToolbarMode() {
-        showToolbarIcons = !showToolbarIcons
-    }
-
     fun toggleSelectionMode() {
         isSelectionMode = !isSelectionMode
     }
@@ -218,13 +206,20 @@ class KeyboardController(
         lastShiftTapMillis = now
     }
 
+    private fun formatOutput(text: String, settings: KeyboardSettings): String =
+        if (settings.arialItalicEnabled && !isPasswordField) {
+            FontStyleConverter.toArialItalic(text)
+        } else {
+            text
+        }
+
     fun onCharacterTap(
         rawChar: String,
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
         lastGlideInsertedLength = 0
-        val out = if (shiftState != ShiftState.OFF && rawChar.length == 1 && rawChar[0].isLetter()) {
+        val letterTransformed = if (shiftState != ShiftState.OFF && rawChar.length == 1 && rawChar[0].isLetter()) {
             rawChar.uppercase()
         } else {
             rawChar
@@ -235,7 +230,7 @@ class KeyboardController(
             applyAutoCorrectIfNeeded(settings, personalEntries, appendSpace = false)
         }
 
-        target.commitText(out)
+        target.commitText(formatOutput(letterTransformed, settings))
 
         if (shiftState == ShiftState.SHIFTED) {
             shiftState = ShiftState.OFF
@@ -248,12 +243,16 @@ class KeyboardController(
         personalEntries: List<PersonalDictionaryEntry>
     ) {
         val now = System.currentTimeMillis()
-        val before = target.getTextBeforeCursor(4)
+        val before = target.getTextBeforeCursor(6)
+        val charBeforeTrailingSpace = if (before.endsWith(" ") && before.length >= 2) {
+            FontStyleConverter.decodeCodePoint(Character.codePointBefore(before, before.length - 1))
+        } else {
+            0
+        }
         val isDoubleSpacePeriod = settings.doubleSpacePeriodEnabled &&
             now - lastSpaceTapMillis < 400L &&
             before.endsWith(" ") &&
-            before.length >= 2 &&
-            before[before.length - 2].isLetterOrDigit()
+            Character.isLetterOrDigit(charBeforeTrailingSpace)
 
         if (isDoubleSpacePeriod) {
             target.deleteBeforeCursor(1)
@@ -278,7 +277,8 @@ class KeyboardController(
             target.deleteBeforeCursor(lastGlideInsertedLength)
             lastGlideInsertedLength = 0
         } else {
-            target.deleteBeforeCursor(1)
+            val before = target.getTextBeforeCursor(4)
+            target.deleteBeforeCursor(FontStyleConverter.lastCodePointCharCount(before))
         }
         refreshState(settings, personalEntries)
     }
@@ -287,12 +287,9 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        val before = target.getTextBeforeCursor(40)
+        val before = target.getTextBeforeCursor(64)
         if (before.isEmpty()) return
-        var idx = before.length
-        while (idx > 0 && before[idx - 1].isWhitespace()) idx--
-        while (idx > 0 && !before[idx - 1].isWhitespace()) idx--
-        val deleteCount = (before.length - idx).coerceAtLeast(1)
+        val deleteCount = FontStyleConverter.lastWordDeleteCharCount(before)
         target.deleteBeforeCursor(deleteCount)
         lastGlideInsertedLength = 0
         refreshState(settings, personalEntries)
@@ -313,14 +310,15 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        val activeWord = extractCurrentWord(target.getTextBeforeCursor(48))
-        if (activeWord.isNotEmpty()) {
-            target.replaceWordBeforeCursor(activeWord.length, "$word ")
+        val (rawLen, plainWord) = FontStyleConverter.extractCurrentWordRawAndPlain(target.getTextBeforeCursor(64))
+        val styled = formatOutput(word, settings)
+        if (plainWord.isNotEmpty() && rawLen > 0) {
+            target.replaceWordBeforeCursor(rawLen, "$styled ")
         } else if (lastGlideInsertedLength > 0) {
             target.deleteBeforeCursor(lastGlideInsertedLength)
-            target.commitText("$word ")
+            target.commitText("$styled ")
         } else {
-            target.commitText("$word ")
+            target.commitText("$styled ")
         }
         lastGlideInsertedLength = 0
         refreshState(settings, personalEntries)
@@ -345,7 +343,7 @@ class KeyboardController(
         }
         val before = target.getTextBeforeCursor(2)
         val needsLeadingSpace = before.isNotEmpty() && !before.last().isWhitespace()
-        val committed = (if (needsLeadingSpace) " " else "") + formatted + " "
+        val committed = (if (needsLeadingSpace) " " else "") + formatOutput(formatted, settings) + " "
         target.commitText(committed)
         lastGlideInsertedLength = committed.length
         if (shiftState == ShiftState.SHIFTED) {
@@ -387,8 +385,17 @@ class KeyboardController(
         refreshState(settings, personalEntries)
     }
 
-    fun onSwitchLanguageOrIme() {
-        target.switchLanguageOrIme()
+    fun convertSelectionToArialItalic(enableItalic: Boolean) {
+        val selected = target.getSelectedText()
+        if (selected.isEmpty() || isPasswordField) return
+        val converted = if (enableItalic) {
+            FontStyleConverter.toArialItalic(selected)
+        } else {
+            FontStyleConverter.fromArialItalic(selected)
+        }
+        if (converted != selected) {
+            target.commitText(converted)
+        }
     }
 
     fun onOpenSettings() {
@@ -399,7 +406,7 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        val before = target.getTextBeforeCursor(64)
+        val before = target.getTextBeforeCursor(96)
         if (settings.autoCapitalizeEnabled && currentPage == KeyboardPage.QWERTY && shiftState != ShiftState.CAPS_LOCK) {
             val trimmed = before.trimEnd()
             val shouldCap = before.isEmpty() ||
@@ -416,8 +423,8 @@ class KeyboardController(
             return
         }
 
-        val currentWord = extractCurrentWord(before)
-        val previousWord = extractPreviousWord(before, currentWord.length)
+        val (rawLen, currentWord) = FontStyleConverter.extractCurrentWordRawAndPlain(before)
+        val previousWord = FontStyleConverter.extractPreviousWordPlain(before, rawLen)
         val result = DictionaryEngine.getSuggestions(
             currentWord = currentWord,
             previousWord = previousWord,
@@ -434,8 +441,8 @@ class KeyboardController(
         appendSpace: Boolean
     ): Boolean {
         if (isPasswordField) return false
-        val currentWord = extractCurrentWord(target.getTextBeforeCursor(48))
-        if (currentWord.isEmpty()) return false
+        val (rawLen, currentWord) = FontStyleConverter.extractCurrentWordRawAndPlain(target.getTextBeforeCursor(96))
+        if (currentWord.isEmpty() || rawLen == 0) return false
 
         // Always allow personal shortcut expansion, and autocorrect if enabled
         val shortcut = personalEntries.firstOrNull {
@@ -443,7 +450,7 @@ class KeyboardController(
         }
         if (shortcut != null) {
             val suffix = if (appendSpace) " " else ""
-            target.replaceWordBeforeCursor(currentWord.length, shortcut.word + suffix)
+            target.replaceWordBeforeCursor(rawLen, formatOutput(shortcut.word, settings) + suffix)
             return true
         }
 
@@ -451,29 +458,17 @@ class KeyboardController(
         val correction = primaryAutoCorrect
         if (!correction.isNullOrBlank() && !correction.equals(currentWord, ignoreCase = false)) {
             val suffix = if (appendSpace) " " else ""
-            target.replaceWordBeforeCursor(currentWord.length, correction + suffix)
+            target.replaceWordBeforeCursor(rawLen, formatOutput(correction, settings) + suffix)
             return true
         }
         return false
     }
 
     companion object {
-        fun extractCurrentWord(before: String): String {
-            if (before.isEmpty()) return ""
-            var i = before.length
-            while (i > 0 && (before[i - 1].isLetter() || before[i - 1] == '\'')) {
-                i--
-            }
-            return before.substring(i)
-        }
+        fun extractCurrentWord(before: String): String =
+            FontStyleConverter.extractCurrentWordRawAndPlain(before).second
 
-        fun extractPreviousWord(before: String, currentWordLen: Int): String {
-            val end = (before.length - currentWordLen).coerceAtLeast(0)
-            var i = end
-            while (i > 0 && before[i - 1].isWhitespace()) i--
-            val wordEnd = i
-            while (i > 0 && before[i - 1].isLetter()) i--
-            return before.substring(i, wordEnd)
-        }
+        fun extractPreviousWord(before: String, currentWordLen: Int): String =
+            FontStyleConverter.extractPreviousWordPlain(before, currentWordLen)
     }
 }

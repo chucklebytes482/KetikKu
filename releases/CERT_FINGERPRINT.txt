@@ -1,0 +1,4 @@
+Signer #1 certificate DN: CN=KetikKu, OU=Release, O=KetikKu, L=Jakarta, ST=JK, C=ID
+Signer #1 certificate SHA-256 digest: 1a94981b7917fdc9cb4a0e6ff5739625b99804c5c2dcf29bf7eb667bc2467511
+Signer #1 certificate SHA-1 digest: a690fcd3ced2004676f0d0cd15c9feaedb86b3f8
+Signer #1 certificate MD5 digest: 0ba0abb7991224ff732545a113796fac

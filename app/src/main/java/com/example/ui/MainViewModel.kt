@@ -13,10 +13,7 @@ import com.example.data.SettingsRepository
 import com.example.ime.KeyboardController
 import com.example.ime.TextFieldImeTarget
 import com.example.model.ClipboardItem
-import com.example.model.KeyboardLanguage
 import com.example.model.KeyboardSettings
-import com.example.model.KeyboardThemePreset
-import com.example.model.OneHandedMode
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,8 +57,7 @@ class MainViewModel(
     val playgroundController = KeyboardController(
         target = TextFieldImeTarget(
             getValue = { playgroundText },
-            setValue = { updated -> playgroundText = updated },
-            onSwitchLanguage = { toggleLanguage() }
+            setValue = { updated -> playgroundText = updated }
         )
     )
 
@@ -100,27 +96,8 @@ class MainViewModel(
         }
     }
 
-    fun toggleLanguage() {
-        updateSettings { s ->
-            val next = if (s.languageEnum == KeyboardLanguage.INDONESIAN) {
-                KeyboardLanguage.ENGLISH
-            } else {
-                KeyboardLanguage.INDONESIAN
-            }
-            s.copy(language = next.code)
-        }
-    }
-
-    fun cycleTheme() {
-        updateSettings { s ->
-            val presets = KeyboardThemePreset.entries
-            val nextIdx = (presets.indexOf(s.themeEnum) + 1) % presets.size
-            s.copy(themePreset = presets[nextIdx].name)
-        }
-    }
-
-    fun setOneHandedMode(mode: OneHandedMode) {
-        updateSettings { it.copy(oneHandedMode = mode.name) }
+    fun toggleArialItalic() {
+        updateSettings { it.copy(arialItalicEnabled = !it.arialItalicEnabled) }
     }
 
     fun upsertDictionaryEntry(word: String, shortcut: String, language: String, existingId: String? = null) {
@@ -141,21 +118,22 @@ class MainViewModel(
         }
     }
 
-    fun toggleClipboardPin(id: String) {
+    fun clearAllClipboard() {
         viewModelScope.launch {
-            settingsRepository.toggleClipboardPin(id)
+            settingsRepository.clearAllClipboard()
         }
     }
 
-    fun removeClipboardItem(id: String) {
-        viewModelScope.launch {
-            settingsRepository.removeClipboardItem(id)
-        }
+    suspend fun buildFullBackupJson(): String {
+        val currentSettings = settingsRepository.getCurrentSettings()
+        val currentDict = settingsRepository.getCurrentDictionary()
+        return settingsRepository.encodeFullBackupJson(currentSettings, currentDict)
     }
 
-    fun clearUnpinnedClipboard() {
+    fun importLocalBackupJson(rawJson: String, onComplete: (Result<String>) -> Unit) {
         viewModelScope.launch {
-            settingsRepository.clearUnpinnedClipboard()
+            val result = settingsRepository.importLocalBackupJson(rawJson)
+            onComplete(result)
         }
     }
 }

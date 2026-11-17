@@ -17,19 +17,6 @@ enum class KeyboardLanguage(val code: String, val displayName: String, val short
     }
 }
 
-enum class KeyboardThemePreset(val label: String) {
-    SLATE_CYAN("Slate Cyan"),
-    OBSIDIAN_MONO("Obsidian Mono"),
-    DAYLIGHT_CLEAN("Daylight Clean"),
-    FOREST_SAGE("Forest Sage"),
-    COBALT_NIGHT("Cobalt Night");
-
-    companion object {
-        fun fromName(raw: String?): KeyboardThemePreset =
-            entries.firstOrNull { it.name == raw } ?: SLATE_CYAN
-    }
-}
-
 enum class KeyboardHeightPreset(val label: String, val keyHeightDp: Float) {
     SHORT("Pendek", 40f),
     MID_SHORT("Agak Pendek", 44f),
@@ -43,23 +30,10 @@ enum class KeyboardHeightPreset(val label: String, val keyHeightDp: Float) {
     }
 }
 
-enum class OneHandedMode(val label: String) {
-    OFF("Penuh"),
-    LEFT("Tangan Kiri"),
-    RIGHT("Tangan Kanan");
-
-    companion object {
-        fun fromName(raw: String?): OneHandedMode =
-            entries.firstOrNull { it.name == raw } ?: OFF
-    }
-}
-
 @JsonClass(generateAdapter = true)
 data class KeyboardSettings(
     val language: String = KeyboardLanguage.INDONESIAN.code,
-    val themePreset: String = KeyboardThemePreset.SLATE_CYAN.name,
     val heightPreset: String = KeyboardHeightPreset.NORMAL.name,
-    val oneHandedMode: String = OneHandedMode.OFF.name,
     val numberRowEnabled: Boolean = true,
     val keyBordersEnabled: Boolean = true,
     val keyPopupEnabled: Boolean = true,
@@ -73,7 +47,7 @@ data class KeyboardSettings(
     val spacebarTrackpadEnabled: Boolean = true,
     val swipeDeleteEnabled: Boolean = true,
     val clipboardHistoryEnabled: Boolean = true,
-    val showLanguageSwitchKey: Boolean = true,
+    val arialItalicEnabled: Boolean = false,
     val longPressDelayMs: Int = 280,
     val autoSyncDriveEnabled: Boolean = true,
     val driveFolderName: String = "KetikKu",
@@ -81,9 +55,7 @@ data class KeyboardSettings(
     val updatedAtMillis: Long = 0L
 ) {
     val languageEnum: KeyboardLanguage get() = KeyboardLanguage.fromCode(language)
-    val themeEnum: KeyboardThemePreset get() = KeyboardThemePreset.fromName(themePreset)
     val heightEnum: KeyboardHeightPreset get() = KeyboardHeightPreset.fromName(heightPreset)
-    val oneHandedEnum: OneHandedMode get() = OneHandedMode.fromName(oneHandedMode)
 }
 
 @JsonClass(generateAdapter = true)
@@ -110,11 +82,19 @@ data class SettingsBackupEnvelope(
     val settings: KeyboardSettings = KeyboardSettings()
 )
 
+@JsonClass(generateAdapter = true)
+data class FullBackupEnvelope(
+    val schemaVersion: Int = 1,
+    val appName: String = "KetikKu",
+    val exportedAtMillis: Long = 0L,
+    val settings: KeyboardSettings = KeyboardSettings(),
+    val dictionary: List<PersonalDictionaryEntry> = emptyList()
+)
+
 data class ClipboardItem(
     val id: String = "",
     val text: String = "",
-    val timestampMillis: Long = 0L,
-    val pinned: Boolean = false
+    val timestampMillis: Long = 0L
 )
 
 data class SyncLocalState(

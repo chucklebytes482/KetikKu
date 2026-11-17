@@ -11,6 +11,7 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputMethodManager
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
@@ -19,10 +20,7 @@ import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.MainActivity
 import com.example.data.SettingsRepository
-import com.example.model.KeyboardLanguage
 import com.example.model.KeyboardSettings
-import com.example.model.KeyboardThemePreset
-import com.example.model.OneHandedMode
 import com.example.model.PersonalDictionaryEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -66,11 +64,6 @@ class KetikKuImeService : InputMethodService() {
         controller = KeyboardController(
             target = InputConnectionImeTarget(
                 icProvider = { currentInputConnection },
-                onSwitchIme = {
-                    if (shouldOfferSwitchingToNextInputMethod()) {
-                        switchToNextInputMethod(false)
-                    }
-                },
                 onOpenSettings = {
                     val intent = Intent(this, MainActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -120,40 +113,21 @@ class KetikKuImeService : InputMethodService() {
                     onPasteClipboard = { text ->
                         controller.pasteText(text, settings, dictionary)
                     },
-                    onToggleClipboardPin = { id ->
-                        serviceScope.launch { settingsRepository.toggleClipboardPin(id) }
-                    },
-                    onDeleteClipboardItem = { id ->
-                        serviceScope.launch { settingsRepository.removeClipboardItem(id) }
-                    },
-                    onClearUnpinnedClipboard = {
-                        serviceScope.launch { settingsRepository.clearUnpinnedClipboard() }
-                    },
                     onCopySelectionToClipboard = { selected ->
                         clipboardManager?.setPrimaryClip(ClipData.newPlainText("KetikKu", selected))
                         serviceScope.launch { settingsRepository.addClipboardText(selected) }
                     },
-                    onToggleOneHanded = { mode: OneHandedMode ->
+                    onClearAllClipboard = {
+                        serviceScope.launch { settingsRepository.clearAllClipboard() }
+                    },
+                    onToggleArialItalic = {
                         serviceScope.launch {
-                            settingsRepository.updateSettings { it.copy(oneHandedMode = mode.name) }
+                            settingsRepository.updateSettings { it.copy(arialItalicEnabled = !it.arialItalicEnabled) }
                         }
                     },
-                    onCycleTheme = {
-                        serviceScope.launch {
-                            val presets = KeyboardThemePreset.entries
-                            val nextIdx = (presets.indexOf(settings.themeEnum) + 1) % presets.size
-                            settingsRepository.updateSettings { it.copy(themePreset = presets[nextIdx].name) }
-                        }
-                    },
-                    onToggleLanguage = {
-                        serviceScope.launch {
-                            val nextLang = if (settings.languageEnum == KeyboardLanguage.INDONESIAN) {
-                                KeyboardLanguage.ENGLISH
-                            } else {
-                                KeyboardLanguage.INDONESIAN
-                            }
-                            settingsRepository.updateSettings { it.copy(language = nextLang.code) }
-                        }
+                    onShowInputMethodPicker = {
+                        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                        imm?.showInputMethodPicker()
                     }
                 )
             }
@@ -196,6 +170,18 @@ class KetikKuImeService : InputMethodService() {
         lifecycleOwner.onWindowHidden()
     }
 
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_I && event?.isCtrlPressed == true && event.repeatCount == 0) {
+            val enableItalic = !latestSettings.arialItalicEnabled
+            controller.convertSelectionToArialItalic(enableItalic)
+            serviceScope.launch {
+                settingsRepository.updateSettings { it.copy(arialItalicEnabled = enableItalic) }
+            }
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
     override fun onDestroy() {
         clipboardManager?.removePrimaryClipChangedListener(clipListener)
         lifecycleOwner.onDestroy()
@@ -205,7 +191,6 @@ class KetikKuImeService : InputMethodService() {
 
     private class InputConnectionImeTarget(
         private val icProvider: () -> InputConnection?,
-        private val onSwitchIme: () -> Unit,
         private val onOpenSettings: () -> Unit
     ) : ImeTarget {
 
@@ -291,10 +276,6 @@ class KetikKuImeService : InputMethodService() {
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
                 ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
             }
-        }
-
-        override fun switchLanguageOrIme() {
-            onSwitchIme()
         }
 
         override fun openAppSettings() {

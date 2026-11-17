@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Tune
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -65,6 +67,7 @@ import com.example.ui.AuthHelper
 import com.example.ui.CloudSyncViewModel
 import com.example.ui.MainViewModel
 import com.example.ui.screens.AuthScreen
+import com.example.ui.screens.DictionaryScreen
 import com.example.ui.screens.DriveBackupScreen
 import com.example.ui.screens.DriveBackupUnauthenticatedScreen
 import com.example.ui.screens.PlaygroundScreen
@@ -80,6 +83,7 @@ import kotlinx.coroutines.flow.callbackFlow
 
 const val ROUTE_PLAYGROUND = "playground"
 const val ROUTE_SETTINGS = "settings"
+const val ROUTE_DICTIONARY = "dictionary"
 const val ROUTE_BACKUP = "backup"
 
 private data class NavTab(
@@ -127,7 +131,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            KetikKuTheme(darkTheme = true) {
+            KetikKuTheme {
                 KetikKuAppRoot()
             }
         }
@@ -224,12 +228,26 @@ private fun KetikKuMainScaffold(
                         Text(
                             text = when (currentRoute) {
                                 ROUTE_SETTINGS -> "Setelan Keyboard"
+                                ROUTE_DICTIONARY -> "Kamus Pribadi"
                                 ROUTE_BACKUP -> "Cadangan Drive"
                                 else -> "KetikKu"
                             },
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
+                    },
+                    navigationIcon = {
+                        if (currentRoute == ROUTE_DICTIONARY) {
+                            IconButton(
+                                onClick = { navController.popBackStack() },
+                                modifier = Modifier.testTag("back_from_dictionary_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Kembali ke Setelan"
+                                )
+                            }
+                        }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
@@ -244,7 +262,8 @@ private fun KetikKuMainScaffold(
                         modifier = Modifier.navigationBarsPadding()
                     ) {
                         navTabs.forEach { tab ->
-                            val selected = currentRoute == tab.route
+                            val selected = currentRoute == tab.route ||
+                                (tab.route == ROUTE_SETTINGS && currentRoute == ROUTE_DICTIONARY)
                             NavigationBarItem(
                                 selected = selected,
                                 onClick = { navigateToTab(tab.route) },
@@ -277,7 +296,8 @@ private fun KetikKuMainScaffold(
                         containerColor = MaterialTheme.colorScheme.surface
                     ) {
                         navTabs.forEach { tab ->
-                            val selected = currentRoute == tab.route
+                            val selected = currentRoute == tab.route ||
+                                (tab.route == ROUTE_SETTINGS && currentRoute == ROUTE_DICTIONARY)
                             NavigationRailItem(
                                 selected = selected,
                                 onClick = { navigateToTab(tab.route) },
@@ -314,13 +334,40 @@ private fun KetikKuMainScaffold(
                                 viewModel = mainViewModel,
                                 settings = settings,
                                 dictionary = dictionary,
-                                searchQuery = searchQuery
+                                searchQuery = searchQuery,
+                                onOpenDictionary = {
+                                    navController.navigate(ROUTE_DICTIONARY) {
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
+
+                        composable(ROUTE_DICTIONARY) {
+                            DictionaryScreen(
+                                settings = settings,
+                                dictionary = dictionary,
+                                onUpsertEntry = { word, shortcut, language, existingId ->
+                                    mainViewModel.upsertDictionaryEntry(
+                                        word = word,
+                                        shortcut = shortcut,
+                                        language = language,
+                                        existingId = existingId
+                                    )
+                                },
+                                onDeleteEntry = { entryId ->
+                                    mainViewModel.deleteDictionaryEntry(entryId)
+                                }
                             )
                         }
 
                         composable(ROUTE_BACKUP) {
                             if (currentUser == null) {
                                 DriveBackupUnauthenticatedScreen(
+                                    mainViewModel = mainViewModel,
+                                    settings = settings,
+                                    dictionary = dictionary,
+                                    syncLocalState = syncLocalState,
                                     onAuthSuccess = onEnterLocalOnly
                                 )
                             } else {
