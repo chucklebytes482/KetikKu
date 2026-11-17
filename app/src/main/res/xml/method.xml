@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="com.example.MainActivity"
+    android:supportsSwitchingToNextInputMethod="true">
+
+    <subtype
+        android:icon="@mipmap/ic_launcher"
+        android:imeSubtypeLocale="id_ID"
+        android:imeSubtypeMode="keyboard"
+        android:label="@string/subtype_indonesian"
+        android:languageTag="id-ID" />
+
+    <subtype
+        android:icon="@mipmap/ic_launcher"
+        android:imeSubtypeLocale="en_US"
+        android:imeSubtypeMode="keyboard"
+        android:label="@string/subtype_english_us"
+        android:languageTag="en-US" />
+</input-method>
