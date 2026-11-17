@@ -26,6 +26,13 @@ val JetBrainsMonoFamily = FontFamily(
     Font(R.font.jetbrains_mono, FontWeight.Medium)
 )
 
+val ArialFamily = FontFamily(
+    Font(R.font.arimo, FontWeight.Normal),
+    Font(R.font.arimo, FontWeight.Medium),
+    Font(R.font.arimo, FontWeight.SemiBold),
+    Font(R.font.arimo, FontWeight.Bold)
+)
+
 val KetikKuTypography = Typography(
     headlineLarge = TextStyle(
         fontFamily = PlusJakartaSansFamily,

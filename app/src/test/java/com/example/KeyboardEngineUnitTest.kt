@@ -3,6 +3,7 @@ package com.example
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.example.data.DictionaryEngine
+import com.example.data.FontStyleConverter
 import com.example.data.KeyPoint
 import com.example.data.SettingsRepository
 import com.example.ime.KeyboardController
@@ -111,5 +112,53 @@ class KeyboardEngineUnitTest {
         assertEquals("lokal", merged["b"]?.word)
         assertEquals("cloud", merged["c"]?.word)
         assertFalse(merged["c"]?.deleted ?: true)
+    }
+
+    @Test
+    fun fontStyleConverter_roundTripsAndKeyboardControllerHandlesArialItalic() {
+        val italic = FontStyleConverter.toArialItalic("Halo Dunia 123!")
+        assertTrue(FontStyleConverter.containsArialItalic(italic))
+        assertEquals("Halo Dunia 123!", FontStyleConverter.fromArialItalic(italic))
+
+        var tf = TextFieldValue("")
+        val settings = KeyboardSettings(
+            autoCapitalizeEnabled = true,
+            autoCorrectEnabled = true,
+            doubleSpacePeriodEnabled = true,
+            arialItalicEnabled = true
+        )
+        val entries = listOf(
+            PersonalDictionaryEntry(
+                id = "1",
+                word = "Hormat kami",
+                shortcut = "ttd",
+                language = KeyboardLanguage.INDONESIAN.code,
+                updatedAtMillis = 100L
+            )
+        )
+        val controller = KeyboardController(
+            TextFieldImeTarget(
+                getValue = { tf },
+                setValue = { tf = it }
+            )
+        )
+
+        controller.onCharacterTap("t", settings, entries)
+        controller.onCharacterTap("t", settings, entries)
+        controller.onCharacterTap("d", settings, entries)
+        assertEquals(FontStyleConverter.toArialItalic("Ttd"), tf.text)
+
+        controller.onSpaceTap(settings, entries)
+        assertEquals(FontStyleConverter.toArialItalic("Hormat kami") + " ", tf.text)
+
+        // Delete trailing space + last italic letter cleanly in one backspace each
+        controller.onBackspaceTap(settings, entries)
+        controller.onBackspaceTap(settings, entries)
+        assertEquals(FontStyleConverter.toArialItalic("Hormat kam"), tf.text)
+
+        // Selection toggle helper converts between plain and Arial Italic
+        tf = TextFieldValue("Salam", selection = TextRange(0, 5))
+        controller.convertSelectionToArialItalic(enableItalic = true)
+        assertEquals(FontStyleConverter.toArialItalic("Salam"), tf.text)
     }
 }

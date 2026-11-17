@@ -34,6 +34,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -47,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ime.KetikKuKeyboardView
@@ -56,6 +58,8 @@ import com.example.model.PersonalDictionaryEntry
 import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.theme.AmberPending
+import com.example.ui.theme.ArialFamily
+import com.example.ui.theme.InterFamily
 import com.example.ui.theme.MintSynced
 
 @Composable
@@ -128,7 +132,7 @@ fun PlaygroundScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Coba glide typing, geser spasi untuk kursor, atau ketik 'ttd'",
+                                text = "Ketuk ikon (I) untuk Arial Italic • Tahan spasi untuk pilih keyboard",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -170,6 +174,10 @@ fun PlaygroundScreen(
                         value = viewModel.playgroundText,
                         onValueChange = { viewModel.updatePlaygroundText(it) },
                         readOnly = true,
+                        textStyle = LocalTextStyle.current.copy(
+                            fontFamily = if (settings.arialItalicEnabled) ArialFamily else InterFamily,
+                            fontStyle = if (settings.arialItalicEnabled) FontStyle.Italic else FontStyle.Normal
+                        ),
                         placeholder = {
                             Text(
                                 "Ketuk tombol keyboard KetikKu di bawah untuk mulai mengetik...",
@@ -202,17 +210,18 @@ fun PlaygroundScreen(
             onPasteClipboard = { text ->
                 viewModel.playgroundController.pasteText(text, settings, dictionary)
             },
-            onToggleClipboardPin = { id -> viewModel.toggleClipboardPin(id) },
-            onDeleteClipboardItem = { id -> viewModel.removeClipboardItem(id) },
-            onClearUnpinnedClipboard = { viewModel.clearUnpinnedClipboard() },
             onCopySelectionToClipboard = { selected ->
                 val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                 cm?.setPrimaryClip(ClipData.newPlainText("KetikKu", selected))
                 viewModel.addClipboardText(selected)
             },
-            onToggleOneHanded = { mode -> viewModel.setOneHandedMode(mode) },
-            onCycleTheme = { viewModel.cycleTheme() },
-            onToggleLanguage = { viewModel.toggleLanguage() },
+            onClearAllClipboard = { viewModel.clearAllClipboard() },
+            onToggleArialItalic = { viewModel.toggleArialItalic() },
+            onShowInputMethodPicker = {
+                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                imm?.showInputMethodPicker()
+                viewModel.refreshImeStatus(context)
+            },
             modifier = Modifier.fillMaxWidth()
         )
     }
