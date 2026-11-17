@@ -1,0 +1,6 @@
+{
+  "name": "KetikKu",
+  "description": "Aplikasi keyboard Android ala Google Keyboard tanpa fitur emoji atau GIF, dilengkapi pencadangan pengaturan 2 arah ke Google Drive.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

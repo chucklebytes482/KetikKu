@@ -1,0 +1,351 @@
+{
+  "title": "Alur Pembuatan Aplikasi (Personal)",
+  "layoutMode": "top-down",
+  "nodeCount": 23,
+  "outline": [
+    "Alur Pembuatan Aplikasi (Personal) [https:\/\/drive.google.com\/file\/d\/1klrojfwiwxS99y3uqk6RqTRVMabXDHGI\/view?usp=drivesdk]",
+    "  - 1. Konsep, Identitas & Format Data",
+    "    - Tentukan identitas unik: applicationId, nama pendek 1-2 kata, dan ikon adaptif",
+    "    - Gunakan arsitektur Kotlin + Jetpack Compose + Material 3 dengan MVVM",
+    "    - Rancang skema data terstruktur (JSON \/ Room \/ DataStore) yang bersih & mudah diparsing",
+    "    - Pisahkan metadata & tautan referensi dari teks utama agar tampilan UI tetap ringkas",
+    "  - 2. Cloud Auth & Sinkronisasi Drive",
+    "    - Siapkan Google Sign-In via Credential Manager dan OAuth scope Google Drive",
+    "    - Daftarkan SHA-1 debug & release ke Firebase Console agar autentikasi Google selalu valid [https:\/\/console.cloud.google.com\/auth\/clients\/]",
+    "    - Simpan tiap dokumen atau proyek sebagai file JSON terpisah di folder khusus Drive",
+    "    - Terapkan sinkronisasi 2 arah berbasis timestamp & dukung folder berbagi (Shortcut)",
+    "  - 3. Kurasi Fitur & Pemangkasan UI",
+    "    - Pangkas elemen UI berlebih: hapus menu berlapis, tombol redundan, & label teks penuh",
+    "    - Ganti tombol edit redundan dengan gestur langsung (tap pilih, double-tap edit)",
+    "    - Sediakan fitur pencarian cepat di bilah atas untuk lompat langsung ke item target",
+    "  - 4. Pengujian, Kompresi & Rilis APK",
+    "    - Jalankan unit test & Robolectric untuk memvalidasi logika inti, state UI, & serialisasi data",
+    "    - Aktifkan R8\/ProGuard dan build arm64-v8a agar ukuran APK ringan (< 10 MB)",
+    "    - Verifikasi tanda tangan apksigner & catat SHA-1 sertifikat APK sebelum rilis",
+    "  - 5. Distribusi & Iterasi Berkelanjutan",
+    "    - Publikasikan APK rilis dan halaman web distribusi ke GitHub Pages [https:\/\/docs.github.com\/en\/pages]",
+    "    - Gunakan template branding, PRD, & alur alternatif PDF untuk proyek aplikasi berikutnya",
+    "    - Lakukan penyempurnaan UX bertahap berdasarkan evaluasi penggunaan nyata di layar"
+  ],
+  "tree": {
+    "id": "f93ac76a-9d1e-4ed8-8c6a-df3f560a2027",
+    "title": "Alur Pembuatan Aplikasi (Personal)",
+    "link": "https:\/\/drive.google.com\/file\/d\/1klrojfwiwxS99y3uqk6RqTRVMabXDHGI\/view?usp=drivesdk",
+    "color": "slate",
+    "children": [
+      {
+        "id": "9a2d14b0-2a6e-43cc-ac67-8f514e4cce5d",
+        "title": "1. Konsep, Identitas & Format Data",
+        "color": "teal",
+        "children": [
+          {
+            "id": "3a485328-ee8f-4f4f-825d-b51e8a300f36",
+            "title": "Tentukan identitas unik: applicationId, nama pendek 1-2 kata, dan ikon adaptif",
+            "color": "teal"
+          },
+          {
+            "id": "8ed01c34-6dff-4ec5-9b19-18def6157849",
+            "title": "Gunakan arsitektur Kotlin + Jetpack Compose + Material 3 dengan MVVM",
+            "color": "teal"
+          },
+          {
+            "id": "8d2b95f6-eacc-452f-b556-6644b1a05db4",
+            "title": "Rancang skema data terstruktur (JSON \/ Room \/ DataStore) yang bersih & mudah diparsing",
+            "color": "teal"
+          },
+          {
+            "id": "e0c78f7b-def8-4987-9d82-c8b5b0c3903f",
+            "title": "Pisahkan metadata & tautan referensi dari teks utama agar tampilan UI tetap ringkas",
+            "color": "teal"
+          }
+        ]
+      },
+      {
+        "id": "ce26b9cd-dfa6-4087-9f51-6cf72c42ccc3",
+        "title": "2. Cloud Auth & Sinkronisasi Drive",
+        "color": "cobalt",
+        "children": [
+          {
+            "id": "cba017c7-323e-4247-bd16-b23a8e54986c",
+            "title": "Siapkan Google Sign-In via Credential Manager dan OAuth scope Google Drive",
+            "color": "cobalt"
+          },
+          {
+            "id": "9c7d1d25-87d7-4661-a701-e8d386ca624c",
+            "title": "Daftarkan SHA-1 debug & release ke Firebase Console agar autentikasi Google selalu valid",
+            "link": "https:\/\/console.cloud.google.com\/auth\/clients\/",
+            "color": "cobalt"
+          },
+          {
+            "id": "492ac732-92e6-4dc1-b367-1fbe51f0fe07",
+            "title": "Simpan tiap dokumen atau proyek sebagai file JSON terpisah di folder khusus Drive",
+            "color": "cobalt"
+          },
+          {
+            "id": "08cbcfbf-970e-488e-9a07-40bb8b680e13",
+            "title": "Terapkan sinkronisasi 2 arah berbasis timestamp & dukung folder berbagi (Shortcut)",
+            "color": "cobalt"
+          }
+        ]
+      },
+      {
+        "id": "d4ac2cf6-cc84-461a-990b-a0ca21247105",
+        "title": "3. Kurasi Fitur & Pemangkasan UI",
+        "color": "sage",
+        "children": [
+          {
+            "id": "19257c06-2a3b-4111-a75b-620f895f18b7",
+            "title": "Pangkas elemen UI berlebih: hapus menu berlapis, tombol redundan, & label teks penuh",
+            "color": "sage"
+          },
+          {
+            "id": "795a87c3-3f81-4f16-b6eb-7306c0825e0b",
+            "title": "Ganti tombol edit redundan dengan gestur langsung (tap pilih, double-tap edit)",
+            "color": "sage"
+          },
+          {
+            "id": "68055d8f-494b-4804-a09f-04a109b5dd86",
+            "title": "Sediakan fitur pencarian cepat di bilah atas untuk lompat langsung ke item target",
+            "color": "sage"
+          }
+        ]
+      },
+      {
+        "id": "db51f7ad-529a-48b0-a840-912109fa03a9",
+        "title": "4. Pengujian, Kompresi & Rilis APK",
+        "color": "coral",
+        "children": [
+          {
+            "id": "e5e1829a-a51a-43a7-b30e-1205d41989a2",
+            "title": "Jalankan unit test & Robolectric untuk memvalidasi logika inti, state UI, & serialisasi data",
+            "color": "coral"
+          },
+          {
+            "id": "077d5c76-db27-4c27-8be9-442c8592c81a",
+            "title": "Aktifkan R8\/ProGuard dan build arm64-v8a agar ukuran APK ringan (< 10 MB)",
+            "color": "coral"
+          },
+          {
+            "id": "452caf5c-a2ea-4dd8-b5c8-1e00ed53ec2c",
+            "title": "Verifikasi tanda tangan apksigner & catat SHA-1 sertifikat APK sebelum rilis",
+            "color": "coral"
+          }
+        ]
+      },
+      {
+        "id": "e28000e3-9187-49dc-be10-1309dad68b61",
+        "title": "5. Distribusi & Iterasi Berkelanjutan",
+        "color": "plum",
+        "children": [
+          {
+            "id": "a32ad28a-eea7-445e-8d0d-607769f12cd1",
+            "title": "Publikasikan APK rilis dan halaman web distribusi ke GitHub Pages",
+            "link": "https:\/\/docs.github.com\/en\/pages",
+            "color": "plum"
+          },
+          {
+            "id": "e4f028b6-acb7-4a8e-9d0b-febe1928cb79",
+            "title": "Gunakan template branding, PRD, & alur alternatif PDF untuk proyek aplikasi berikutnya",
+            "color": "plum"
+          },
+          {
+            "id": "4a2c50cf-38e6-4e0e-bc8b-31709a3cc134",
+            "title": "Lakukan penyempurnaan UX bertahap berdasarkan evaluasi penggunaan nyata di layar",
+            "color": "plum"
+          }
+        ]
+      }
+    ]
+  },
+  "id": "190af3d2-f880-4f69-921e-80e283ffbf24",
+  "rootNodeId": "f93ac76a-9d1e-4ed8-8c6a-df3f560a2027",
+  "createdAt": 1794838837108,
+  "updatedAt": 1794843619202,
+  "schemaVersion": 1,
+  "nodes": [
+    {
+      "id": "f93ac76a-9d1e-4ed8-8c6a-df3f560a2027",
+      "parentId": null,
+      "title": "Alur Pembuatan Aplikasi (Personal)",
+      "note": "https:\/\/drive.google.com\/file\/d\/1klrojfwiwxS99y3uqk6RqTRVMabXDHGI\/view?usp=drivesdk",
+      "colorKey": "slate",
+      "orderIndex": 0
+    },
+    {
+      "id": "9a2d14b0-2a6e-43cc-ac67-8f514e4cce5d",
+      "parentId": "f93ac76a-9d1e-4ed8-8c6a-df3f560a2027",
+      "title": "1. Konsep, Identitas & Format Data",
+      "note": "",
+      "colorKey": "teal",
+      "orderIndex": 0
+    },
+    {
+      "id": "3a485328-ee8f-4f4f-825d-b51e8a300f36",
+      "parentId": "9a2d14b0-2a6e-43cc-ac67-8f514e4cce5d",
+      "title": "Tentukan identitas unik: applicationId, nama pendek 1-2 kata, dan ikon adaptif",
+      "note": "",
+      "colorKey": "teal",
+      "orderIndex": 0
+    },
+    {
+      "id": "8ed01c34-6dff-4ec5-9b19-18def6157849",
+      "parentId": "9a2d14b0-2a6e-43cc-ac67-8f514e4cce5d",
+      "title": "Gunakan arsitektur Kotlin + Jetpack Compose + Material 3 dengan MVVM",
+      "note": "",
+      "colorKey": "teal",
+      "orderIndex": 1
+    },
+    {
+      "id": "8d2b95f6-eacc-452f-b556-6644b1a05db4",
+      "parentId": "9a2d14b0-2a6e-43cc-ac67-8f514e4cce5d",
+      "title": "Rancang skema data terstruktur (JSON \/ Room \/ DataStore) yang bersih & mudah diparsing",
+      "note": "",
+      "colorKey": "teal",
+      "orderIndex": 2
+    },
+    {
+      "id": "e0c78f7b-def8-4987-9d82-c8b5b0c3903f",
+      "parentId": "9a2d14b0-2a6e-43cc-ac67-8f514e4cce5d",
+      "title": "Pisahkan metadata & tautan referensi dari teks utama agar tampilan UI tetap ringkas",
+      "note": "",
+      "colorKey": "teal",
+      "orderIndex": 3
+    },
+    {
+      "id": "ce26b9cd-dfa6-4087-9f51-6cf72c42ccc3",
+      "parentId": "f93ac76a-9d1e-4ed8-8c6a-df3f560a2027",
+      "title": "2. Cloud Auth & Sinkronisasi Drive",
+      "note": "",
+      "colorKey": "cobalt",
+      "orderIndex": 1
+    },
+    {
+      "id": "cba017c7-323e-4247-bd16-b23a8e54986c",
+      "parentId": "ce26b9cd-dfa6-4087-9f51-6cf72c42ccc3",
+      "title": "Siapkan Google Sign-In via Credential Manager dan OAuth scope Google Drive",
+      "note": "",
+      "colorKey": "cobalt",
+      "orderIndex": 0
+    },
+    {
+      "id": "492ac732-92e6-4dc1-b367-1fbe51f0fe07",
+      "parentId": "ce26b9cd-dfa6-4087-9f51-6cf72c42ccc3",
+      "title": "Simpan tiap dokumen atau proyek sebagai file JSON terpisah di folder khusus Drive",
+      "note": "",
+      "colorKey": "cobalt",
+      "orderIndex": 2
+    },
+    {
+      "id": "08cbcfbf-970e-488e-9a07-40bb8b680e13",
+      "parentId": "ce26b9cd-dfa6-4087-9f51-6cf72c42ccc3",
+      "title": "Terapkan sinkronisasi 2 arah berbasis timestamp & dukung folder berbagi (Shortcut)",
+      "note": "",
+      "colorKey": "cobalt",
+      "orderIndex": 3
+    },
+    {
+      "id": "9c7d1d25-87d7-4661-a701-e8d386ca624c",
+      "parentId": "ce26b9cd-dfa6-4087-9f51-6cf72c42ccc3",
+      "title": "Daftarkan SHA-1 debug & release ke Firebase Console agar autentikasi Google selalu valid",
+      "note": "https:\/\/console.cloud.google.com\/auth\/clients\/",
+      "colorKey": "cobalt",
+      "orderIndex": 1
+    },
+    {
+      "id": "d4ac2cf6-cc84-461a-990b-a0ca21247105",
+      "parentId": "f93ac76a-9d1e-4ed8-8c6a-df3f560a2027",
+      "title": "3. Kurasi Fitur & Pemangkasan UI",
+      "note": "",
+      "colorKey": "sage",
+      "orderIndex": 2
+    },
+    {
+      "id": "19257c06-2a3b-4111-a75b-620f895f18b7",
+      "parentId": "d4ac2cf6-cc84-461a-990b-a0ca21247105",
+      "title": "Pangkas elemen UI berlebih: hapus menu berlapis, tombol redundan, & label teks penuh",
+      "note": "",
+      "colorKey": "sage",
+      "orderIndex": 0
+    },
+    {
+      "id": "795a87c3-3f81-4f16-b6eb-7306c0825e0b",
+      "parentId": "d4ac2cf6-cc84-461a-990b-a0ca21247105",
+      "title": "Ganti tombol edit redundan dengan gestur langsung (tap pilih, double-tap edit)",
+      "note": "",
+      "colorKey": "sage",
+      "orderIndex": 1
+    },
+    {
+      "id": "68055d8f-494b-4804-a09f-04a109b5dd86",
+      "parentId": "d4ac2cf6-cc84-461a-990b-a0ca21247105",
+      "title": "Sediakan fitur pencarian cepat di bilah atas untuk lompat langsung ke item target",
+      "note": "",
+      "colorKey": "sage",
+      "orderIndex": 2
+    },
+    {
+      "id": "db51f7ad-529a-48b0-a840-912109fa03a9",
+      "parentId": "f93ac76a-9d1e-4ed8-8c6a-df3f560a2027",
+      "title": "4. Pengujian, Kompresi & Rilis APK",
+      "note": "",
+      "colorKey": "coral",
+      "orderIndex": 3
+    },
+    {
+      "id": "e5e1829a-a51a-43a7-b30e-1205d41989a2",
+      "parentId": "db51f7ad-529a-48b0-a840-912109fa03a9",
+      "title": "Jalankan unit test & Robolectric untuk memvalidasi logika inti, state UI, & serialisasi data",
+      "note": "",
+      "colorKey": "coral",
+      "orderIndex": 0
+    },
+    {
+      "id": "077d5c76-db27-4c27-8be9-442c8592c81a",
+      "parentId": "db51f7ad-529a-48b0-a840-912109fa03a9",
+      "title": "Aktifkan R8\/ProGuard dan build arm64-v8a agar ukuran APK ringan (< 10 MB)",
+      "note": "",
+      "colorKey": "coral",
+      "orderIndex": 1
+    },
+    {
+      "id": "452caf5c-a2ea-4dd8-b5c8-1e00ed53ec2c",
+      "parentId": "db51f7ad-529a-48b0-a840-912109fa03a9",
+      "title": "Verifikasi tanda tangan apksigner & catat SHA-1 sertifikat APK sebelum rilis",
+      "note": "",
+      "colorKey": "coral",
+      "orderIndex": 2
+    },
+    {
+      "id": "e28000e3-9187-49dc-be10-1309dad68b61",
+      "parentId": "f93ac76a-9d1e-4ed8-8c6a-df3f560a2027",
+      "title": "5. Distribusi & Iterasi Berkelanjutan",
+      "note": "",
+      "colorKey": "plum",
+      "orderIndex": 4
+    },
+    {
+      "id": "a32ad28a-eea7-445e-8d0d-607769f12cd1",
+      "parentId": "e28000e3-9187-49dc-be10-1309dad68b61",
+      "title": "Publikasikan APK rilis dan halaman web distribusi ke GitHub Pages",
+      "note": "https:\/\/docs.github.com\/en\/pages",
+      "colorKey": "plum",
+      "orderIndex": 0
+    },
+    {
+      "id": "e4f028b6-acb7-4a8e-9d0b-febe1928cb79",
+      "parentId": "e28000e3-9187-49dc-be10-1309dad68b61",
+      "title": "Gunakan template branding, PRD, & alur alternatif PDF untuk proyek aplikasi berikutnya",
+      "note": "",
+      "colorKey": "plum",
+      "orderIndex": 1
+    },
+    {
+      "id": "4a2c50cf-38e6-4e0e-bc8b-31709a3cc134",
+      "parentId": "e28000e3-9187-49dc-be10-1309dad68b61",
+      "title": "Lakukan penyempurnaan UX bertahap berdasarkan evaluasi penggunaan nyata di layar",
+      "note": "",
+      "colorKey": "plum",
+      "orderIndex": 2
+    }
+  ]
+}
