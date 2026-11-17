@@ -901,11 +901,17 @@ private fun QwertyKeyboardGrid(
                 bordered = true,
                 onTap = {
                     onFeedback()
-                    controller.onBackspaceTap(settings, personalEntries)
+                    controller.onBackspaceReleaseOrTap(settings, personalEntries)
                 },
-                onSwipeDeleteWord = {
+                onSelectStep = { delta ->
+                    controller.onBackspaceSelectStep(delta)
+                },
+                onCancelSelection = {
+                    controller.cancelBackspaceSelection()
+                },
+                onReleaseDelete = {
                     onFeedback()
-                    controller.onDeleteWordSwipe(settings, personalEntries)
+                    controller.onBackspaceReleaseOrTap(settings, personalEntries)
                 },
                 modifier = Modifier.weight(1.45f)
             )
@@ -1028,11 +1034,17 @@ private fun SymbolsKeyboardGrid(
                 bordered = true,
                 onTap = {
                     onFeedback()
-                    controller.onBackspaceTap(settings, personalEntries)
+                    controller.onBackspaceReleaseOrTap(settings, personalEntries)
                 },
-                onSwipeDeleteWord = {
+                onSelectStep = { delta ->
+                    controller.onBackspaceSelectStep(delta)
+                },
+                onCancelSelection = {
+                    controller.cancelBackspaceSelection()
+                },
+                onReleaseDelete = {
                     onFeedback()
-                    controller.onDeleteWordSwipe(settings, personalEntries)
+                    controller.onBackspaceReleaseOrTap(settings, personalEntries)
                 },
                 modifier = Modifier.weight(1.45f)
             )
@@ -1113,11 +1125,17 @@ private fun NumpadKeyboardGrid(
                             bordered = true,
                             onTap = {
                                 onFeedback()
-                                controller.onBackspaceTap(settings, personalEntries)
+                                controller.onBackspaceReleaseOrTap(settings, personalEntries)
                             },
-                            onSwipeDeleteWord = {
+                            onSelectStep = { delta ->
+                                controller.onBackspaceSelectStep(delta)
+                            },
+                            onCancelSelection = {
+                                controller.cancelBackspaceSelection()
+                            },
+                            onReleaseDelete = {
                                 onFeedback()
-                                controller.onDeleteWordSwipe(settings, personalEntries)
+                                controller.onBackspaceReleaseOrTap(settings, personalEntries)
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -1454,31 +1472,69 @@ private fun BackspaceKey(
     palette: KeyboardPalette,
     bordered: Boolean,
     onTap: () -> Unit,
-    onSwipeDeleteWord: () -> Unit,
+    onSelectStep: (Int) -> Unit,
+    onCancelSelection: () -> Unit,
+    onReleaseDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var dragAccum by remember { mutableFloatStateOf(0f) }
+    var isSelecting by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(8.dp)
     Box(
         modifier = modifier
             .height(height)
             .clip(shape)
-            .background(palette.specialKeyBg)
-            .then(if (bordered) Modifier.border(0.75.dp, palette.borderColor, shape) else Modifier)
+            .background(if (isSelecting) palette.accentBg.copy(alpha = 0.28f) else palette.specialKeyBg)
+            .then(if (bordered) Modifier.border(0.75.dp, if (isSelecting) palette.accentBg else palette.borderColor, shape) else Modifier)
             .pointerInput(Unit) {
-                detectTapGestures(onTap = { onTap() })
-            }
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragStart = { dragAccum = 0f },
-                    onHorizontalDrag = { _, dragAmount ->
-                        dragAccum += dragAmount
-                        if (dragAccum <= -36f) {
-                            dragAccum = 0f
-                            onSwipeDeleteWord()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    isSelecting = false
+                    var dragged = false
+                    var lastDragX = down.position.x
+
+                    try {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) {
+                                change.consume()
+                                if (isSelecting) {
+                                    onReleaseDelete()
+                                } else if (!dragged) {
+                                    onTap()
+                                }
+                                break
+                            }
+                            val totalDeltaX = change.position.x - down.position.x
+                            val stepDelta = change.position.x - lastDragX
+
+                            if (abs(totalDeltaX) > 8f) {
+                                dragged = true
+                            }
+
+                            if (totalDeltaX < -18f) {
+                                if (!isSelecting) {
+                                    isSelecting = true
+                                }
+                                if (abs(stepDelta) >= 14f) {
+                                    onSelectStep(-1)
+                                    lastDragX = change.position.x
+                                }
+                                change.consume()
+                            } else if (totalDeltaX > 18f && isSelecting) {
+                                isSelecting = false
+                                onCancelSelection()
+                                lastDragX = change.position.x
+                                change.consume()
+                            }
                         }
+                    } finally {
+                        if (isSelecting) {
+                            onReleaseDelete()
+                        }
+                        isSelecting = false
                     }
-                )
+                }
             }
             .semantics { contentDescription = "Hapus" }
             .testTag("key_backspace"),
@@ -1487,7 +1543,7 @@ private fun BackspaceKey(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.Backspace,
             contentDescription = "Hapus",
-            tint = palette.keyText,
+            tint = if (isSelecting) palette.accentBg else palette.keyText,
             modifier = Modifier.size(20.dp)
         )
     }
