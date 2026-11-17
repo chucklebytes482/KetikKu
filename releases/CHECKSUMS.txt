@@ -1,1 +1,1 @@
-24ca96d9bbde5bdebe831e7e930c98331e57eb9007f3a1a4d60e5b2741ffe087  KetikKu-v1.0-arm64-v8a-release.apk
+6dbb59deb5d29b5bb3fcb6cee2d00a380a7d67837ae8107075165f354b458aea  KetikKu-v1.0-arm64-v8a-release.apk
