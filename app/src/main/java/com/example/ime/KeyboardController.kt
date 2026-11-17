@@ -253,6 +253,30 @@ class KeyboardController(
         refreshState(settings, personalEntries)
     }
 
+    fun onBackspaceSelectStep(delta: Int) {
+        target.moveCursor(delta, extendSelection = true)
+    }
+
+    fun cancelBackspaceSelection() {
+        val selected = target.getSelectedText()
+        if (selected.isNotEmpty()) {
+            target.moveCursor(0, extendSelection = false)
+        }
+    }
+
+    fun onBackspaceReleaseOrTap(
+        settings: KeyboardSettings,
+        personalEntries: List<PersonalDictionaryEntry>
+    ) {
+        val selected = target.getSelectedText()
+        if (selected.isNotEmpty()) {
+            target.deleteBeforeCursor(0)
+        } else {
+            onBackspaceTap(settings, personalEntries)
+        }
+        refreshState(settings, personalEntries)
+    }
+
     fun onDeleteWordSwipe(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
