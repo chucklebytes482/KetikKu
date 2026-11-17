@@ -5,7 +5,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -48,21 +47,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     private object Keys {
         val LANGUAGE = stringPreferencesKey("language")
         val HEIGHT_PRESET = stringPreferencesKey("height_preset")
-        val NUMBER_ROW = booleanPreferencesKey("number_row")
-        val KEY_BORDERS = booleanPreferencesKey("key_borders")
-        val KEY_POPUP = booleanPreferencesKey("key_popup")
-        val SOUND_ENABLED = booleanPreferencesKey("sound_enabled")
         val HAPTIC_ENABLED = booleanPreferencesKey("haptic_enabled")
-        val AUTO_CORRECT = booleanPreferencesKey("auto_correct")
-        val SUGGESTION_STRIP = booleanPreferencesKey("suggestion_strip")
-        val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
-        val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
-        val GLIDE_TYPING = booleanPreferencesKey("glide_typing")
-        val SPACEBAR_TRACKPAD = booleanPreferencesKey("spacebar_trackpad")
-        val SWIPE_DELETE = booleanPreferencesKey("swipe_delete")
         val CLIPBOARD_HISTORY = booleanPreferencesKey("clipboard_history")
         val ARIAL_ITALIC_ENABLED = booleanPreferencesKey("arial_italic_enabled")
-        val LONG_PRESS_DELAY_MS = intPreferencesKey("long_press_delay_ms")
         val AUTO_SYNC_DRIVE = booleanPreferencesKey("auto_sync_drive")
         val DRIVE_FOLDER_NAME = stringPreferencesKey("drive_folder_name")
         val DRIVE_SHORTCUT_FOLDER_ID = stringPreferencesKey("drive_shortcut_folder_id")
@@ -83,21 +70,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         KeyboardSettings(
             language = prefs[Keys.LANGUAGE] ?: KeyboardLanguage.INDONESIAN.code,
             heightPreset = prefs[Keys.HEIGHT_PRESET] ?: KeyboardHeightPreset.NORMAL.name,
-            numberRowEnabled = prefs[Keys.NUMBER_ROW] ?: true,
-            keyBordersEnabled = prefs[Keys.KEY_BORDERS] ?: true,
-            keyPopupEnabled = prefs[Keys.KEY_POPUP] ?: true,
-            soundEnabled = prefs[Keys.SOUND_ENABLED] ?: false,
             hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: true,
-            autoCorrectEnabled = prefs[Keys.AUTO_CORRECT] ?: true,
-            suggestionStripEnabled = prefs[Keys.SUGGESTION_STRIP] ?: true,
-            autoCapitalizeEnabled = prefs[Keys.AUTO_CAPITALIZE] ?: true,
-            doubleSpacePeriodEnabled = prefs[Keys.DOUBLE_SPACE_PERIOD] ?: true,
-            glideTypingEnabled = prefs[Keys.GLIDE_TYPING] ?: true,
-            spacebarTrackpadEnabled = prefs[Keys.SPACEBAR_TRACKPAD] ?: true,
-            swipeDeleteEnabled = prefs[Keys.SWIPE_DELETE] ?: true,
             clipboardHistoryEnabled = prefs[Keys.CLIPBOARD_HISTORY] ?: true,
             arialItalicEnabled = prefs[Keys.ARIAL_ITALIC_ENABLED] ?: false,
-            longPressDelayMs = prefs[Keys.LONG_PRESS_DELAY_MS] ?: 280,
             autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: true,
             driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
             driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
@@ -143,21 +118,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             val current = KeyboardSettings(
                 language = prefs[Keys.LANGUAGE] ?: KeyboardLanguage.INDONESIAN.code,
                 heightPreset = prefs[Keys.HEIGHT_PRESET] ?: KeyboardHeightPreset.NORMAL.name,
-                numberRowEnabled = prefs[Keys.NUMBER_ROW] ?: true,
-                keyBordersEnabled = prefs[Keys.KEY_BORDERS] ?: true,
-                keyPopupEnabled = prefs[Keys.KEY_POPUP] ?: true,
-                soundEnabled = prefs[Keys.SOUND_ENABLED] ?: false,
                 hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: true,
-                autoCorrectEnabled = prefs[Keys.AUTO_CORRECT] ?: true,
-                suggestionStripEnabled = prefs[Keys.SUGGESTION_STRIP] ?: true,
-                autoCapitalizeEnabled = prefs[Keys.AUTO_CAPITALIZE] ?: true,
-                doubleSpacePeriodEnabled = prefs[Keys.DOUBLE_SPACE_PERIOD] ?: true,
-                glideTypingEnabled = prefs[Keys.GLIDE_TYPING] ?: true,
-                spacebarTrackpadEnabled = prefs[Keys.SPACEBAR_TRACKPAD] ?: true,
-                swipeDeleteEnabled = prefs[Keys.SWIPE_DELETE] ?: true,
                 clipboardHistoryEnabled = prefs[Keys.CLIPBOARD_HISTORY] ?: true,
                 arialItalicEnabled = prefs[Keys.ARIAL_ITALIC_ENABLED] ?: false,
-                longPressDelayMs = prefs[Keys.LONG_PRESS_DELAY_MS] ?: 280,
                 autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: true,
                 driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
                 driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
@@ -372,21 +335,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     ) {
         prefs[Keys.LANGUAGE] = s.language
         prefs[Keys.HEIGHT_PRESET] = s.heightPreset
-        prefs[Keys.NUMBER_ROW] = s.numberRowEnabled
-        prefs[Keys.KEY_BORDERS] = s.keyBordersEnabled
-        prefs[Keys.KEY_POPUP] = s.keyPopupEnabled
-        prefs[Keys.SOUND_ENABLED] = s.soundEnabled
         prefs[Keys.HAPTIC_ENABLED] = s.hapticEnabled
-        prefs[Keys.AUTO_CORRECT] = s.autoCorrectEnabled
-        prefs[Keys.SUGGESTION_STRIP] = s.suggestionStripEnabled
-        prefs[Keys.AUTO_CAPITALIZE] = s.autoCapitalizeEnabled
-        prefs[Keys.DOUBLE_SPACE_PERIOD] = s.doubleSpacePeriodEnabled
-        prefs[Keys.GLIDE_TYPING] = s.glideTypingEnabled
-        prefs[Keys.SPACEBAR_TRACKPAD] = s.spacebarTrackpadEnabled
-        prefs[Keys.SWIPE_DELETE] = s.swipeDeleteEnabled
         prefs[Keys.CLIPBOARD_HISTORY] = s.clipboardHistoryEnabled
         prefs[Keys.ARIAL_ITALIC_ENABLED] = s.arialItalicEnabled
-        prefs[Keys.LONG_PRESS_DELAY_MS] = s.longPressDelayMs
         prefs[Keys.AUTO_SYNC_DRIVE] = s.autoSyncDriveEnabled
         prefs[Keys.DRIVE_FOLDER_NAME] = s.driveFolderName.ifBlank { "KetikKu" }
         prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] = s.driveShortcutFolderId

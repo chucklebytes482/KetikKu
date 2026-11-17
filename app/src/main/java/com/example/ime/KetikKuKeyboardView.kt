@@ -1,20 +1,12 @@
 package com.example.ime
 
-import android.content.Context
-import android.media.AudioManager
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -24,15 +16,21 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -55,14 +53,12 @@ import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -72,18 +68,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
@@ -95,11 +84,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.example.data.KeyPoint
 import com.example.model.ClipboardItem
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
@@ -196,6 +183,7 @@ fun KetikKuKeyboardView(
     onClearAllClipboard: () -> Unit = {},
     onToggleArialItalic: () -> Unit,
     onShowInputMethodPicker: () -> Unit = {},
+    applySystemBarInsets: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
@@ -203,16 +191,11 @@ fun KetikKuKeyboardView(
     val keyFontFamily = if (settings.arialItalicEnabled) ArialFamily else PlusJakartaSansFamily
     val chipFontFamily = if (settings.arialItalicEnabled) ArialFamily else InterFamily
     val keyFontStyle = if (settings.arialItalicEnabled) FontStyle.Italic else FontStyle.Normal
-    val context = LocalContext.current
     val view = LocalView.current
 
     fun feedback() {
         if (settings.hapticEnabled) {
             view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-        }
-        if (settings.soundEnabled) {
-            val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-            am?.playSoundEffect(AudioManager.FX_KEY_CLICK, 0.6f)
         }
     }
 
@@ -271,22 +254,31 @@ fun KetikKuKeyboardView(
         }
     }
 
-    val totalHeightDp = remember(settings.heightPreset, settings.numberRowEnabled) {
+    val totalHeightDp = remember(settings.heightPreset, controller.currentPage) {
         val baseRow = settings.heightEnum.keyHeightDp
-        val rows = if (settings.numberRowEnabled && controller.currentPage == KeyboardPage.QWERTY) 5 else 4
+        val rows = if (controller.currentPage == KeyboardPage.QWERTY) 5 else 4
         (rows * baseRow + rows * 6f + 46f).dp
     }
 
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(palette.boardBg),
+        modifier = modifier.fillMaxWidth(),
         color = palette.boardBg
     ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 4.dp)
+                .then(
+                    if (applySystemBarInsets) {
+                        Modifier.windowInsetsPadding(
+                            WindowInsets.navigationBars
+                                .union(WindowInsets.displayCutout)
+                                .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
+                        )
+                    } else {
+                        Modifier
+                    }
+                )
+                .padding(bottom = 8.dp)
                 .onGloballyPositioned { containerCoords = it }
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -750,238 +742,176 @@ private fun QwertyKeyboardGrid(
     val row2 = remember { listOf("a", "s", "d", "f", "g", "h", "j", "k", "l") }
     val row3 = remember { listOf("z", "x", "c", "v", "b", "n", "m") }
 
-    val glidePoints = remember { mutableStateListOf<Offset>() }
-    var letterGridSize by remember { mutableStateOf(IntSize.Zero) }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        if (settings.numberRowEnabled) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                (1..9).map { it.toString() }.plus("0").forEach { digit ->
-                    CharKey(
-                        label = digit,
-                        hint = null,
-                        height = (keyHeight.value * 0.84f).dp,
-                        palette = palette,
-                        bordered = settings.keyBordersEnabled,
-                        fontFamily = keyFontFamily,
-                        fontStyle = keyFontStyle,
-                        onTap = {
-                            onFeedback()
-                            controller.onCharacterTap(digit, settings, personalEntries)
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+        // Default permanent number row (1..0)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            (1..9).map { it.toString() }.plus("0").forEach { digit ->
+                CharKey(
+                    label = digit,
+                    hint = null,
+                    height = (keyHeight.value * 0.84f).dp,
+                    palette = palette,
+                    bordered = true,
+                    fontFamily = keyFontFamily,
+                    fontStyle = keyFontStyle,
+                    onTap = {
+                        onFeedback()
+                        controller.onCharacterTap(digit, settings, personalEntries)
+                    },
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
 
-        // Letter rows wrapped in a Glide-Typing overlay Box
-        Box(
+        // Row 1: q..p
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            row1.forEach { ch ->
+                val display = if (controller.shiftState != ShiftState.OFF) ch.uppercase() else ch
+                val alts = longPressAlternates[ch].orEmpty()
+                CharKey(
+                    label = display,
+                    hint = null,
+                    height = keyHeight,
+                    palette = palette,
+                    bordered = true,
+                    fontFamily = keyFontFamily,
+                    fontStyle = keyFontStyle,
+                    hasLongPress = alts.isNotEmpty(),
+                    onTap = {
+                        onFeedback()
+                        controller.onCharacterTap(ch, settings, personalEntries)
+                    },
+                    onLongPressStart = { coords, downOffset ->
+                        onKeyPopupStart(display, coords, downOffset, alts)
+                    },
+                    onLongPressDrag = onKeyPopupDrag,
+                    onLongPressRelease = onKeyPopupRelease,
+                    onLongPressCancel = onClearPopup,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        // Row 2: a..l
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .onSizeChanged { letterGridSize = it }
-                .pointerInput(settings.glideTypingEnabled, settings.language, controller.shiftState) {
-                    if (!settings.glideTypingEnabled) return@pointerInput
-                    detectDragGestures(
-                        onDragStart = { start ->
-                            glidePoints.clear()
-                            glidePoints.add(start)
-                        },
-                        onDrag = { change, _ ->
-                            glidePoints.add(change.position)
-                        },
-                        onDragEnd = {
-                            if (glidePoints.size >= 4 && letterGridSize.width > 0 && letterGridSize.height > 0) {
-                                val normalized = glidePoints.map { pt ->
-                                    KeyPoint(
-                                        x = (pt.x / letterGridSize.width).coerceIn(0f, 1f),
-                                        y = (pt.y / letterGridSize.height).coerceIn(0f, 1f)
-                                    )
-                                }
-                                controller.onGlideGestureComplete(normalized, settings, personalEntries)
-                                onFeedback()
-                            }
-                            glidePoints.clear()
-                        },
-                        onDragCancel = {
-                            glidePoints.clear()
-                        }
-                    )
-                }
+                .padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                // Row 1: q..p
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    row1.forEachIndexed { idx, ch ->
-                        val display = if (controller.shiftState != ShiftState.OFF) ch.uppercase() else ch
-                        val digitHint = if (!settings.numberRowEnabled) ((idx + 1) % 10).toString() else null
-                        val alts = longPressAlternates[ch].orEmpty()
-                        CharKey(
-                            label = display,
-                            hint = digitHint,
-                            height = keyHeight,
-                            palette = palette,
-                            bordered = settings.keyBordersEnabled,
-                            fontFamily = keyFontFamily,
-                            fontStyle = keyFontStyle,
-                            hasLongPress = alts.isNotEmpty(),
-                            onTap = {
-                                onFeedback()
-                                controller.onCharacterTap(ch, settings, personalEntries)
-                            },
-                            onLongPressStart = { coords, downOffset ->
-                                onKeyPopupStart(display, coords, downOffset, alts)
-                            },
-                            onLongPressDrag = onKeyPopupDrag,
-                            onLongPressRelease = onKeyPopupRelease,
-                            onLongPressCancel = onClearPopup,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                // Row 2: a..l
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    row2.forEach { ch ->
-                        val display = if (controller.shiftState != ShiftState.OFF) ch.uppercase() else ch
-                        val alts = longPressAlternates[ch].orEmpty()
-                        val hint = alts.firstOrNull()
-                        CharKey(
-                            label = display,
-                            hint = hint,
-                            height = keyHeight,
-                            palette = palette,
-                            bordered = settings.keyBordersEnabled,
-                            fontFamily = keyFontFamily,
-                            fontStyle = keyFontStyle,
-                            hasLongPress = alts.isNotEmpty(),
-                            onTap = {
-                                onFeedback()
-                                controller.onCharacterTap(ch, settings, personalEntries)
-                            },
-                            onLongPressStart = { coords, downOffset ->
-                                onKeyPopupStart(display, coords, downOffset, alts)
-                            },
-                            onLongPressDrag = onKeyPopupDrag,
-                            onLongPressRelease = onKeyPopupRelease,
-                            onLongPressCancel = onClearPopup,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                // Row 3: Shift + z..m + Backspace (with swipe-left delete word!)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SpecialActionKey(
-                        height = keyHeight,
-                        palette = palette,
-                        bordered = settings.keyBordersEnabled,
-                        highlighted = controller.shiftState != ShiftState.OFF,
-                        contentDescription = "Shift",
-                        onTap = {
-                            onFeedback()
-                            controller.onShiftTap()
-                        },
-                        modifier = Modifier.weight(1.45f)
-                    ) {
-                        Icon(
-                            imageVector = if (controller.shiftState == ShiftState.CAPS_LOCK) {
-                                Icons.Default.KeyboardCapslock
-                            } else {
-                                Icons.Default.KeyboardArrowUp
-                            },
-                            contentDescription = "Shift",
-                            tint = if (controller.shiftState != ShiftState.OFF) palette.accentBg else palette.keyText,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    row3.forEach { ch ->
-                        val display = if (controller.shiftState != ShiftState.OFF) ch.uppercase() else ch
-                        val alts = longPressAlternates[ch].orEmpty()
-                        val hint = alts.firstOrNull()
-                        CharKey(
-                            label = display,
-                            hint = hint,
-                            height = keyHeight,
-                            palette = palette,
-                            bordered = settings.keyBordersEnabled,
-                            fontFamily = keyFontFamily,
-                            fontStyle = keyFontStyle,
-                            hasLongPress = alts.isNotEmpty(),
-                            onTap = {
-                                onFeedback()
-                                controller.onCharacterTap(ch, settings, personalEntries)
-                            },
-                            onLongPressStart = { coords, downOffset ->
-                                onKeyPopupStart(display, coords, downOffset, alts)
-                            },
-                            onLongPressDrag = onKeyPopupDrag,
-                            onLongPressRelease = onKeyPopupRelease,
-                            onLongPressCancel = onClearPopup,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    BackspaceKey(
-                        height = keyHeight,
-                        palette = palette,
-                        bordered = settings.keyBordersEnabled,
-                        swipeDeleteEnabled = settings.swipeDeleteEnabled,
-                        onTap = {
-                            onFeedback()
-                            controller.onBackspaceTap(settings, personalEntries)
-                        },
-                        onSwipeDeleteWord = {
-                            onFeedback()
-                            controller.onDeleteWordSwipe(settings, personalEntries)
-                        },
-                        modifier = Modifier.weight(1.45f)
-                    )
-                }
-            }
-
-            // Glide Typing Cyan Trail Canvas
-            if (glidePoints.size >= 2) {
-                Canvas(modifier = Modifier.matchParentSize()) {
-                    val path = Path().apply {
-                        moveTo(glidePoints.first().x, glidePoints.first().y)
-                        for (i in 1 until glidePoints.size) {
-                            lineTo(glidePoints[i].x, glidePoints[i].y)
-                        }
-                    }
-                    drawPath(
-                        path = path,
-                        brush = Brush.horizontalGradient(
-                            listOf(palette.accentBg.copy(alpha = 0.45f), palette.accentBg)
-                        ),
-                        style = Stroke(width = 10f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-                    )
-                }
+            row2.forEach { ch ->
+                val display = if (controller.shiftState != ShiftState.OFF) ch.uppercase() else ch
+                val alts = longPressAlternates[ch].orEmpty()
+                val hint = alts.firstOrNull()
+                CharKey(
+                    label = display,
+                    hint = hint,
+                    height = keyHeight,
+                    palette = palette,
+                    bordered = true,
+                    fontFamily = keyFontFamily,
+                    fontStyle = keyFontStyle,
+                    hasLongPress = alts.isNotEmpty(),
+                    onTap = {
+                        onFeedback()
+                        controller.onCharacterTap(ch, settings, personalEntries)
+                    },
+                    onLongPressStart = { coords, downOffset ->
+                        onKeyPopupStart(display, coords, downOffset, alts)
+                    },
+                    onLongPressDrag = onKeyPopupDrag,
+                    onLongPressRelease = onKeyPopupRelease,
+                    onLongPressCancel = onClearPopup,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
 
-        // Row 4: ?123 | , | Spacebar (trackpad + tahan untuk pilih keyboard) | . | Enter (NO EMOJI KEY!)
+        // Row 3: Shift + z..m + Backspace (with swipe-left delete word)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SpecialActionKey(
+                height = keyHeight,
+                palette = palette,
+                bordered = true,
+                highlighted = controller.shiftState != ShiftState.OFF,
+                contentDescription = "Shift",
+                onTap = {
+                    onFeedback()
+                    controller.onShiftTap()
+                },
+                modifier = Modifier.weight(1.45f)
+            ) {
+                Icon(
+                    imageVector = if (controller.shiftState == ShiftState.CAPS_LOCK) {
+                        Icons.Default.KeyboardCapslock
+                    } else {
+                        Icons.Default.KeyboardArrowUp
+                    },
+                    contentDescription = "Shift",
+                    tint = if (controller.shiftState != ShiftState.OFF) palette.accentBg else palette.keyText,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            row3.forEach { ch ->
+                val display = if (controller.shiftState != ShiftState.OFF) ch.uppercase() else ch
+                val alts = longPressAlternates[ch].orEmpty()
+                val hint = alts.firstOrNull()
+                CharKey(
+                    label = display,
+                    hint = hint,
+                    height = keyHeight,
+                    palette = palette,
+                    bordered = true,
+                    fontFamily = keyFontFamily,
+                    fontStyle = keyFontStyle,
+                    hasLongPress = alts.isNotEmpty(),
+                    onTap = {
+                        onFeedback()
+                        controller.onCharacterTap(ch, settings, personalEntries)
+                    },
+                    onLongPressStart = { coords, downOffset ->
+                        onKeyPopupStart(display, coords, downOffset, alts)
+                    },
+                    onLongPressDrag = onKeyPopupDrag,
+                    onLongPressRelease = onKeyPopupRelease,
+                    onLongPressCancel = onClearPopup,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            BackspaceKey(
+                height = keyHeight,
+                palette = palette,
+                bordered = true,
+                onTap = {
+                    onFeedback()
+                    controller.onBackspaceTap(settings, personalEntries)
+                },
+                onSwipeDeleteWord = {
+                    onFeedback()
+                    controller.onDeleteWordSwipe(settings, personalEntries)
+                },
+                modifier = Modifier.weight(1.45f)
+            )
+        }
+
+        // Row 4: ?123 | , | Spacebar (trackpad + tahan untuk pilih keyboard) | . | Enter
         BottomNavigationRow(
             leftModeLabel = "?123",
             onLeftModeTap = {
@@ -1038,7 +968,7 @@ private fun SymbolsKeyboardGrid(
                         hint = null,
                         height = keyHeight,
                         palette = palette,
-                        bordered = settings.keyBordersEnabled,
+                        bordered = true,
                         fontFamily = keyFontFamily,
                         fontStyle = keyFontStyle,
                         onTap = {
@@ -1058,7 +988,7 @@ private fun SymbolsKeyboardGrid(
             SpecialActionKey(
                 height = keyHeight,
                 palette = palette,
-                bordered = settings.keyBordersEnabled,
+                bordered = true,
                 highlighted = pageTwo,
                 contentDescription = "Simbol Lainnya",
                 onTap = {
@@ -1081,7 +1011,7 @@ private fun SymbolsKeyboardGrid(
                     hint = null,
                     height = keyHeight,
                     palette = palette,
-                    bordered = settings.keyBordersEnabled,
+                    bordered = true,
                     fontFamily = keyFontFamily,
                     fontStyle = keyFontStyle,
                     onTap = {
@@ -1095,8 +1025,7 @@ private fun SymbolsKeyboardGrid(
             BackspaceKey(
                 height = keyHeight,
                 palette = palette,
-                bordered = settings.keyBordersEnabled,
-                swipeDeleteEnabled = settings.swipeDeleteEnabled,
+                bordered = true,
                 onTap = {
                     onFeedback()
                     controller.onBackspaceTap(settings, personalEntries)
@@ -1161,7 +1090,7 @@ private fun NumpadKeyboardGrid(
                         "ABC" -> SpecialActionKey(
                             height = keyHeight,
                             palette = palette,
-                            bordered = settings.keyBordersEnabled,
+                            bordered = true,
                             highlighted = false,
                             contentDescription = "Kembali ke Huruf",
                             onTap = {
@@ -1181,8 +1110,7 @@ private fun NumpadKeyboardGrid(
                         "⌫" -> BackspaceKey(
                             height = keyHeight,
                             palette = palette,
-                            bordered = settings.keyBordersEnabled,
-                            swipeDeleteEnabled = settings.swipeDeleteEnabled,
+                            bordered = true,
                             onTap = {
                                 onFeedback()
                                 controller.onBackspaceTap(settings, personalEntries)
@@ -1217,7 +1145,7 @@ private fun NumpadKeyboardGrid(
                             hint = null,
                             height = keyHeight,
                             palette = palette,
-                            bordered = settings.keyBordersEnabled,
+                            bordered = true,
                             fontFamily = keyFontFamily,
                             fontStyle = keyFontStyle,
                             onTap = {
@@ -1261,7 +1189,7 @@ private fun BottomNavigationRow(
         SpecialActionKey(
             height = keyHeight,
             palette = palette,
-            bordered = settings.keyBordersEnabled,
+            bordered = true,
             highlighted = false,
             contentDescription = leftModeLabel,
             onTap = onLeftModeTap,
@@ -1282,7 +1210,7 @@ private fun BottomNavigationRow(
             hint = null,
             height = keyHeight,
             palette = palette,
-            bordered = settings.keyBordersEnabled,
+            bordered = true,
             fontFamily = keyFontFamily,
             fontStyle = keyFontStyle,
             onTap = {
@@ -1297,8 +1225,7 @@ private fun BottomNavigationRow(
             height = keyHeight,
             label = spaceLabel,
             palette = palette,
-            bordered = settings.keyBordersEnabled,
-            trackpadEnabled = settings.spacebarTrackpadEnabled,
+            bordered = true,
             arialItalicEnabled = settings.arialItalicEnabled,
             fontFamily = keyFontFamily,
             fontStyle = keyFontStyle,
@@ -1321,7 +1248,7 @@ private fun BottomNavigationRow(
             hint = null,
             height = keyHeight,
             palette = palette,
-            bordered = settings.keyBordersEnabled,
+            bordered = true,
             fontFamily = keyFontFamily,
             fontStyle = keyFontStyle,
             onTap = {
@@ -1526,7 +1453,6 @@ private fun BackspaceKey(
     height: Dp,
     palette: KeyboardPalette,
     bordered: Boolean,
-    swipeDeleteEnabled: Boolean,
     onTap: () -> Unit,
     onSwipeDeleteWord: () -> Unit,
     modifier: Modifier = Modifier
@@ -1539,11 +1465,10 @@ private fun BackspaceKey(
             .clip(shape)
             .background(palette.specialKeyBg)
             .then(if (bordered) Modifier.border(0.75.dp, palette.borderColor, shape) else Modifier)
-            .pointerInput(swipeDeleteEnabled) {
+            .pointerInput(Unit) {
                 detectTapGestures(onTap = { onTap() })
             }
-            .pointerInput(swipeDeleteEnabled) {
-                if (!swipeDeleteEnabled) return@pointerInput
+            .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragStart = { dragAccum = 0f },
                     onHorizontalDrag = { _, dragAmount ->
@@ -1574,7 +1499,6 @@ private fun SpacebarTrackpadKey(
     label: String,
     palette: KeyboardPalette,
     bordered: Boolean,
-    trackpadEnabled: Boolean,
     arialItalicEnabled: Boolean = false,
     fontFamily: FontFamily = InterFamily,
     fontStyle: FontStyle = FontStyle.Normal,
@@ -1605,8 +1529,7 @@ private fun SpacebarTrackpadKey(
                     onLongPress = { onLongPress() }
                 )
             }
-            .pointerInput(trackpadEnabled) {
-                if (!trackpadEnabled) return@pointerInput
+            .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragStart = { dragAccum = 0f },
                     onHorizontalDrag = { _, dragAmount ->

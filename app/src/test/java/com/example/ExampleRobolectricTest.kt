@@ -3,6 +3,7 @@ package com.example
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -11,6 +12,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
@@ -57,7 +59,6 @@ class ExampleRobolectricTest {
         val repo = SettingsRepository(context)
         val original = KeyboardSettings(
             heightPreset = KeyboardHeightPreset.TALL.name,
-            numberRowEnabled = false,
             autoSyncDriveEnabled = true,
             driveFolderName = "KetikKu",
             updatedAtMillis = 1794843619202L
@@ -66,7 +67,6 @@ class ExampleRobolectricTest {
         val decoded = repo.decodeSettingsBackupJson(json)
         assertNotNull(decoded)
         assertEquals(original.heightPreset, decoded?.settings?.heightPreset)
-        assertEquals(original.numberRowEnabled, decoded?.settings?.numberRowEnabled)
         assertEquals(original.updatedAtMillis, decoded?.updatedAtMillis)
 
         val entries = listOf(
@@ -89,7 +89,7 @@ class ExampleRobolectricTest {
     @Test
     fun keyboardView_rendersKeysWithoutEmojiOrGifAndTypesIntoTarget() {
         var value = TextFieldValue("")
-        val settings = KeyboardSettings(numberRowEnabled = true)
+        val settings = KeyboardSettings()
         val controller = KeyboardController(
             TextFieldImeTarget(
                 getValue = { value },
@@ -104,6 +104,7 @@ class ExampleRobolectricTest {
                     settings = settings,
                     personalEntries = emptyList(),
                     clipboardItems = emptyList(),
+                    applySystemBarInsets = true,
                     onPasteClipboard = {},
                     onCopySelectionToClipboard = {},
                     onToggleArialItalic = {}
@@ -112,7 +113,9 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("key_Q").assertIsDisplayed()
+        composeRule.onNodeWithTag("key_1").assertIsDisplayed()
+        composeRule.onNodeWithTag("key_0").assertIsDisplayed()
+        composeRule.onNodeWithTag("key_q").assertIsDisplayed()
         composeRule.onNodeWithTag("key_spacebar").assertIsDisplayed()
         // Verify no Emoji, GIF, One-Handed, Theme, Language Switch, or top-bar chevron toggle controls exist
         assertTrue(composeRule.onAllNodesWithTag("ime_toolbar_toggle").fetchSemanticsNodes().isEmpty())
@@ -142,15 +145,21 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithTag("key_longpress_popup").fetchSemanticsNodes().isEmpty())
 
+        composeRule.onNodeWithTag("key_q").performClick()
+        composeRule.waitForIdle()
+        assertEquals("q", value.text)
+
+        composeRule.onNodeWithContentDescription("Shift").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("key_Q").performClick()
         composeRule.waitForIdle()
-        assertEquals("Q", value.text)
+        assertEquals("qQ", value.text)
     }
 
     @Test
     fun keyboardView_longPressSymbolPopupAppearsNearKeyAndSlidesToSelect() {
         var value = TextFieldValue("")
-        val settings = KeyboardSettings(numberRowEnabled = true)
+        val settings = KeyboardSettings()
         val controller = KeyboardController(
             TextFieldImeTarget(
                 getValue = { value },
@@ -173,8 +182,8 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        // Verify rarely used accented symbols are absent when holding 'E'
-        composeRule.onNodeWithTag("key_E").performTouchInput {
+        // Verify rarely used accented symbols are absent when holding 'e'
+        composeRule.onNodeWithTag("key_e").performTouchInput {
             down(center)
         }
         composeRule.mainClock.advanceTimeBy(600L)
@@ -182,16 +191,16 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("key_longpress_popup").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("é").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("è").fetchSemanticsNodes().isEmpty())
-        val eBounds = composeRule.onNodeWithTag("key_E").fetchSemanticsNode().boundsInRoot
+        val eBounds = composeRule.onNodeWithTag("key_e").fetchSemanticsNode().boundsInRoot
         val ePopupBounds = composeRule.onNodeWithTag("key_longpress_popup").fetchSemanticsNode().boundsInRoot
-        assertTrue("Popup should sit directly above key E", ePopupBounds.bottom <= eBounds.top + 4f)
-        assertTrue("Popup should stay horizontally near key E", abs(ePopupBounds.left - eBounds.left) < 100f)
+        assertTrue("Popup should sit directly above key e", ePopupBounds.bottom <= eBounds.top + 4f)
+        assertTrue("Popup should stay horizontally near key e", abs(ePopupBounds.left - eBounds.left) < 100f)
 
-        composeRule.onNodeWithTag("key_E").performTouchInput { up() }
+        composeRule.onNodeWithTag("key_e").performTouchInput { up() }
         composeRule.waitForIdle()
         assertEquals("3", value.text)
 
-        // Hold 's' (shift resets to OFF after '3') and verify popup proximity + slide to select '$'
+        // Hold 's' and verify popup proximity + slide to select '$'
         composeRule.onNodeWithTag("key_s").performTouchInput {
             down(center)
         }
@@ -215,7 +224,7 @@ class ExampleRobolectricTest {
     @Test
     fun keyboardView_arialItalicShortcutTogglesAndCommitsItalicText() {
         var value = TextFieldValue("")
-        var settings = KeyboardSettings(numberRowEnabled = true, arialItalicEnabled = false)
+        var settings = KeyboardSettings(arialItalicEnabled = false)
         var toggleCount = 0
         val controller = KeyboardController(
             TextFieldImeTarget(
@@ -250,9 +259,9 @@ class ExampleRobolectricTest {
             composeRule.onAllNodesWithText("Bahasa Indonesia • Arial Italic")
                 .fetchSemanticsNodes().isNotEmpty()
         )
-        composeRule.onNodeWithTag("key_Q").performClick()
+        composeRule.onNodeWithTag("key_q").performClick()
         composeRule.waitForIdle()
-        assertEquals(FontStyleConverter.toArialItalic("Q"), value.text)
+        assertEquals(FontStyleConverter.toArialItalic("q"), value.text)
     }
 
     @Test
@@ -397,7 +406,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun settingsScreen_omitsOneHandedThemeAndLanguageSwitchButton() {
+    fun settingsScreen_omitsRemovedAndDefaultToggles() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val vm = MainViewModel(SettingsRepository(context))
 
@@ -414,10 +423,45 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        assertTrue(composeRule.onAllNodesWithText("Tema Keyboard").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Mode Satu Tangan").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Tombol Ganti Bahasa").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Font Arial Italic").fetchSemanticsNodes().isEmpty())
+        val removedLabels = listOf(
+            "Tema Keyboard",
+            "Mode Satu Tangan",
+            "Tombol Ganti Bahasa",
+            "Font Arial Italic",
+            "Pengetikan Cerdas",
+            "Koreksi Otomatis",
+            "Bilah Saran Kata",
+            "Ketik Geser",
+            "Kapitalisasi Otomatis",
+            "Spasi Ganda Jadi Titik",
+            "Baris Angka Khusus",
+            "Batas Tombol",
+            "Kontrol Kursor di Spasi",
+            "Geser Hapus Kata",
+            "Suara Ketikan",
+            "Pop-up Tombol"
+        )
+        removedLabels.forEach { label ->
+            assertTrue(
+                "Expected '$label' to be omitted from SettingsScreen",
+                composeRule.onAllNodesWithText(label, substring = true).fetchSemanticsNodes().isEmpty()
+            )
+        }
+
         composeRule.onNodeWithTag("open_dictionary_menu_button").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("Bahasa Utama").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Tinggi Keyboard").fetchSemanticsNodes().isNotEmpty())
+
+        composeRule.onNode(hasScrollAction()).performScrollToIndex(3)
+        composeRule.waitForIdle()
+
+        removedLabels.forEach { label ->
+            assertTrue(
+                "Expected '$label' to be omitted from scrolled SettingsScreen",
+                composeRule.onAllNodesWithText(label, substring = true).fetchSemanticsNodes().isEmpty()
+            )
+        }
+        composeRule.onNodeWithTag("toggle_clipboard_history").assertIsDisplayed()
+        composeRule.onNodeWithTag("toggle_haptic").assertIsDisplayed()
     }
 }

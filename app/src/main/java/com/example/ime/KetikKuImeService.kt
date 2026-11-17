@@ -4,7 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.inputmethodservice.InputMethodService
+import android.os.Build
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
@@ -15,6 +17,8 @@ import android.view.inputmethod.InputMethodManager
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
@@ -88,6 +92,8 @@ class KetikKuImeService : InputMethodService() {
     }
 
     override fun onCreateInputView(): View {
+        applyImeWindowSystemBars()
+
         val decorView = window?.window?.decorView
         if (decorView != null) {
             decorView.setViewTreeLifecycleOwner(lifecycleOwner)
@@ -100,6 +106,14 @@ class KetikKuImeService : InputMethodService() {
             setViewTreeViewModelStoreOwner(lifecycleOwner)
             setViewTreeSavedStateRegistryOwner(lifecycleOwner)
 
+            addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {
+                    ViewCompat.requestApplyInsets(v)
+                }
+
+                override fun onViewDetachedFromWindow(v: View) = Unit
+            })
+
             setContent {
                 val settings by settingsRepository.settingsFlow.collectAsState(initial = latestSettings)
                 val dictionary by settingsRepository.dictionaryFlow.collectAsState(initial = latestDictionary)
@@ -110,6 +124,7 @@ class KetikKuImeService : InputMethodService() {
                     settings = settings,
                     personalEntries = dictionary,
                     clipboardItems = clipboard,
+                    applySystemBarInsets = true,
                     onPasteClipboard = { text ->
                         controller.pasteText(text, settings, dictionary)
                     },
@@ -136,6 +151,7 @@ class KetikKuImeService : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        applyImeWindowSystemBars()
         lifecycleOwner.onWindowShown()
         val inputType = info?.inputType ?: 0
         val typeClass = inputType and InputType.TYPE_MASK_CLASS
@@ -163,6 +179,24 @@ class KetikKuImeService : InputMethodService() {
             settings = latestSettings,
             personalEntries = latestDictionary
         )
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyImeWindowSystemBars()
+    }
+
+    private fun applyImeWindowSystemBars() {
+        val win = window?.window ?: return
+        WindowCompat.setDecorFitsSystemWindows(win, false)
+        @Suppress("DEPRECATION")
+        win.navigationBarColor = android.graphics.Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            win.isNavigationBarContrastEnforced = false
+        }
+        val isDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        WindowCompat.getInsetsController(win, win.decorView).isAppearanceLightNavigationBars = !isDark
     }
 
     override fun onWindowHidden() {
