@@ -7,7 +7,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.example.data.DictionaryEngine
 import com.example.data.FontStyleConverter
-import com.example.data.KeyPoint
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 
@@ -148,7 +147,7 @@ class KeyboardController(
         private set
     var utilityPanel by mutableStateOf(UtilityPanel.NONE)
         private set
-    var shiftState by mutableStateOf(ShiftState.SHIFTED)
+    var shiftState by mutableStateOf(ShiftState.OFF)
         private set
     var suggestions by mutableStateOf<List<String>>(listOf("Saya", "Tidak", "Terima"))
         private set
@@ -162,8 +161,6 @@ class KeyboardController(
         private set
 
     private var lastShiftTapMillis = 0L
-    private var lastSpaceTapMillis = 0L
-    private var lastGlideInsertedLength = 0
 
     fun configureForEditor(
         isNumeric: Boolean,
@@ -218,16 +215,14 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        lastGlideInsertedLength = 0
         val letterTransformed = if (shiftState != ShiftState.OFF && rawChar.length == 1 && rawChar[0].isLetter()) {
             rawChar.uppercase()
         } else {
             rawChar
         }
 
-        // Punctuation triggers autocorrect on composing word
         if (rawChar.length == 1 && rawChar[0] in listOf('.', ',', '!', '?', ';', ':')) {
-            applyAutoCorrectIfNeeded(settings, personalEntries, appendSpace = false)
+            applyPersonalShortcutIfNeeded(settings, personalEntries, appendSpace = false)
         }
 
         target.commitText(formatOutput(letterTransformed, settings))
@@ -242,30 +237,10 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        val now = System.currentTimeMillis()
-        val before = target.getTextBeforeCursor(6)
-        val charBeforeTrailingSpace = if (before.endsWith(" ") && before.length >= 2) {
-            FontStyleConverter.decodeCodePoint(Character.codePointBefore(before, before.length - 1))
-        } else {
-            0
+        val expanded = applyPersonalShortcutIfNeeded(settings, personalEntries, appendSpace = true)
+        if (!expanded) {
+            target.commitText(" ")
         }
-        val isDoubleSpacePeriod = settings.doubleSpacePeriodEnabled &&
-            now - lastSpaceTapMillis < 400L &&
-            before.endsWith(" ") &&
-            Character.isLetterOrDigit(charBeforeTrailingSpace)
-
-        if (isDoubleSpacePeriod) {
-            target.deleteBeforeCursor(1)
-            target.commitText(". ")
-            lastSpaceTapMillis = 0L
-        } else {
-            val corrected = applyAutoCorrectIfNeeded(settings, personalEntries, appendSpace = true)
-            if (!corrected) {
-                target.commitText(" ")
-            }
-            lastSpaceTapMillis = now
-        }
-        lastGlideInsertedLength = 0
         refreshState(settings, personalEntries)
     }
 
@@ -273,13 +248,8 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        if (lastGlideInsertedLength > 0) {
-            target.deleteBeforeCursor(lastGlideInsertedLength)
-            lastGlideInsertedLength = 0
-        } else {
-            val before = target.getTextBeforeCursor(4)
-            target.deleteBeforeCursor(FontStyleConverter.lastCodePointCharCount(before))
-        }
+        val before = target.getTextBeforeCursor(4)
+        target.deleteBeforeCursor(FontStyleConverter.lastCodePointCharCount(before))
         refreshState(settings, personalEntries)
     }
 
@@ -291,7 +261,6 @@ class KeyboardController(
         if (before.isEmpty()) return
         val deleteCount = FontStyleConverter.lastWordDeleteCharCount(before)
         target.deleteBeforeCursor(deleteCount)
-        lastGlideInsertedLength = 0
         refreshState(settings, personalEntries)
     }
 
@@ -299,9 +268,8 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        applyAutoCorrectIfNeeded(settings, personalEntries, appendSpace = false)
+        applyPersonalShortcutIfNeeded(settings, personalEntries, appendSpace = false)
         target.performEnterAction(enterActionType)
-        lastGlideInsertedLength = 0
         refreshState(settings, personalEntries)
     }
 
@@ -314,45 +282,10 @@ class KeyboardController(
         val styled = formatOutput(word, settings)
         if (plainWord.isNotEmpty() && rawLen > 0) {
             target.replaceWordBeforeCursor(rawLen, "$styled ")
-        } else if (lastGlideInsertedLength > 0) {
-            target.deleteBeforeCursor(lastGlideInsertedLength)
-            target.commitText("$styled ")
         } else {
             target.commitText("$styled ")
         }
-        lastGlideInsertedLength = 0
         refreshState(settings, personalEntries)
-    }
-
-    fun onGlideGestureComplete(
-        normalizedPath: List<KeyPoint>,
-        settings: KeyboardSettings,
-        personalEntries: List<PersonalDictionaryEntry>
-    ) {
-        if (!settings.glideTypingEnabled) return
-        val matches = DictionaryEngine.decodeGlidePath(
-            pathPoints = normalizedPath,
-            language = settings.languageEnum,
-            personalEntries = personalEntries
-        )
-        val topWord = matches.firstOrNull() ?: return
-        val formatted = if (shiftState != ShiftState.OFF) {
-            topWord.replaceFirstChar { it.uppercaseChar() }
-        } else {
-            topWord
-        }
-        val before = target.getTextBeforeCursor(2)
-        val needsLeadingSpace = before.isNotEmpty() && !before.last().isWhitespace()
-        val committed = (if (needsLeadingSpace) " " else "") + formatOutput(formatted, settings) + " "
-        target.commitText(committed)
-        lastGlideInsertedLength = committed.length
-        if (shiftState == ShiftState.SHIFTED) {
-            shiftState = ShiftState.OFF
-        }
-        suggestions = matches.map {
-            if (formatted.firstOrNull()?.isUpperCase() == true) it.replaceFirstChar { c -> c.uppercaseChar() } else it
-        }
-        primaryAutoCorrect = null
     }
 
     fun onSpacebarTrackpadStep(steps: Int) {
@@ -406,23 +339,13 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        val before = target.getTextBeforeCursor(96)
-        if (settings.autoCapitalizeEnabled && currentPage == KeyboardPage.QWERTY && shiftState != ShiftState.CAPS_LOCK) {
-            val trimmed = before.trimEnd()
-            val shouldCap = before.isEmpty() ||
-                before.endsWith("\n") ||
-                (before.endsWith(" ") && trimmed.isNotEmpty() && trimmed.last() in listOf('.', '!', '?'))
-            if (shouldCap) {
-                shiftState = ShiftState.SHIFTED
-            }
-        }
-
-        if (isPasswordField || !settings.suggestionStripEnabled) {
+        if (isPasswordField) {
             suggestions = emptyList()
             primaryAutoCorrect = null
             return
         }
 
+        val before = target.getTextBeforeCursor(96)
         val (rawLen, currentWord) = FontStyleConverter.extractCurrentWordRawAndPlain(before)
         val previousWord = FontStyleConverter.extractPreviousWordPlain(before, rawLen)
         val result = DictionaryEngine.getSuggestions(
@@ -435,7 +358,7 @@ class KeyboardController(
         primaryAutoCorrect = result.primaryAutoCorrect
     }
 
-    private fun applyAutoCorrectIfNeeded(
+    private fun applyPersonalShortcutIfNeeded(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>,
         appendSpace: Boolean
@@ -444,21 +367,12 @@ class KeyboardController(
         val (rawLen, currentWord) = FontStyleConverter.extractCurrentWordRawAndPlain(target.getTextBeforeCursor(96))
         if (currentWord.isEmpty() || rawLen == 0) return false
 
-        // Always allow personal shortcut expansion, and autocorrect if enabled
         val shortcut = personalEntries.firstOrNull {
             !it.deleted && it.shortcut.isNotBlank() && it.shortcut.equals(currentWord, ignoreCase = true)
         }
         if (shortcut != null) {
             val suffix = if (appendSpace) " " else ""
             target.replaceWordBeforeCursor(rawLen, formatOutput(shortcut.word, settings) + suffix)
-            return true
-        }
-
-        if (!settings.autoCorrectEnabled) return false
-        val correction = primaryAutoCorrect
-        if (!correction.isNullOrBlank() && !correction.equals(currentWord, ignoreCase = false)) {
-            val suffix = if (appendSpace) " " else ""
-            target.replaceWordBeforeCursor(rawLen, formatOutput(correction, settings) + suffix)
             return true
         }
         return false

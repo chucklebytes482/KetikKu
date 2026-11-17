@@ -4,7 +4,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.example.data.DictionaryEngine
 import com.example.data.FontStyleConverter
-import com.example.data.KeyPoint
 import com.example.data.SettingsRepository
 import com.example.ime.KeyboardController
 import com.example.ime.ShiftState
@@ -14,13 +13,14 @@ import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class KeyboardEngineUnitTest {
 
     @Test
-    fun dictionaryEngine_suggestsAndAutoCorrectsIndonesian() {
+    fun dictionaryEngine_suggestsPersonalShortcutWithoutTypoAutoCorrect() {
         val entries = listOf(
             PersonalDictionaryEntry(
                 id = "1",
@@ -44,35 +44,14 @@ class KeyboardEngineUnitTest {
             language = KeyboardLanguage.INDONESIAN,
             personalEntries = entries
         )
-        assertEquals("tidak", typoResult.primaryAutoCorrect)
+        assertNull(typoResult.primaryAutoCorrect)
+        assertTrue("Expected 'tidak' in suggestions: ${typoResult.suggestions}", typoResult.suggestions.contains("tidak"))
     }
 
     @Test
-    fun dictionaryEngine_decodesGlidePathToExpectedWord() {
-        // Approximate path across d -> a -> n on QWERTY
-        val path = listOf(
-            KeyPoint(0.26f, 0.50f), // d
-            KeyPoint(0.16f, 0.50f), // s/a
-            KeyPoint(0.10f, 0.50f), // a
-            KeyPoint(0.35f, 0.68f), // c/v/b
-            KeyPoint(0.55f, 0.83f)  // n
-        )
-        val matches = DictionaryEngine.decodeGlidePath(
-            pathPoints = path,
-            language = KeyboardLanguage.INDONESIAN,
-            personalEntries = emptyList()
-        )
-        assertTrue("Expected 'dan' in glide matches: $matches", matches.contains("dan"))
-    }
-
-    @Test
-    fun keyboardController_autoCapitalizesAutoCorrectsAndMovesCursor() {
+    fun keyboardController_startsLowercaseWithoutAutoCapAutoCorrectOrDoubleSpace() {
         var tf = TextFieldValue("")
-        val settings = KeyboardSettings(
-            autoCapitalizeEnabled = true,
-            autoCorrectEnabled = true,
-            doubleSpacePeriodEnabled = true
-        )
+        val settings = KeyboardSettings()
         val controller = KeyboardController(
             TextFieldImeTarget(
                 getValue = { tf },
@@ -80,20 +59,28 @@ class KeyboardEngineUnitTest {
             )
         )
 
-        assertEquals(ShiftState.SHIFTED, controller.shiftState)
-        controller.onCharacterTap("s", settings, emptyList())
-        controller.onCharacterTap("a", settings, emptyList())
-        controller.onCharacterTap("y", settings, emptyList())
-        controller.onCharacterTap("a", settings, emptyList())
-        assertEquals("Saya", tf.text)
+        assertEquals(ShiftState.OFF, controller.shiftState)
+        controller.onCharacterTap("t", settings, emptyList())
+        controller.onCharacterTap("i", settings, emptyList())
+        controller.onCharacterTap("d", settings, emptyList())
+        controller.onCharacterTap("k", settings, emptyList())
+        assertEquals("tidk", tf.text)
         assertEquals(ShiftState.OFF, controller.shiftState)
 
-        // Space + swipe delete + cursor trackpad
+        // Pressing space must NOT auto-correct typos or turn double-space into a period
         controller.onSpaceTap(settings, emptyList())
-        assertEquals("Saya ", tf.text)
+        controller.onSpaceTap(settings, emptyList())
+        assertEquals("tidk  ", tf.text)
+
+        // Period + space must NOT auto-capitalize the next letter
+        controller.onCharacterTap(".", settings, emptyList())
+        controller.onSpaceTap(settings, emptyList())
+        assertEquals(ShiftState.OFF, controller.shiftState)
+        controller.onCharacterTap("a", settings, emptyList())
+        assertEquals("tidk  . a", tf.text)
 
         controller.onSpacebarTrackpadStep(-2)
-        assertEquals(TextRange(3), tf.selection)
+        assertEquals(TextRange(tf.text.length - 2), tf.selection)
     }
 
     @Test
@@ -122,9 +109,6 @@ class KeyboardEngineUnitTest {
 
         var tf = TextFieldValue("")
         val settings = KeyboardSettings(
-            autoCapitalizeEnabled = true,
-            autoCorrectEnabled = true,
-            doubleSpacePeriodEnabled = true,
             arialItalicEnabled = true
         )
         val entries = listOf(
@@ -146,7 +130,7 @@ class KeyboardEngineUnitTest {
         controller.onCharacterTap("t", settings, entries)
         controller.onCharacterTap("t", settings, entries)
         controller.onCharacterTap("d", settings, entries)
-        assertEquals(FontStyleConverter.toArialItalic("Ttd"), tf.text)
+        assertEquals(FontStyleConverter.toArialItalic("ttd"), tf.text)
 
         controller.onSpaceTap(settings, entries)
         assertEquals(FontStyleConverter.toArialItalic("Hormat kami") + " ", tf.text)

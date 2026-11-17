@@ -3,15 +3,12 @@ package com.example.data
 import com.example.model.KeyboardLanguage
 import com.example.model.PersonalDictionaryEntry
 import kotlin.math.abs
-import kotlin.math.hypot
 import kotlin.math.min
 
 data class SuggestionResult(
     val primaryAutoCorrect: String? = null,
     val suggestions: List<String> = emptyList()
 )
-
-data class KeyPoint(val x: Float, val y: Float)
 
 object DictionaryEngine {
 
@@ -108,29 +105,6 @@ object DictionaryEngine {
         "see" to listOf("you", "the", "that")
     )
 
-    private val qwertyKeyCenters: Map<Char, KeyPoint> by lazy {
-        val rows = listOf(
-            "qwertyuiop",
-            "asdfghjkl",
-            "zxcvbnm"
-        )
-        val map = mutableMapOf<Char, KeyPoint>()
-        rows.forEachIndexed { rowIdx, row ->
-            val y = (rowIdx + 0.5f) / 3f
-            val xOffset = when (rowIdx) {
-                1 -> 0.05f
-                2 -> 0.14f
-                else -> 0f
-            }
-            val rowWidth = 1f - xOffset * 2f
-            row.forEachIndexed { colIdx, ch ->
-                val x = xOffset + ((colIdx + 0.5f) / row.length) * rowWidth
-                map[ch] = KeyPoint(x, y)
-            }
-        }
-        map
-    }
-
     fun getSuggestions(
         currentWord: String,
         previousWord: String,
@@ -201,16 +175,12 @@ object DictionaryEngine {
         if (shortcutMatch != null) {
             candidates.add(shortcutMatch.word)
         }
-        val autoCorrectTarget = when {
-            shortcutMatch != null -> shortcutMatch.word
-            !exactExists && fuzzyMatches.isNotEmpty() -> applyCase(fuzzyMatches.first())
-            else -> null
-        }
+        val shortcutTarget = shortcutMatch?.word
 
         if (exactExists) {
             candidates.add(currentWord)
-        } else if (autoCorrectTarget != null) {
-            candidates.add(autoCorrectTarget)
+        } else if (shortcutTarget != null) {
+            candidates.add(shortcutTarget)
         }
 
         prefixMatches.forEach { candidates.add(applyCase(it)) }
@@ -220,103 +190,10 @@ object DictionaryEngine {
             candidates.add(currentWord)
         }
 
-        val list = candidates.take(3)
-        // Reorder so top auto-correct sits in center when there are 3 chips, just like Gboard
-        val ordered = if (list.size == 3 && autoCorrectTarget != null && list[0] == autoCorrectTarget) {
-            listOf(list[1], list[0], list[2])
-        } else {
-            list
-        }
-
         return SuggestionResult(
-            primaryAutoCorrect = autoCorrectTarget,
-            suggestions = ordered
+            primaryAutoCorrect = shortcutTarget,
+            suggestions = candidates.take(3)
         )
-    }
-
-    fun decodeGlidePath(
-        pathPoints: List<KeyPoint>,
-        language: KeyboardLanguage,
-        personalEntries: List<PersonalDictionaryEntry>
-    ): List<String> {
-        if (pathPoints.size < 2) return emptyList()
-        val resampled = resamplePath(pathPoints, 14)
-        val startPoint = resampled.first()
-        val endPoint = resampled.last()
-
-        val startChar = nearestChar(startPoint) ?: return emptyList()
-        val endChar = nearestChar(endPoint) ?: return emptyList()
-
-        val personalWords = personalEntries
-            .filter { !it.deleted && it.word.length >= 2 && !it.word.contains(" ") }
-            .map { it.word.lowercase() }
-
-        val lexicon = if (language == KeyboardLanguage.INDONESIAN) {
-            (personalWords + indonesianWords + englishWords).distinct()
-        } else {
-            (personalWords + englishWords + indonesianWords).distinct()
-        }
-
-        val candidates = lexicon.filter { word ->
-            word.length >= 2 &&
-                charDistance(word.first(), startChar) <= 0.24f &&
-                charDistance(word.last(), endChar) <= 0.24f
-        }
-
-        return candidates
-            .mapNotNull { word ->
-                val wordPoints = word.mapNotNull { qwertyKeyCenters[it] }
-                if (wordPoints.size < 2) return@mapNotNull null
-                val resampledWord = resamplePath(wordPoints, 14)
-                var totalDist = 0f
-                for (i in resampled.indices) {
-                    totalDist += hypot(resampled[i].x - resampledWord[i].x, resampled[i].y - resampledWord[i].y)
-                }
-                val startPenalty = hypot(startPoint.x - wordPoints.first().x, startPoint.y - wordPoints.first().y) * 2.0f
-                val endPenalty = hypot(endPoint.x - wordPoints.last().x, endPoint.y - wordPoints.last().y) * 2.0f
-                val score = (totalDist / resampled.size) + startPenalty + endPenalty
-                word to score
-            }
-            .sortedBy { it.second }
-            .map { it.first }
-            .take(3)
-    }
-
-    private fun nearestChar(point: KeyPoint): Char? {
-        return qwertyKeyCenters.minByOrNull { (_, center) ->
-            hypot(point.x - center.x, point.y - center.y)
-        }?.key
-    }
-
-    private fun charDistance(a: Char, b: Char): Float {
-        val pa = qwertyKeyCenters[a.lowercaseChar()] ?: return 1f
-        val pb = qwertyKeyCenters[b.lowercaseChar()] ?: return 1f
-        return hypot(pa.x - pb.x, pa.y - pb.y)
-    }
-
-    private fun resamplePath(points: List<KeyPoint>, count: Int): List<KeyPoint> {
-        if (points.isEmpty()) return emptyList()
-        if (points.size == 1) return List(count) { points.first() }
-        val cumulative = FloatArray(points.size)
-        for (i in 1 until points.size) {
-            cumulative[i] = cumulative[i - 1] + hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
-        }
-        val totalLen = cumulative.last()
-        if (totalLen <= 0.0001f) return List(count) { points.first() }
-
-        return List(count) { idx ->
-            val target = (idx.toFloat() / (count - 1)) * totalLen
-            var seg = 0
-            while (seg < points.size - 2 && cumulative[seg + 1] < target) {
-                seg++
-            }
-            val segLen = (cumulative[seg + 1] - cumulative[seg]).coerceAtLeast(0.0001f)
-            val t = ((target - cumulative[seg]) / segLen).coerceIn(0f, 1f)
-            KeyPoint(
-                x = points[seg].x + (points[seg + 1].x - points[seg].x) * t,
-                y = points[seg].y + (points[seg + 1].y - points[seg].y) * t
-            )
-        }
     }
 
     fun editDistance(a: String, b: String): Int {
