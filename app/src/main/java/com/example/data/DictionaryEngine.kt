@@ -79,6 +79,9 @@ object DictionaryEngine {
         "should", "could", "might", "must", "need", "help", "support", "question", "answer"
     )
 
+    private val indonesianLexicon: List<String> = indonesianWords.distinct()
+    private val englishLexicon: List<String> = englishWords.distinct()
+
     private val indonesianBigrams: Map<String, List<String>> = mapOf(
         "selamat" to listOf("pagi", "siang", "sore", "malam", "datang"),
         "terima" to listOf("kasih", "pesan", "berkas"),
@@ -142,9 +145,9 @@ object DictionaryEngine {
             .map { it.word }
 
         val lexicon = if (language == KeyboardLanguage.INDONESIAN) {
-            (personalWords + indonesianWords + englishWords).distinct()
+            if (personalWords.isEmpty()) indonesianLexicon else (personalWords + indonesianLexicon).distinct()
         } else {
-            (personalWords + englishWords + indonesianWords).distinct()
+            if (personalWords.isEmpty()) englishLexicon else (personalWords + englishLexicon).distinct()
         }
 
         val exactExists = lexicon.any { it.equals(lowerWord, ignoreCase = true) }
