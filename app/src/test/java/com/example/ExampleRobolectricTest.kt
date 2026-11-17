@@ -29,6 +29,7 @@ import com.example.model.KeyboardHeightPreset
 import com.example.model.KeyboardLanguage
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
+import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.screens.DictionaryScreen
 import com.example.ui.screens.SettingsScreen
@@ -417,6 +418,7 @@ class ExampleRobolectricTest {
                     settings = KeyboardSettings(),
                     dictionary = emptyList(),
                     searchQuery = "",
+                    imeStatus = ImeActivationStatus.ACTIVE_DEFAULT,
                     onOpenDictionary = {}
                 )
             }
