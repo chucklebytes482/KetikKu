@@ -21,4 +21,12 @@
 #-renamesourcefileattribute SourceFile
 
 -keep class com.example.model.** { *; }
-
+-keepclassmembers class * extends com.squareup.moshi.JsonAdapter {
+    public <init>(...);
+}
+-keepclasseswithmembers class * {
+    @com.squareup.moshi.FromJson <methods>;
+    @com.squareup.moshi.ToJson <methods>;
+}
+-dontwarn org.codehaus.mojo.**
+-dontwarn javax.annotation.**

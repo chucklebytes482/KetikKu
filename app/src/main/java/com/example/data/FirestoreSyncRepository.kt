@@ -161,16 +161,16 @@ class FirestoreSyncRepository(
                 }
                 docRef.update(updates).await()
             } else {
-                val payload = mapOf(
-                    "userId" to userId,
-                    "email" to safeEmail,
-                    "autoSync" to autoSync,
-                    "driveFolderId" to safeFolderId,
-                    "driveFolderName" to safeFolderName,
-                    "lastSyncedAtMillis" to lastSyncedAtMillis,
-                    "createdAt" to FieldValue.serverTimestamp(),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                ).filterValues { it != null } as Map<String, Any>
+                val payload = buildMap<String, Any> {
+                    put("userId", userId)
+                    put("email", safeEmail)
+                    put("autoSync", autoSync)
+                    if (safeFolderId != null) put("driveFolderId", safeFolderId)
+                    put("driveFolderName", safeFolderName)
+                    put("lastSyncedAtMillis", lastSyncedAtMillis)
+                    put("createdAt", FieldValue.serverTimestamp())
+                    put("updatedAt", FieldValue.serverTimestamp())
+                }
                 docRef.set(payload).await()
             }
             Result.success(Unit)
@@ -198,18 +198,19 @@ class FirestoreSyncRepository(
             val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}".trim().ifBlank { "Android Device" }.take(100)
             val safeJson = settingsJson.take(16000).ifBlank { "{}" }
             val safeSource = if (syncSource == "DRIVE_AND_CLOUD") "DRIVE_AND_CLOUD" else "CLOUD_ONLY"
+            val safeDriveFileId = driveFileId?.takeIf { it.isNotBlank() }?.take(128)
             val docRef = db.collection("users").document(userId).collection("backups").document(snapshotId)
-            val payload = mapOf(
-                "userId" to userId,
-                "deviceName" to deviceName,
-                "driveFileId" to driveFileId?.takeIf { it.isNotBlank() }?.take(128),
-                "settingsJson" to safeJson,
-                "dictionaryCount" to dictionaryCount.coerceIn(0, 10000),
-                "syncSource" to safeSource,
-                "syncedAtMillis" to syncedAtMillis.coerceAtLeast(0L),
-                "createdAt" to FieldValue.serverTimestamp(),
-                "updatedAt" to FieldValue.serverTimestamp()
-            ).filterValues { it != null } as Map<String, Any>
+            val payload = buildMap<String, Any> {
+                put("userId", userId)
+                put("deviceName", deviceName)
+                if (safeDriveFileId != null) put("driveFileId", safeDriveFileId)
+                put("settingsJson", safeJson)
+                put("dictionaryCount", dictionaryCount.coerceIn(0, 10000))
+                put("syncSource", safeSource)
+                put("syncedAtMillis", syncedAtMillis.coerceAtLeast(0L))
+                put("createdAt", FieldValue.serverTimestamp())
+                put("updatedAt", FieldValue.serverTimestamp())
+            }
             docRef.set(payload).await()
             Result.success(Unit)
         } catch (e: CancellationException) {

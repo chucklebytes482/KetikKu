@@ -10,8 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,26 +21,30 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -51,27 +53,33 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.model.KeyboardHeightPreset
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
+import com.example.model.SyncLocalState
 import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.theme.AmberPending
 import com.example.ui.theme.MintSynced
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     viewModel: MainViewModel,
     settings: KeyboardSettings,
     dictionary: List<PersonalDictionaryEntry>,
-    searchQuery: String,
     imeStatus: ImeActivationStatus,
     onOpenDictionary: () -> Unit,
+    onOpenDriveSyncSheet: () -> Unit = {},
+    connectedUserEmail: String? = null,
+    syncLocalState: SyncLocalState = SyncLocalState(),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var testInput by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
 
     LaunchedEffect(Unit) {
         viewModel.refreshImeStatus(context)
@@ -93,7 +101,7 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // IME Activation Status Card (Unified directly into Settings)
+            // IME Activation Status Card
             item {
                 ImeStatusCard(
                     imeStatus = imeStatus,
@@ -111,14 +119,33 @@ fun SettingsScreen(
                 )
             }
 
-            // Menu Khusus Kamus Pribadi
+            item {
+                CompositionLocalProvider(
+                    LocalTextSelectionColors provides TextSelectionColors(
+                        handleColor = MaterialTheme.colorScheme.primary,
+                        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                    )
+                ) {
+                    OutlinedTextField(
+                        value = testInput,
+                        onValueChange = { testInput = it },
+                        label = { Text("Coba ketik di sini") },
+                        placeholder = { Text("Ketik, tekan lama, lalu pilih teks") },
+                        minLines = 3,
+                        maxLines = 6,
+                        modifier = Modifier.fillMaxWidth().testTag("settings_typing_field")
+                    )
+                }
+            }
+
+            // Menu Kamus Pribadi
             item {
                 Surface(
                     shape = RoundedCornerShape(18.dp),
                     color = MaterialTheme.colorScheme.surface,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
                         .clip(RoundedCornerShape(18.dp))
                         .clickable(onClick = onOpenDictionary)
                         .testTag("open_dictionary_menu_button")
@@ -163,57 +190,62 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 1: Tata Letak Keyboard
+            // Menu Auto-Sinkronisasi Kamus Google Drive (ModalBottomSheet)
             item {
-                SettingsSectionCard(title = "Tata Letak Keyboard") {
-                    Text(
-                        text = "Tinggi Keyboard",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        KeyboardHeightPreset.entries.forEach { preset ->
-                            FilterChip(
-                                selected = settings.heightEnum == preset,
-                                onClick = { viewModel.updateSettings { it.copy(heightPreset = preset.name) } },
-                                label = { Text(preset.label) }
+                val driveSubtitle = if (!connectedUserEmail.isNullOrBlank()) {
+                    "$connectedUserEmail • ${syncLocalState.lastSyncMessage}"
+                } else {
+                    "Opsional • Ketuk untuk sinkron kamus ke Drive"
+                }
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(18.dp))
+                        .clickable(onClick = onOpenDriveSyncSheet)
+                        .testTag("open_drive_sync_sheet_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudDone,
+                                contentDescription = "Auto-Sinkronisasi Google Drive",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
                             )
                         }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Auto-Sinkronisasi Google Drive",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = driveSubtitle,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Buka Auto-Sinkronisasi Google Drive",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
-                }
-            }
-
-            // Section 2: Respons & Papan Klip
-            item {
-                SettingsSectionCard(title = "Respons & Papan Klip") {
-                    ToggleSettingRow(
-                        title = "Riwayat Papan Klip",
-                        subtitle = "Simpan sementara teks yang disalin untuk ditempel cepat",
-                        checked = settings.clipboardHistoryEnabled,
-                        testTag = "toggle_clipboard_history",
-                        onCheckedChange = { v -> viewModel.updateSettings { it.copy(clipboardHistoryEnabled = v) } }
-                    )
-                    ToggleSettingRow(
-                        title = "Getar Saat Ditekan",
-                        subtitle = "Umpan balik haptik ringan pada setiap ketukan",
-                        checked = settings.hapticEnabled,
-                        testTag = "toggle_haptic",
-                        onCheckedChange = { v -> viewModel.updateSettings { it.copy(hapticEnabled = v) } }
-                    )
-                }
-            }
-
-            // Section 3: Cadangan & Sinkronisasi
-            item {
-                SettingsSectionCard(title = "Cadangan & Sinkronisasi") {
-                    ToggleSettingRow(
-                        title = "Sinkronisasi Cloud / Drive",
-                        subtitle = "Cadangkan kamus dan setelan secara otomatis ke cloud (matikan jika ingin offline penuh)",
-                        checked = settings.autoSyncDriveEnabled,
-                        testTag = "toggle_sync",
-                        onCheckedChange = { v -> viewModel.updateSettings { it.copy(autoSyncDriveEnabled = v) } }
-                    )
                 }
             }
 
@@ -285,7 +317,7 @@ private fun ImeStatusCard(
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier
                         .weight(1f)
-                        .height(44.dp)
+                        .height(48.dp)
                         .testTag("enable_ime_button")
                 ) {
                     Icon(
@@ -306,7 +338,7 @@ private fun ImeStatusCard(
                     ),
                     modifier = Modifier
                         .weight(1f)
-                        .height(44.dp)
+                        .height(48.dp)
                         .testTag("select_ime_button")
                 ) {
                     Icon(
@@ -323,73 +355,5 @@ private fun ImeStatusCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SettingsSectionCard(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(Modifier.height(10.dp))
-            content()
-        }
-    }
-}
-
-@Composable
-private fun ToggleSettingRow(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    testTag: String,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable { onCheckedChange(!checked) }
-                .padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 12.dp)
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                modifier = Modifier.testTag(testTag)
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
     }
 }

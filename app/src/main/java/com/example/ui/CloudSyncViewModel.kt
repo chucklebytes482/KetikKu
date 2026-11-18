@@ -94,7 +94,6 @@ class CloudSyncViewModel(
             if (!token.isNullOrBlank()) {
                 viewModelScope.launch {
                     val settings = settingsRepository.getCurrentSettings()
-                    val localSync = settingsRepository.syncLocalStateFlow
                     if (settings.autoSyncDriveEnabled) {
                         performDriveAndCloudSync(token, forceDirection = null)
                     }
@@ -152,7 +151,7 @@ class CloudSyncViewModel(
             val snapRes = firestoreRepo.recordBackupSnapshot(
                 userId = currentUserId,
                 driveFileId = null,
-                settingsJson = settingsJson,
+                settingsJson = "{}",
                 dictionaryCount = dictionary.count { !it.deleted },
                 syncSource = "CLOUD_ONLY",
                 syncedAtMillis = now
@@ -161,10 +160,10 @@ class CloudSyncViewModel(
             if (profileRes.isSuccess && snapRes.isSuccess) {
                 settingsRepository.updateSyncState(
                     lastSyncedAtMillis = now,
-                    message = "Tersinkronisasi ke Cloud • Baru saja",
+                    message = "Kamus tersinkronisasi ke Cloud • Baru saja",
                     pendingChanges = false
                 )
-                _syncActionState.value = SyncActionState.Done("Cadangan Cloud berhasil disimpan.")
+                _syncActionState.value = SyncActionState.Done("Cadangan kamus Cloud berhasil disimpan.")
             } else {
                 val err = profileRes.exceptionOrNull() ?: snapRes.exceptionOrNull()
                 _syncActionState.value = SyncActionState.Error(err?.message ?: "Gagal menyimpan ke Cloud.")
@@ -207,7 +206,6 @@ class CloudSyncViewModel(
         )
 
         driveResult.onSuccess { outcome ->
-            val compactJson = settingsRepository.encodeCompactSettingsJson(outcome.syncedSettings)
             firestoreRepo.upsertSyncProfile(
                 userId = currentUserId,
                 email = userEmail,
@@ -218,8 +216,8 @@ class CloudSyncViewModel(
             )
             firestoreRepo.recordBackupSnapshot(
                 userId = currentUserId,
-                driveFileId = outcome.settingsFileId,
-                settingsJson = compactJson,
+                driveFileId = outcome.dictionaryFileId,
+                settingsJson = "{}",
                 dictionaryCount = outcome.syncedDictionary.count { !it.deleted },
                 syncSource = "DRIVE_AND_CLOUD",
                 syncedAtMillis = outcome.syncedAtMillis

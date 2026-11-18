@@ -1,6 +1,7 @@
 package com.example.model
 
 import androidx.annotation.Keep
+import androidx.compose.runtime.Immutable
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.IgnoreExtraProperties
@@ -18,21 +19,20 @@ enum class KeyboardLanguage(val code: String, val displayName: String, val short
 }
 
 enum class KeyboardHeightPreset(val label: String, val keyHeightDp: Float) {
-    SHORT("Pendek", 40f),
-    MID_SHORT("Agak Pendek", 44f),
-    NORMAL("Normal", 48f),
-    MID_TALL("Agak Tinggi", 52f),
-    TALL("Tinggi", 56f);
+    NORMAL("Normal", 48f);
 
     companion object {
-        fun fromName(raw: String?): KeyboardHeightPreset =
-            entries.firstOrNull { it.name == raw } ?: NORMAL
+        fun fromName(raw: String?): KeyboardHeightPreset = NORMAL
     }
 }
 
+@Immutable
 @JsonClass(generateAdapter = true)
 data class KeyboardSettings(
     val heightPreset: String = KeyboardHeightPreset.NORMAL.name,
+    val floatingModeEnabled: Boolean = false,
+    val floatingPosX: Float = 0.5f,
+    val floatingPosY: Float = 0.85f,
     val hapticEnabled: Boolean = true,
     val clipboardHistoryEnabled: Boolean = true,
     val arialItalicEnabled: Boolean = false,
@@ -45,6 +45,7 @@ data class KeyboardSettings(
     val heightEnum: KeyboardHeightPreset get() = KeyboardHeightPreset.fromName(heightPreset)
 }
 
+@Immutable
 @JsonClass(generateAdapter = true)
 data class PersonalDictionaryEntry(
     val id: String = "",
@@ -55,6 +56,7 @@ data class PersonalDictionaryEntry(
     val deleted: Boolean = false
 )
 
+@Immutable
 @JsonClass(generateAdapter = true)
 data class DictionaryBackupEnvelope(
     val schemaVersion: Int = 1,
@@ -62,6 +64,7 @@ data class DictionaryBackupEnvelope(
     val entries: List<PersonalDictionaryEntry> = emptyList()
 )
 
+@Immutable
 @JsonClass(generateAdapter = true)
 data class SettingsBackupEnvelope(
     val schemaVersion: Int = 1,
@@ -69,6 +72,7 @@ data class SettingsBackupEnvelope(
     val settings: KeyboardSettings = KeyboardSettings()
 )
 
+@Immutable
 @JsonClass(generateAdapter = true)
 data class FullBackupEnvelope(
     val schemaVersion: Int = 1,
@@ -78,12 +82,15 @@ data class FullBackupEnvelope(
     val dictionary: List<PersonalDictionaryEntry> = emptyList()
 )
 
+@Immutable
 data class ClipboardItem(
     val id: String = "",
-    val text: String = "",
+    val preview: String = "",
+    val charCount: Int = 0,
     val timestampMillis: Long = 0L
 )
 
+@Immutable
 data class SyncLocalState(
     val lastSyncedAtMillis: Long = 0L,
     val lastSyncMessage: String = "Belum pernah disinkronkan",

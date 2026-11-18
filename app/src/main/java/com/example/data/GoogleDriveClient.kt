@@ -78,90 +78,54 @@ class GoogleDriveClient(
             )
 
             val remoteFiles = listFilesInFolder(accessToken, folderId)
-            val remoteSettingsMeta = remoteFiles.firstOrNull { it.name == SETTINGS_FILE_NAME }
             val remoteDictMeta = remoteFiles.firstOrNull { it.name == DICTIONARY_FILE_NAME }
 
-            var finalSettings = localSettings
-            var settingsFileId = remoteSettingsMeta?.id ?: ""
-            var settingsDirection = SyncDirection.UP_TO_DATE
-
-            if (forceDirection == SyncDirection.DOWNLOADED && remoteSettingsMeta != null) {
-                val json = downloadFileContent(accessToken, remoteSettingsMeta.id)
-                val envelope = settingsRepository.decodeSettingsBackupJson(json)
-                if (envelope != null) {
-                    finalSettings = envelope.settings.copy(
-                        updatedAtMillis = maxOf(envelope.updatedAtMillis, remoteSettingsMeta.modifiedTimeMillis)
-                    )
-                    settingsRepository.applyRemoteSettings(finalSettings)
-                    settingsDirection = SyncDirection.DOWNLOADED
-                }
-            } else if (remoteSettingsMeta == null || forceDirection == SyncDirection.UPLOADED) {
-                val payload = settingsRepository.encodeSettingsBackupJson(
-                    localSettings.copy(
-                        updatedAtMillis = localSettings.updatedAtMillis.takeIf { it > 0L }
-                            ?: System.currentTimeMillis()
-                    )
-                )
-                settingsFileId = upsertJsonFile(
-                    accessToken = accessToken,
-                    folderId = folderId,
-                    existingFileId = remoteSettingsMeta?.id,
-                    fileName = SETTINGS_FILE_NAME,
-                    jsonContent = payload
-                )
-                settingsDirection = SyncDirection.UPLOADED
-            } else {
-                val remoteJson = downloadFileContent(accessToken, remoteSettingsMeta.id)
-                val remoteEnvelope = settingsRepository.decodeSettingsBackupJson(remoteJson)
-                val remoteTimestamp = remoteEnvelope?.updatedAtMillis ?: remoteSettingsMeta.modifiedTimeMillis
-                val localTimestamp = localSettings.updatedAtMillis
-
-                when {
-                    remoteTimestamp > localTimestamp + 1500L && remoteEnvelope != null -> {
-                        finalSettings = remoteEnvelope.settings.copy(updatedAtMillis = remoteTimestamp)
-                        settingsRepository.applyRemoteSettings(finalSettings)
-                        settingsDirection = SyncDirection.DOWNLOADED
-                    }
-                    localTimestamp > remoteTimestamp + 1500L -> {
-                        val payload = settingsRepository.encodeSettingsBackupJson(localSettings)
-                        settingsFileId = upsertJsonFile(
-                            accessToken = accessToken,
-                            folderId = folderId,
-                            existingFileId = remoteSettingsMeta.id,
-                            fileName = SETTINGS_FILE_NAME,
-                            jsonContent = payload
-                        )
-                        settingsDirection = SyncDirection.UPLOADED
-                    }
-                    else -> {
-                        settingsDirection = SyncDirection.UP_TO_DATE
-                    }
-                }
-            }
-
-            // 2-way merge for personal dictionary (per-entry timestamp conflict resolution)
+            // Sinkronisasi Google Drive hanya menyinkronkan kamus pribadi (ketikku_dictionary.json)
             var finalDictionary = localDictionary
             var dictFileId = remoteDictMeta?.id ?: ""
-            var dictChanged = false
+            var direction = SyncDirection.UP_TO_DATE
 
             if (remoteDictMeta == null) {
-                val now = System.currentTimeMillis()
-                val payload = settingsRepository.encodeDictionaryBackupJson(localDictionary, now)
-                dictFileId = upsertJsonFile(
-                    accessToken = accessToken,
-                    folderId = folderId,
-                    existingFileId = null,
-                    fileName = DICTIONARY_FILE_NAME,
-                    jsonContent = payload
-                )
-                dictChanged = true
+                if (forceDirection != SyncDirection.DOWNLOADED) {
+                    val now = System.currentTimeMillis()
+                    val payload = settingsRepository.encodeDictionaryBackupJson(localDictionary, now)
+                    dictFileId = upsertJsonFile(
+                        accessToken = accessToken,
+                        folderId = folderId,
+                        existingFileId = null,
+                        fileName = DICTIONARY_FILE_NAME,
+                        jsonContent = payload
+                    )
+                    direction = SyncDirection.UPLOADED
+                }
             } else {
                 val remoteDictJson = downloadFileContent(accessToken, remoteDictMeta.id)
                 val remoteDictEnv = settingsRepository.decodeDictionaryBackupJson(remoteDictJson)
-                if (remoteDictEnv != null) {
+
+                if (forceDirection == SyncDirection.UPLOADED) {
+                    val now = System.currentTimeMillis()
+                    val mergedForUpload = if (remoteDictEnv != null) {
+                        settingsRepository.mergeRemoteDictionary(remoteDictEnv.entries)
+                    } else {
+                        localDictionary
+                    }
+                    finalDictionary = mergedForUpload
+                    val payload = settingsRepository.encodeDictionaryBackupJson(mergedForUpload, now)
+                    dictFileId = upsertJsonFile(
+                        accessToken = accessToken,
+                        folderId = folderId,
+                        existingFileId = remoteDictMeta.id,
+                        fileName = DICTIONARY_FILE_NAME,
+                        jsonContent = payload
+                    )
+                    direction = SyncDirection.UPLOADED
+                } else if (remoteDictEnv != null) {
                     val merged = settingsRepository.mergeRemoteDictionary(remoteDictEnv.entries)
                     finalDictionary = merged
-                    if (merged != remoteDictEnv.entries) {
+                    val localUpdated = merged != localDictionary
+                    val remoteNeedsUpdate = forceDirection != SyncDirection.DOWNLOADED && merged != remoteDictEnv.entries
+
+                    if (remoteNeedsUpdate) {
                         val now = System.currentTimeMillis()
                         val payload = settingsRepository.encodeDictionaryBackupJson(merged, now)
                         dictFileId = upsertJsonFile(
@@ -171,42 +135,43 @@ class GoogleDriveClient(
                             fileName = DICTIONARY_FILE_NAME,
                             jsonContent = payload
                         )
-                        dictChanged = true
+                        direction = if (localUpdated) SyncDirection.MERGED else SyncDirection.UPLOADED
+                    } else if (localUpdated) {
+                        direction = SyncDirection.DOWNLOADED
+                    } else {
+                        direction = SyncDirection.UP_TO_DATE
                     }
                 }
             }
 
-            val overallDirection = when {
-                settingsDirection == SyncDirection.DOWNLOADED && dictChanged -> SyncDirection.MERGED
-                settingsDirection != SyncDirection.UP_TO_DATE -> settingsDirection
-                dictChanged -> SyncDirection.UPLOADED
-                else -> SyncDirection.UP_TO_DATE
-            }
-
             val now = System.currentTimeMillis()
-            val message = when (overallDirection) {
-                SyncDirection.UPLOADED -> "Tersinkronisasi • Diunggah ke Drive"
-                SyncDirection.DOWNLOADED -> "Tersinkronisasi • Dipulihkan dari Drive"
-                SyncDirection.MERGED -> "Tersinkronisasi • Gabungan 2 arah"
-                SyncDirection.UP_TO_DATE -> "Tersinkronisasi • Baru saja"
+            val message = when (direction) {
+                SyncDirection.UPLOADED -> "Kamus tersinkronisasi • Diunggah ke Drive"
+                SyncDirection.DOWNLOADED -> "Kamus tersinkronisasi • Dipulihkan dari Drive"
+                SyncDirection.MERGED -> "Kamus tersinkronisasi • Gabungan 2 arah"
+                SyncDirection.UP_TO_DATE -> if (remoteDictMeta == null && forceDirection == SyncDirection.DOWNLOADED) {
+                    "Belum ada cadangan kamus di Google Drive"
+                } else {
+                    "Kamus tersinkronisasi • Baru saja"
+                }
             }
 
             settingsRepository.updateSyncState(
                 lastSyncedAtMillis = now,
                 message = message,
                 driveFolderId = folderId,
-                driveSettingsFileId = settingsFileId,
+                driveSettingsFileId = "",
                 driveDictFileId = dictFileId,
                 pendingChanges = false
             )
 
             Result.success(
                 DriveSyncOutcome(
-                    direction = overallDirection,
+                    direction = direction,
                     folderId = folderId,
-                    settingsFileId = settingsFileId,
+                    settingsFileId = "",
                     dictionaryFileId = dictFileId,
-                    syncedSettings = finalSettings,
+                    syncedSettings = localSettings,
                     syncedDictionary = finalDictionary,
                     syncedAtMillis = now,
                     message = message
