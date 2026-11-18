@@ -1,6 +1,8 @@
 package com.example
 
 import android.content.Context
+import android.content.ContextWrapper
+import android.view.ContextThemeWrapper
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +48,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import com.example.ui.findActivity
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -1267,5 +1273,17 @@ class ExampleRobolectricTest {
         }
         composeRule.waitForIdle()
         assertEquals("di", value.text)
+    }
+
+    @Test
+    fun findActivity_unwrapsNestedContextWrappersAndReturnsNullForApplication() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).create().get()
+        val themedWrapper = ContextThemeWrapper(activity, android.R.style.Theme_DeviceDefault)
+        val nestedWrapper = ContextWrapper(themedWrapper)
+
+        assertSame(activity, activity.findActivity())
+        assertSame(activity, themedWrapper.findActivity())
+        assertSame(activity, nestedWrapper.findActivity())
+        assertNull(ApplicationProvider.getApplicationContext<Context>().findActivity())
     }
 }
