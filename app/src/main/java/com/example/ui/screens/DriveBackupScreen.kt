@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -63,6 +62,7 @@ import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
 import com.example.ui.AuthHelper
+import com.example.ui.findActivity
 import com.example.ui.CloudSyncViewModel
 import com.example.ui.CloudUiState
 import com.example.ui.MainViewModel
@@ -196,7 +196,7 @@ fun DriveBackupSheetContent(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val activity = context as? Activity
+    val activity = remember(context) { context.findActivity() }
     val scope = rememberCoroutineScope()
     val credentialManager = remember { CredentialManager.create(context) }
 
