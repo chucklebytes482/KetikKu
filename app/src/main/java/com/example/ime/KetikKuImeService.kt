@@ -5,8 +5,12 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Color
+import android.graphics.Rect
+import android.graphics.drawable.ColorDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Build
+import android.os.SystemClock
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
@@ -22,16 +26,22 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.example.EXTRA_START_ROUTE
 import com.example.MainActivity
+import com.example.ROUTE_SETTINGS
 import com.example.data.SettingsRepository
+import com.example.data.TextChunker
+import com.example.model.ClipboardItem
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class KetikKuImeService : InputMethodService() {
 
@@ -44,19 +54,54 @@ class KetikKuImeService : InputMethodService() {
     private var latestSettings = KeyboardSettings()
     private var latestDictionary = emptyList<PersonalDictionaryEntry>()
     private var clipboardManager: ClipboardManager? = null
+    private var floatingBoundsRect = Rect()
 
-    private val clipListener = ClipboardManager.OnPrimaryClipChangedListener {
-        if (!latestSettings.clipboardHistoryEnabled) return@OnPrimaryClipChangedListener
-        val clip = clipboardManager?.primaryClip ?: return@OnPrimaryClipChangedListener
-        if (clip.itemCount > 0) {
-            val text = clip.getItemAt(0).coerceToText(this)?.toString().orEmpty()
-            if (text.isNotBlank()) {
-                serviceScope.launch {
-                    settingsRepository.addClipboardText(text)
-                }
+    private fun readSystemClipboardTextSafe(): String? {
+        return try {
+            val cm = clipboardManager ?: return null
+            val clip = cm.primaryClip ?: return null
+            if (clip.itemCount <= 0) return null
+            clip.getItemAt(0).coerceToText(this)?.toString()
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun showBriefClipboardError(msg: String) {
+        controller.showClipboardStatus(msg)
+        serviceScope.launch {
+            delay(2500L)
+            if (controller.clipboardStatusMessage == msg) {
+                controller.showClipboardStatus(null)
             }
         }
     }
+
+    private val clipListener = ClipboardManager.OnPrimaryClipChangedListener {
+        if (!latestSettings.clipboardHistoryEnabled) return@OnPrimaryClipChangedListener
+        serviceScope.launch {
+            try {
+                val text = withContext(Dispatchers.IO) { readSystemClipboardTextSafe() }
+                if (!text.isNullOrBlank()) {
+                    settingsRepository.addClipboardText(text)
+                        .onFailure { showBriefClipboardError("Gagal menyimpan klip") }
+                }
+            } catch (_: Throwable) {
+                showBriefClipboardError("Gagal membaca papan klip")
+            }
+        }
+    }
+
+    private val target = InputConnectionImeTarget(
+        icProvider = { currentInputConnection },
+        onOpenSettings = {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra(EXTRA_START_ROUTE, ROUTE_SETTINGS)
+            }
+            startActivity(intent)
+        }
+    )
 
     override fun onCreate() {
         super.onCreate()
@@ -65,26 +110,22 @@ class KetikKuImeService : InputMethodService() {
         clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         clipboardManager?.addPrimaryClipChangedListener(clipListener)
 
-        controller = KeyboardController(
-            target = InputConnectionImeTarget(
-                icProvider = { currentInputConnection },
-                onOpenSettings = {
-                    val intent = Intent(this, MainActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    startActivity(intent)
-                }
-            )
-        )
+        controller = KeyboardController(target = target)
 
         serviceScope.launch {
             settingsRepository.settingsFlow.collectLatest { settings ->
+                val floatingChanged = latestSettings.floatingModeEnabled != settings.floatingModeEnabled
                 latestSettings = settings
-                controller.refreshState(latestSettings, latestDictionary)
+                if (floatingChanged) {
+                    window?.window?.decorView?.requestLayout()
+                }
             }
         }
         serviceScope.launch {
             settingsRepository.dictionaryFlow.collectLatest { entries ->
+                withContext(Dispatchers.Default) {
+                    com.example.data.DictionaryEngine.prewarmIndex(entries)
+                }
                 latestDictionary = entries
                 controller.refreshState(latestSettings, latestDictionary)
             }
@@ -118,26 +159,104 @@ class KetikKuImeService : InputMethodService() {
                 val settings by settingsRepository.settingsFlow.collectAsState(initial = latestSettings)
                 val dictionary by settingsRepository.dictionaryFlow.collectAsState(initial = latestDictionary)
                 val clipboard by settingsRepository.clipboardFlow.collectAsState(initial = emptyList())
+                val dismissedClipboardId by settingsRepository.dismissedClipboardIdFlow.collectAsState(initial = null)
 
                 KetikKuKeyboardView(
                     controller = controller,
                     settings = settings,
                     personalEntries = dictionary,
                     clipboardItems = clipboard,
+                    dismissedClipboardId = dismissedClipboardId,
                     applySystemBarInsets = true,
+                    isImeFloatingOverlay = true,
                     onPasteClipboard = { text ->
-                        controller.pasteText(text, settings, dictionary)
+                        serviceScope.launch {
+                            controller.pasteTextChunked(text, settings, dictionary)
+                        }
+                    },
+                    onPasteClipboardItem = { item: ClipboardItem ->
+                        serviceScope.launch {
+                            try {
+                                val fullResult = settingsRepository.getClipboardFullText(item.id)
+                                val fullText = fullResult.getOrElse {
+                                    showBriefClipboardError("Gagal memuat klip")
+                                    return@launch
+                                }
+                                val textToPaste = fullText ?: item.preview
+                                controller.pasteTextChunked(textToPaste, settings, dictionary)
+                            } catch (_: Throwable) {
+                                showBriefClipboardError("Gagal menempel klip")
+                            }
+                        }
+                    },
+                    onRequestCtrlPaste = {
+                        serviceScope.launch {
+                            try {
+                                val sysText = withContext(Dispatchers.IO) {
+                                    readSystemClipboardTextSafe().orEmpty()
+                                }
+                                val fullText = sysText.ifEmpty {
+                                    settingsRepository.getLatestClipboardFullText().getOrNull().orEmpty()
+                                }
+                                if (fullText.length >= TextChunker.DIRECT_PASTE_MAX_CHARS) {
+                                    controller.pasteTextChunked(fullText, settings, dictionary)
+                                } else {
+                                    controller.onCtrlPaste(fullText, settings, dictionary)
+                                }
+                            } catch (_: Throwable) {
+                                showBriefClipboardError("Gagal menempel dari papan klip")
+                            }
+                        }
+                    },
+                    onDismissRecentClipboard = { id ->
+                        serviceScope.launch { settingsRepository.dismissRecentClipboard(id) }
                     },
                     onCopySelectionToClipboard = { selected ->
-                        clipboardManager?.setPrimaryClip(ClipData.newPlainText("KetikKu", selected))
-                        serviceScope.launch { settingsRepository.addClipboardText(selected) }
+                        serviceScope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        clipboardManager?.setPrimaryClip(ClipData.newPlainText("KetikKu", selected))
+                                    }
+                                }
+                                settingsRepository.addClipboardText(selected)
+                                    .onFailure { showBriefClipboardError("Gagal menyimpan salinan") }
+                            } catch (_: Throwable) {
+                                showBriefClipboardError("Gagal menyalin teks")
+                            }
+                        }
                     },
                     onClearAllClipboard = {
-                        serviceScope.launch { settingsRepository.clearAllClipboard() }
-                    },
-                    onToggleSerifMiring = {
                         serviceScope.launch {
-                            settingsRepository.updateSettings { it.copy(serifMiringEnabled = !it.serifMiringEnabled) }
+                            settingsRepository.clearAllClipboard()
+                                .onFailure { showBriefClipboardError("Gagal membersihkan papan klip") }
+                        }
+                    },
+                    onToggleFloatingMode = {
+                        serviceScope.launch {
+                            settingsRepository.updateSettings { it.copy(floatingModeEnabled = !it.floatingModeEnabled) }
+                        }
+                    },
+                    onSaveFloatingPosition = { posX, posY ->
+                        serviceScope.launch {
+                            settingsRepository.updateSettings(markPendingSync = false) {
+                                it.copy(
+                                    floatingPosX = posX.coerceIn(0f, 1f),
+                                    floatingPosY = posY.coerceIn(0f, 1f)
+                                )
+                            }
+                        }
+                        window?.window?.decorView?.requestLayout()
+                    },
+                    onFloatingBoundsChanged = { newRect ->
+                        val prev = floatingBoundsRect
+                        val significantChange = kotlin.math.abs(prev.left - newRect.left) > 2 ||
+                            kotlin.math.abs(prev.top - newRect.top) > 2 ||
+                            kotlin.math.abs(prev.right - newRect.right) > 2 ||
+                            kotlin.math.abs(prev.bottom - newRect.bottom) > 2
+                        floatingBoundsRect = Rect(newRect)
+                        if (significantChange && latestSettings.floatingModeEnabled) {
+                            window?.window?.decorView?.requestLayout()
                         }
                     },
                     onShowInputMethodPicker = {
@@ -172,6 +291,10 @@ class KetikKuImeService : InputMethodService() {
             else -> EnterActionType.ENTER
         }
 
+        target.onSelectionUpdated(
+            newSelStart = info?.initialSelStart ?: -1,
+            newSelEnd = info?.initialSelEnd ?: -1
+        )
         controller.configureForEditor(
             isNumeric = isNumeric,
             isPassword = isPassword,
@@ -179,6 +302,33 @@ class KetikKuImeService : InputMethodService() {
             settings = latestSettings,
             personalEntries = latestDictionary
         )
+        if (!isPassword && latestSettings.clipboardHistoryEnabled) {
+            serviceScope.launch {
+                try {
+                    val clipText = withContext(Dispatchers.IO) { readSystemClipboardTextSafe() }
+                    if (!clipText.isNullOrBlank()) {
+                        settingsRepository.syncSystemClipboardIfChanged(clipText)
+                    }
+                } catch (_: Throwable) {
+                    showBriefClipboardError("Gagal menyinkronkan papan klip")
+                }
+            }
+        }
+    }
+
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        val externalJump = target.onSelectionUpdated(newSelStart, newSelEnd)
+        if (externalJump) {
+            controller.invalidateLocalWordCache()
+        }
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -186,11 +336,39 @@ class KetikKuImeService : InputMethodService() {
         applyImeWindowSystemBars()
     }
 
+    override fun onEvaluateFullscreenMode(): Boolean {
+        if (latestSettings.floatingModeEnabled) return false
+        return super.onEvaluateFullscreenMode()
+    }
+
+    override fun onComputeInsets(outInsets: Insets?) {
+        super.onComputeInsets(outInsets)
+        if (outInsets == null || !latestSettings.floatingModeEnabled) return
+        val decorView = window?.window?.decorView ?: return
+        val decorHeight = decorView.height
+        val decorWidth = decorView.width
+        if (decorHeight <= 0 || decorWidth <= 0) return
+
+        outInsets.contentTopInsets = decorHeight
+        outInsets.visibleTopInsets = decorHeight
+        outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+        if (!floatingBoundsRect.isEmpty) {
+            outInsets.touchableRegion.set(floatingBoundsRect)
+        } else {
+            val metrics = resources.displayMetrics
+            val floatingW = (minOf(metrics.widthPixels, metrics.heightPixels) * 0.70f).toInt()
+            val left = ((decorWidth - floatingW) / 2).coerceAtLeast(0)
+            val fallbackTop = (decorHeight / 2).coerceAtLeast(0)
+            outInsets.touchableRegion.set(left, fallbackTop, (left + floatingW).coerceAtMost(decorWidth), decorHeight)
+        }
+    }
+
     private fun applyImeWindowSystemBars() {
         val win = window?.window ?: return
+        win.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         WindowCompat.setDecorFitsSystemWindows(win, false)
         @Suppress("DEPRECATION")
-        win.navigationBarColor = android.graphics.Color.TRANSPARENT
+        win.navigationBarColor = Color.TRANSPARENT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             win.isNavigationBarContrastEnforced = false
         }
@@ -204,18 +382,6 @@ class KetikKuImeService : InputMethodService() {
         lifecycleOwner.onWindowHidden()
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_I && event?.isCtrlPressed == true && event.repeatCount == 0) {
-            val enableItalic = !latestSettings.serifMiringEnabled
-            controller.convertSelectionToSerifMiring(enableItalic)
-            serviceScope.launch {
-                settingsRepository.updateSettings { it.copy(serifMiringEnabled = enableItalic) }
-            }
-            return true
-        }
-        return super.onKeyDown(keyCode, event)
-    }
-
     override fun onDestroy() {
         clipboardManager?.removePrimaryClipChangedListener(clipListener)
         lifecycleOwner.onDestroy()
@@ -223,10 +389,54 @@ class KetikKuImeService : InputMethodService() {
         super.onDestroy()
     }
 
-    private class InputConnectionImeTarget(
+    internal class InputConnectionImeTarget(
         private val icProvider: () -> InputConnection?,
         private val onOpenSettings: () -> Unit
     ) : ImeTarget {
+
+        private var hasKnownSelection: Boolean = false
+        private var expectedCursorEnd: Int = -1
+        private var pendingSelfEdits: Int = 0
+        private var lastSelfEditUptimeMs: Long = 0L
+
+        private fun markSelfEdit(newExpectedEnd: Int = -1, clearSelection: Boolean = true) {
+            if (clearSelection) {
+                hasKnownSelection = false
+            }
+            if (newExpectedEnd >= 0) {
+                expectedCursorEnd = newExpectedEnd
+            } else {
+                expectedCursorEnd = -1
+            }
+            pendingSelfEdits = (pendingSelfEdits + 1).coerceAtMost(32)
+            lastSelfEditUptimeMs = SystemClock.uptimeMillis()
+        }
+
+        fun onSelectionUpdated(newSelStart: Int, newSelEnd: Int): Boolean {
+            hasKnownSelection = newSelStart >= 0 && newSelEnd >= 0 && newSelStart != newSelEnd
+            if (newSelStart < 0 || newSelEnd < 0) {
+                expectedCursorEnd = -1
+                pendingSelfEdits = 0
+                return false
+            }
+            val matchedExpected = expectedCursorEnd >= 0 &&
+                newSelStart == newSelEnd &&
+                newSelEnd == expectedCursorEnd
+            val likelySelfEdit = if (pendingSelfEdits > 0 && newSelStart == newSelEnd) {
+                pendingSelfEdits--
+                true
+            } else {
+                val recentSelf = SystemClock.uptimeMillis() - lastSelfEditUptimeMs < 140L
+                recentSelf && newSelStart == newSelEnd
+            }
+            if (!likelySelfEdit) {
+                pendingSelfEdits = 0
+                expectedCursorEnd = newSelEnd
+            } else if (expectedCursorEnd < 0) {
+                expectedCursorEnd = newSelEnd
+            }
+            return !(matchedExpected || likelySelfEdit)
+        }
 
         override fun getTextBeforeCursor(n: Int): String =
             icProvider()?.getTextBeforeCursor(n, 0)?.toString().orEmpty()
@@ -235,21 +445,47 @@ class KetikKuImeService : InputMethodService() {
             icProvider()?.getSelectedText(0)?.toString().orEmpty()
 
         override fun commitText(text: String) {
-            icProvider()?.commitText(text, 1)
+            val ic = icProvider() ?: return
+            val nextEnd = if (!hasKnownSelection && expectedCursorEnd >= 0) {
+                expectedCursorEnd + text.length
+            } else {
+                -1
+            }
+            markSelfEdit(newExpectedEnd = nextEnd)
+            ic.commitText(text, 1)
         }
 
         override fun deleteBeforeCursor(count: Int) {
             val ic = icProvider() ?: return
-            val selected = ic.getSelectedText(0)
-            if (!selected.isNullOrEmpty()) {
+            if (hasKnownSelection) {
+                markSelfEdit(newExpectedEnd = -1)
                 ic.commitText("", 1)
             } else {
+                val nextEnd = if (expectedCursorEnd >= count) expectedCursorEnd - count else -1
+                markSelfEdit(newExpectedEnd = nextEnd)
                 ic.deleteSurroundingText(count, 0)
+            }
+        }
+
+        override fun deleteSingleCodePointBeforeCursor() {
+            val ic = icProvider() ?: return
+            if (hasKnownSelection) {
+                markSelfEdit(newExpectedEnd = -1)
+                ic.commitText("", 1)
+            } else {
+                markSelfEdit(newExpectedEnd = -1)
+                ic.deleteSurroundingTextInCodePoints(1, 0)
             }
         }
 
         override fun replaceWordBeforeCursor(oldWordLength: Int, newText: String) {
             val ic = icProvider() ?: return
+            val nextEnd = if (!hasKnownSelection && expectedCursorEnd >= oldWordLength) {
+                expectedCursorEnd - oldWordLength + newText.length
+            } else {
+                -1
+            }
+            markSelfEdit(newExpectedEnd = nextEnd)
             ic.beginBatchEdit()
             ic.deleteSurroundingText(oldWordLength, 0)
             ic.commitText(newText, 1)
@@ -259,19 +495,21 @@ class KetikKuImeService : InputMethodService() {
         override fun moveCursor(delta: Int, extendSelection: Boolean) {
             val ic = icProvider() ?: return
             val extracted = ic.getExtractedText(ExtractedTextRequest(), 0)
-            if (extracted != null) {
-                val curEnd = extracted.selectionEnd
-                val next = (curEnd + delta).coerceIn(0, extracted.text?.length ?: curEnd)
+            if (extracted != null && extracted.text != null) {
+                val fullText = extracted.text.toString()
+                val curEnd = extracted.selectionEnd.coerceIn(0, fullText.length)
+                val next = shiftIndexByCodePoints(fullText, curEnd, delta)
                 if (extendSelection) {
-                    ic.setSelection(extracted.selectionStart, next)
+                    ic.setSelection(extracted.selectionStart.coerceIn(0, fullText.length), next)
                 } else {
                     ic.setSelection(next, next)
                 }
             } else {
                 val keyCode = if (delta < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
+                val meta = if (extendSelection) KeyEvent.META_SHIFT_ON else 0
                 repeat(kotlin.math.abs(delta)) {
-                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
-                    ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+                    ic.sendKeyEvent(KeyEvent(0L, 0L, KeyEvent.ACTION_DOWN, keyCode, 0, meta))
+                    ic.sendKeyEvent(KeyEvent(0L, 0L, KeyEvent.ACTION_UP, keyCode, 0, meta))
                 }
             }
         }
@@ -290,8 +528,92 @@ class KetikKuImeService : InputMethodService() {
             ic.setSelection(target, target)
         }
 
+        private fun sendCtrlKey(ic: InputConnection, keyCode: Int) {
+            val now = SystemClock.uptimeMillis()
+            val meta = KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON
+            ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, meta))
+            ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, meta))
+        }
+
+        override fun sendCtrlKey(letter: Char): Boolean {
+            val ic = icProvider() ?: return false
+            val lower = letter.lowercaseChar()
+            if (lower !in 'a'..'z') return false
+            val keyCode = KeyEvent.KEYCODE_A + (lower - 'a')
+            return runCatching {
+                sendCtrlKey(ic, keyCode)
+                true
+            }.getOrDefault(false)
+        }
+
         override fun selectAll() {
-            icProvider()?.performContextMenuAction(android.R.id.selectAll)
+            val ic = icProvider() ?: return
+            runCatching {
+                if (!ic.performContextMenuAction(android.R.id.selectAll)) {
+                    sendCtrlKey(ic, KeyEvent.KEYCODE_A)
+                }
+            }
+        }
+
+        override fun undo(): Boolean {
+            val ic = icProvider() ?: return false
+            markSelfEdit()
+            return runCatching {
+                if (!ic.performContextMenuAction(android.R.id.undo)) {
+                    sendCtrlKey(ic, KeyEvent.KEYCODE_Z)
+                }
+                true
+            }.getOrDefault(false)
+        }
+
+        override fun redo(): Boolean {
+            val ic = icProvider() ?: return false
+            markSelfEdit()
+            return runCatching {
+                if (!ic.performContextMenuAction(android.R.id.redo)) {
+                    sendCtrlKey(ic, KeyEvent.KEYCODE_Y)
+                }
+                true
+            }.getOrDefault(false)
+        }
+
+        override fun copy(): String {
+            val ic = icProvider() ?: return ""
+            return runCatching {
+                val selected = ic.getSelectedText(0)?.toString().orEmpty()
+                if (!ic.performContextMenuAction(android.R.id.copy)) {
+                    sendCtrlKey(ic, KeyEvent.KEYCODE_C)
+                }
+                selected
+            }.getOrDefault("")
+        }
+
+        override fun cut(): String {
+            val ic = icProvider() ?: return ""
+            markSelfEdit()
+            return runCatching {
+                val selected = ic.getSelectedText(0)?.toString().orEmpty()
+                if (!ic.performContextMenuAction(android.R.id.cut)) {
+                    sendCtrlKey(ic, KeyEvent.KEYCODE_X)
+                }
+                selected
+            }.getOrDefault("")
+        }
+
+        override fun paste(fallbackText: String): Boolean {
+            val ic = icProvider() ?: return false
+            markSelfEdit()
+            return runCatching {
+                if (ic.performContextMenuAction(android.R.id.paste)) {
+                    return true
+                }
+                if (fallbackText.isNotEmpty()) {
+                    ic.commitText(fallbackText, 1)
+                    return true
+                }
+                sendCtrlKey(ic, KeyEvent.KEYCODE_V)
+                true
+            }.getOrDefault(false)
         }
 
         override fun performEnterAction(actionType: EnterActionType) {

@@ -2,10 +2,16 @@ package com.example.data
 
 object FontStyleConverter {
 
-    private const val SERIF_ITALIC_UPPER_START = 0x1D434 // '𝐴'
-    private const val SERIF_ITALIC_LOWER_START = 0x1D44E // '𝑎'
+    // Mathematical Monospace Unicode code points: 𝙰-𝚉, 𝚊-𝚣, 𝟶-𝟿
+    private const val MONO_UPPER_START = 0x1D670 // '𝙰'
+    private const val MONO_LOWER_START = 0x1D68A // '𝚊'
+    private const val MONO_DIGIT_START = 0x1D7F6 // '𝟶'
 
-    fun toSerifItalic(input: String): String {
+    // Legacy Serif Italic range retained for graceful decoding of previously typed text
+    private const val LEGACY_SERIF_ITALIC_UPPER_START = 0x1D434
+    private const val LEGACY_SERIF_ITALIC_LOWER_START = 0x1D44E
+
+    fun toMonospace(input: String): String {
         if (input.isEmpty()) return input
         val sb = StringBuilder(input.length * 2)
         var i = 0
@@ -14,10 +20,13 @@ object FontStyleConverter {
             val charCount = Character.charCount(cp)
             when (cp) {
                 in 'A'.code..'Z'.code -> {
-                    sb.appendCodePoint(SERIF_ITALIC_UPPER_START + (cp - 'A'.code))
+                    sb.appendCodePoint(MONO_UPPER_START + (cp - 'A'.code))
                 }
                 in 'a'.code..'z'.code -> {
-                    sb.appendCodePoint(SERIF_ITALIC_LOWER_START + (cp - 'a'.code))
+                    sb.appendCodePoint(MONO_LOWER_START + (cp - 'a'.code))
+                }
+                in '0'.code..'9'.code -> {
+                    sb.appendCodePoint(MONO_DIGIT_START + (cp - '0'.code))
                 }
                 else -> sb.appendCodePoint(cp)
             }
@@ -26,9 +35,11 @@ object FontStyleConverter {
         return sb.toString()
     }
 
-    fun toArialItalic(input: String): String = toSerifItalic(input)
+    fun toSerifItalic(input: String): String = toMonospace(input)
 
-    fun fromSerifItalic(input: String): String {
+    fun toArialItalic(input: String): String = toMonospace(input)
+
+    fun fromMonospace(input: String): String {
         if (input.isEmpty()) return input
         val sb = StringBuilder(input.length)
         var i = 0
@@ -40,32 +51,45 @@ object FontStyleConverter {
         return sb.toString()
     }
 
-    fun fromArialItalic(input: String): String = fromSerifItalic(input)
+    fun fromSerifItalic(input: String): String = fromMonospace(input)
+
+    fun fromArialItalic(input: String): String = fromMonospace(input)
 
     fun decodeCodePoint(cp: Int): Int = when (cp) {
-        in SERIF_ITALIC_UPPER_START..(SERIF_ITALIC_UPPER_START + 25) ->
-            'A'.code + (cp - SERIF_ITALIC_UPPER_START)
-        in SERIF_ITALIC_LOWER_START..(SERIF_ITALIC_LOWER_START + 25) ->
-            'a'.code + (cp - SERIF_ITALIC_LOWER_START)
+        in MONO_UPPER_START..(MONO_UPPER_START + 25) ->
+            'A'.code + (cp - MONO_UPPER_START)
+        in MONO_LOWER_START..(MONO_LOWER_START + 25) ->
+            'a'.code + (cp - MONO_LOWER_START)
+        in MONO_DIGIT_START..(MONO_DIGIT_START + 9) ->
+            '0'.code + (cp - MONO_DIGIT_START)
+        in LEGACY_SERIF_ITALIC_UPPER_START..(LEGACY_SERIF_ITALIC_UPPER_START + 25) ->
+            'A'.code + (cp - LEGACY_SERIF_ITALIC_UPPER_START)
+        in LEGACY_SERIF_ITALIC_LOWER_START..(LEGACY_SERIF_ITALIC_LOWER_START + 25) ->
+            'a'.code + (cp - LEGACY_SERIF_ITALIC_LOWER_START)
         else -> cp
     }
 
-    fun isSerifItalicCodePoint(cp: Int): Boolean =
-        cp in SERIF_ITALIC_UPPER_START..(SERIF_ITALIC_LOWER_START + 25)
+    fun isMonospaceCodePoint(cp: Int): Boolean =
+        cp in MONO_UPPER_START..(MONO_LOWER_START + 25) ||
+            cp in MONO_DIGIT_START..(MONO_DIGIT_START + 9)
 
-    fun isArialItalicCodePoint(cp: Int): Boolean = isSerifItalicCodePoint(cp)
+    fun isSerifItalicCodePoint(cp: Int): Boolean = isMonospaceCodePoint(cp)
 
-    fun containsSerifItalic(input: String): Boolean {
+    fun isArialItalicCodePoint(cp: Int): Boolean = isMonospaceCodePoint(cp)
+
+    fun containsMonospace(input: String): Boolean {
         var i = 0
         while (i < input.length) {
             val cp = input.codePointAt(i)
-            if (isSerifItalicCodePoint(cp)) return true
+            if (isMonospaceCodePoint(cp)) return true
             i += Character.charCount(cp)
         }
         return false
     }
 
-    fun containsArialItalic(input: String): Boolean = containsSerifItalic(input)
+    fun containsSerifItalic(input: String): Boolean = containsMonospace(input)
+
+    fun containsArialItalic(input: String): Boolean = containsMonospace(input)
 
     fun lastCodePointCharCount(textBeforeCursor: String): Int {
         if (textBeforeCursor.isEmpty()) return 1
@@ -73,15 +97,22 @@ object FontStyleConverter {
         return Character.charCount(cp)
     }
 
-    fun extractCurrentWordRawAndPlain(before: String): Pair<Int, String> {
-        if (before.isEmpty()) return 0 to ""
+    private fun isWordTokenCodePoint(plainCp: Int): Boolean =
+        Character.isLetterOrDigit(plainCp) ||
+            plainCp == '\''.code ||
+            plainCp == '@'.code ||
+            plainCp == '_'.code ||
+            plainCp == '+'.code
+
+    fun extractCurrentWordRawAndPlain(before: String, maxCodePoints: Int = 30): Pair<Int, String> {
+        if (before.isEmpty() || maxCodePoints <= 0) return 0 to ""
         var i = before.length
         val reversedPlain = mutableListOf<Int>()
-        while (i > 0) {
+        while (i > 0 && reversedPlain.size < maxCodePoints) {
             val cp = Character.codePointBefore(before, i)
             val count = Character.charCount(cp)
             val plainCp = decodeCodePoint(cp)
-            if (Character.isLetter(plainCp) || plainCp == '\''.code) {
+            if (isWordTokenCodePoint(plainCp)) {
                 reversedPlain.add(plainCp)
                 i -= count
             } else {
@@ -103,7 +134,7 @@ object FontStyleConverter {
             val cp = Character.codePointBefore(before, i)
             val count = Character.charCount(cp)
             val plainCp = decodeCodePoint(cp)
-            if (Character.isLetter(plainCp) || plainCp == '\''.code) {
+            if (isWordTokenCodePoint(plainCp)) {
                 return decodeCodePoint(cp).toChar().toString()
             }
             i -= count

@@ -4,10 +4,6 @@
     <string name="subtype_indonesian">Bahasa Indonesia (QWERTY)</string>
     <string name="subtype_english_us">English (US QWERTY)</string>
 
-    <string name="nav_home">Uji Ketik</string>
-    <string name="nav_settings">Setelan</string>
-    <string name="nav_backup">Cadangan</string>
-
     <string name="ime_status_active">Keyboard Aktif &amp; Siap</string>
     <string name="ime_status_enabled_not_selected">Sudah Diaktifkan • Pilih sebagai Default</string>
     <string name="ime_status_disabled">Belum Diaktifkan di Sistem</string>
@@ -15,7 +11,7 @@
     <string name="action_select_ime">Pilih KetikKu</string>
 
     <string name="drive_sync_title">Auto-Sinkronisasi Google Drive</string>
-    <string name="drive_sync_desc">Simpan dan sinkronkan otomatis pengaturan keyboard serta kamus pribadi ke folder \"%1$s\" di Google Drive Anda agar berkas JSON bisa langsung dilihat di Drive.</string>
+    <string name="drive_sync_desc">Simpan dan sinkronkan otomatis kamus pribadi ke folder \"%1$s\" di Google Drive Anda agar berkas kamus (ketikku_dictionary.json) langsung tersimpan di Drive.</string>
     <string name="drive_auto_sync_title">Sinkronisasi Otomatis</string>
     <string name="drive_auto_sync_subtitle">Unggah otomatis setiap ada perubahan atau saat kembali online</string>
     <string name="drive_disconnect">Putuskan Akun</string>

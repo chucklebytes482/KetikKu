@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -19,23 +20,27 @@ import com.example.model.SettingsBackupEnvelope
 import com.example.model.SyncLocalState
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 val Context.ketikKuDataStore: DataStore<Preferences> by preferencesDataStore(name = "ketikku_prefs")
 
-class SettingsRepository(private val dataStore: DataStore<Preferences>) {
+class SettingsRepository(
+    private val dataStore: DataStore<Preferences>,
+    private val clipboardStore: ClipboardBackingStore = InMemoryClipboardBackingStore()
+) {
 
-    constructor(context: Context) : this(context.applicationContext.ketikKuDataStore)
+    constructor(context: Context) : this(
+        dataStore = context.applicationContext.ketikKuDataStore,
+        clipboardStore = ClipboardDatabaseHelper(context.applicationContext)
+    )
 
-    private val moshi: Moshi = Moshi.Builder()
-        .addLast(KotlinJsonAdapterFactory())
-        .build()
+    private val moshi: Moshi = Moshi.Builder().build()
 
     private val settingsEnvelopeAdapter = moshi.adapter(SettingsBackupEnvelope::class.java)
     private val fullBackupAdapter = moshi.adapter(FullBackupEnvelope::class.java)
@@ -46,6 +51,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     private object Keys {
         val HEIGHT_PRESET = stringPreferencesKey("height_preset")
+        val FLOATING_MODE_ENABLED = booleanPreferencesKey("floating_mode_enabled")
+        val FLOATING_POS_X = floatPreferencesKey("floating_pos_x")
+        val FLOATING_POS_Y = floatPreferencesKey("floating_pos_y")
         val HAPTIC_ENABLED = booleanPreferencesKey("haptic_enabled")
         val CLIPBOARD_HISTORY = booleanPreferencesKey("clipboard_history")
         val SERIF_MIRING_ENABLED = booleanPreferencesKey("serif_miring_enabled")
@@ -55,7 +63,8 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val SETTINGS_UPDATED_AT = longPreferencesKey("settings_updated_at")
 
         val DICTIONARY_JSON = stringPreferencesKey("dictionary_json")
-        val CLIPBOARD_JSON = stringPreferencesKey("clipboard_json")
+        val CLIPBOARD_REVISION = longPreferencesKey("clipboard_revision")
+        val DISMISSED_CLIPBOARD_ID = stringPreferencesKey("dismissed_clipboard_id")
 
         val LAST_SYNCED_AT = longPreferencesKey("last_synced_at")
         val LAST_SYNC_MESSAGE = stringPreferencesKey("last_sync_message")
@@ -65,42 +74,62 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val PENDING_CHANGES = booleanPreferencesKey("pending_changes")
     }
 
-    val settingsFlow: Flow<KeyboardSettings> = dataStore.data.map { prefs ->
-        KeyboardSettings(
-            heightPreset = prefs[Keys.HEIGHT_PRESET] ?: KeyboardHeightPreset.NORMAL.name,
-            hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: true,
-            clipboardHistoryEnabled = prefs[Keys.CLIPBOARD_HISTORY] ?: true,
-            serifMiringEnabled = prefs[Keys.SERIF_MIRING_ENABLED] ?: false,
-            autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: true,
-            driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
-            driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
-            updatedAtMillis = prefs[Keys.SETTINGS_UPDATED_AT] ?: 0L
-        )
-    }
-
-    val dictionaryFlow: Flow<List<PersonalDictionaryEntry>> = dataStore.data.map { prefs ->
-        val raw = prefs[Keys.DICTIONARY_JSON]
-        if (raw.isNullOrBlank()) {
-            defaultDictionaryEntries()
-        } else {
-            runCatching { dictListAdapter.fromJson(raw) }.getOrNull() ?: defaultDictionaryEntries()
+    val settingsFlow: Flow<KeyboardSettings> = dataStore.data
+        .map { prefs ->
+            KeyboardSettings(
+                heightPreset = KeyboardHeightPreset.fromName(prefs[Keys.HEIGHT_PRESET]).name,
+                floatingModeEnabled = prefs[Keys.FLOATING_MODE_ENABLED] ?: false,
+                floatingPosX = (prefs[Keys.FLOATING_POS_X] ?: 0.5f).coerceIn(0f, 1f),
+                floatingPosY = (prefs[Keys.FLOATING_POS_Y] ?: 0.85f).coerceIn(0f, 1f),
+                hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: true,
+                clipboardHistoryEnabled = prefs[Keys.CLIPBOARD_HISTORY] ?: true,
+                serifMiringEnabled = prefs[Keys.SERIF_MIRING_ENABLED] ?: false,
+                autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: true,
+                driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
+                driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
+                updatedAtMillis = prefs[Keys.SETTINGS_UPDATED_AT] ?: 0L
+            )
         }
-    }
+        .distinctUntilChanged()
 
-    val clipboardFlow: Flow<List<ClipboardItem>> = dataStore.data.map { prefs ->
-        parseClipboardJson(prefs[Keys.CLIPBOARD_JSON])
-    }
+    val dictionaryFlow: Flow<List<PersonalDictionaryEntry>> = dataStore.data
+        .map { prefs -> prefs[Keys.DICTIONARY_JSON] }
+        .distinctUntilChanged()
+        .map { raw ->
+            val list = if (raw.isNullOrBlank()) {
+                defaultDictionaryEntries()
+            } else {
+                runCatching { dictListAdapter.fromJson(raw) }.getOrNull() ?: defaultDictionaryEntries()
+            }
+            java.util.Collections.unmodifiableList(list)
+        }
 
-    val syncLocalStateFlow: Flow<SyncLocalState> = dataStore.data.map { prefs ->
-        SyncLocalState(
-            lastSyncedAtMillis = prefs[Keys.LAST_SYNCED_AT] ?: 0L,
-            lastSyncMessage = prefs[Keys.LAST_SYNC_MESSAGE] ?: "Belum pernah disinkronkan",
-            driveFolderId = prefs[Keys.DRIVE_FOLDER_ID] ?: "",
-            driveSettingsFileId = prefs[Keys.DRIVE_SETTINGS_FILE_ID] ?: "",
-            driveDictFileId = prefs[Keys.DRIVE_DICT_FILE_ID] ?: "",
-            pendingChanges = prefs[Keys.PENDING_CHANGES] ?: false
-        )
-    }
+    val clipboardFlow: Flow<List<ClipboardItem>> = dataStore.data
+        .map { prefs -> prefs[Keys.CLIPBOARD_REVISION] ?: 0L }
+        .distinctUntilChanged()
+        .map {
+            withContext(Dispatchers.IO) {
+                runCatching { clipboardStore.getPreviews(ClipboardDatabaseHelper.HISTORY_LIMIT) }
+                    .getOrDefault(emptyList())
+            }
+        }
+
+    val dismissedClipboardIdFlow: Flow<String?> = dataStore.data
+        .map { prefs -> prefs[Keys.DISMISSED_CLIPBOARD_ID]?.takeIf { it.isNotBlank() } }
+        .distinctUntilChanged()
+
+    val syncLocalStateFlow: Flow<SyncLocalState> = dataStore.data
+        .map { prefs ->
+            SyncLocalState(
+                lastSyncedAtMillis = prefs[Keys.LAST_SYNCED_AT] ?: 0L,
+                lastSyncMessage = prefs[Keys.LAST_SYNC_MESSAGE] ?: "Belum pernah disinkronkan",
+                driveFolderId = prefs[Keys.DRIVE_FOLDER_ID] ?: "",
+                driveSettingsFileId = prefs[Keys.DRIVE_SETTINGS_FILE_ID] ?: "",
+                driveDictFileId = prefs[Keys.DRIVE_DICT_FILE_ID] ?: "",
+                pendingChanges = prefs[Keys.PENDING_CHANGES] ?: false
+            )
+        }
+        .distinctUntilChanged()
 
     suspend fun getCurrentSettings(): KeyboardSettings = settingsFlow.first()
 
@@ -114,7 +143,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         var result = getCurrentSettings()
         dataStore.edit { prefs ->
             val current = KeyboardSettings(
-                heightPreset = prefs[Keys.HEIGHT_PRESET] ?: KeyboardHeightPreset.NORMAL.name,
+                heightPreset = KeyboardHeightPreset.fromName(prefs[Keys.HEIGHT_PRESET]).name,
+                floatingModeEnabled = prefs[Keys.FLOATING_MODE_ENABLED] ?: false,
+                floatingPosX = (prefs[Keys.FLOATING_POS_X] ?: 0.5f).coerceIn(0f, 1f),
+                floatingPosY = (prefs[Keys.FLOATING_POS_Y] ?: 0.85f).coerceIn(0f, 1f),
                 hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: true,
                 clipboardHistoryEnabled = prefs[Keys.CLIPBOARD_HISTORY] ?: true,
                 serifMiringEnabled = prefs[Keys.SERIF_MIRING_ENABLED] ?: false,
@@ -196,27 +228,90 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         return mergedResult
     }
 
-    suspend fun addClipboardText(text: String) {
-        val cleaned = text.trim()
-        if (cleaned.isEmpty()) return
-        dataStore.edit { prefs ->
-            val current = parseClipboardJson(prefs[Keys.CLIPBOARD_JSON])
-            val filtered = current.filterNot { it.text == cleaned }
-            val newItem = ClipboardItem(
-                id = UUID.randomUUID().toString().take(10),
-                text = cleaned.take(500),
-                timestampMillis = System.currentTimeMillis()
-            )
-            val combined = (listOf(newItem) + filtered)
-                .sortedByDescending { it.timestampMillis }
-                .take(25)
-            prefs[Keys.CLIPBOARD_JSON] = serializeClipboardJson(combined)
+    suspend fun addClipboardText(text: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val (start, end) = TextChunker.trimmedBounds(text)
+            if (start >= end) return@runCatching
+            val now = System.currentTimeMillis()
+            val saved = clipboardStore.saveClipboardText(text, now) ?: return@runCatching
+            val autoEntries = extractAutoSavableEntries(text)
+            dataStore.edit { prefs ->
+                prefs[Keys.CLIPBOARD_REVISION] = (prefs[Keys.CLIPBOARD_REVISION] ?: 0L) + 1L
+                prefs.remove(Keys.DISMISSED_CLIPBOARD_ID)
+
+                if (autoEntries.isNotEmpty()) {
+                    val currentDict = prefs[Keys.DICTIONARY_JSON]?.let {
+                        runCatching { dictListAdapter.fromJson(it) }.getOrNull()
+                    } ?: defaultDictionaryEntries()
+                    val existingActiveWords = currentDict
+                        .filter { !it.deleted }
+                        .map { it.word.trim().lowercase(java.util.Locale.ROOT) }
+                        .toMutableSet()
+                    val addedEntries = mutableListOf<PersonalDictionaryEntry>()
+                    for (candidate in autoEntries) {
+                        val key = candidate.trim().lowercase(java.util.Locale.ROOT)
+                        if (key.isNotEmpty() && existingActiveWords.add(key)) {
+                            addedEntries.add(
+                                PersonalDictionaryEntry(
+                                    id = "auto_${UUID.randomUUID().toString().take(8)}",
+                                    word = candidate.trim(),
+                                    shortcut = "",
+                                    language = KeyboardLanguage.INDONESIAN.code,
+                                    updatedAtMillis = now,
+                                    deleted = false
+                                )
+                            )
+                        }
+                    }
+                    if (addedEntries.isNotEmpty()) {
+                        prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(currentDict + addedEntries)
+                        prefs[Keys.PENDING_CHANGES] = true
+                    }
+                }
+            }
+            Unit
         }
     }
 
-    suspend fun clearAllClipboard() {
-        dataStore.edit { prefs ->
-            prefs[Keys.CLIPBOARD_JSON] = serializeClipboardJson(emptyList())
+    suspend fun syncSystemClipboardIfChanged(text: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val (start, end) = TextChunker.trimmedBounds(text)
+            if (start >= end) return@runCatching
+            if (!clipboardStore.isLatestSame(text)) {
+                addClipboardText(text).getOrThrow()
+            }
+        }
+    }
+
+    suspend fun getClipboardFullText(clipboardId: String): Result<String?> = withContext(Dispatchers.IO) {
+        runCatching {
+            clipboardStore.getFullText(clipboardId)
+        }
+    }
+
+    suspend fun getLatestClipboardFullText(): Result<String?> = withContext(Dispatchers.IO) {
+        runCatching {
+            clipboardStore.getLatestFullText()
+        }
+    }
+
+    suspend fun dismissRecentClipboard(clipboardId: String) {
+        if (clipboardId.isBlank()) return
+        runCatching {
+            dataStore.edit { prefs ->
+                prefs[Keys.DISMISSED_CLIPBOARD_ID] = clipboardId
+            }
+        }
+    }
+
+    suspend fun clearAllClipboard(): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            clipboardStore.clearAll()
+            dataStore.edit { prefs ->
+                prefs[Keys.CLIPBOARD_REVISION] = (prefs[Keys.CLIPBOARD_REVISION] ?: 0L) + 1L
+                prefs.remove(Keys.DISMISSED_CLIPBOARD_ID)
+            }
+            Unit
         }
     }
 
@@ -330,7 +425,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         prefs: androidx.datastore.preferences.core.MutablePreferences,
         s: KeyboardSettings
     ) {
-        prefs[Keys.HEIGHT_PRESET] = s.heightPreset
+        prefs[Keys.HEIGHT_PRESET] = KeyboardHeightPreset.fromName(s.heightPreset).name
+        prefs[Keys.FLOATING_MODE_ENABLED] = s.floatingModeEnabled
+        prefs[Keys.FLOATING_POS_X] = s.floatingPosX.coerceIn(0f, 1f)
+        prefs[Keys.FLOATING_POS_Y] = s.floatingPosY.coerceIn(0f, 1f)
         prefs[Keys.HAPTIC_ENABLED] = s.hapticEnabled
         prefs[Keys.CLIPBOARD_HISTORY] = s.clipboardHistoryEnabled
         prefs[Keys.SERIF_MIRING_ENABLED] = s.serifMiringEnabled
@@ -382,37 +480,49 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             )
         )
 
-        private fun parseClipboardJson(raw: String?): List<ClipboardItem> {
-            if (raw.isNullOrBlank()) return emptyList()
-            return runCatching {
-                val arr = JSONArray(raw)
-                buildList {
-                    for (i in 0 until arr.length()) {
-                        val obj = arr.getJSONObject(i)
-                        add(
-                            ClipboardItem(
-                                id = obj.optString("id"),
-                                text = obj.optString("text"),
-                                timestampMillis = obj.optLong("timestampMillis")
-                            )
-                        )
-                    }
-                }
-            }.getOrDefault(emptyList())
-        }
+        private val GMAIL_REGEX = Regex(
+            "(?<![A-Za-z0-9._%+-])([A-Za-z0-9._%+-]{1,244}@gmail\\.com)(?![A-Za-z0-9._%+-])",
+            RegexOption.IGNORE_CASE
+        )
+        private val NUMBER_REGEX = Regex(
+            "(?<![A-Za-z0-9._%+-@])(\\+?\\d[\\d\\s-]{9,30}\\d)(?![A-Za-z0-9._%+-@])"
+        )
 
-        private fun serializeClipboardJson(items: List<ClipboardItem>): String {
-            val arr = JSONArray()
-            items.forEach { item ->
-                arr.put(
-                    JSONObject().apply {
-                        put("id", item.id)
-                        put("text", item.text)
-                        put("timestampMillis", item.timestampMillis)
-                    }
-                )
+        /**
+         * Mengekstrak kandidat yang otomatis disimpan ke Kamus Pribadi dari teks yang disalin:
+         * 1. Alamat email berakhiran @gmail.com dengan panjang minimal 20 karakter.
+         * 2. Nomor (angka telepon/rekening/identitas) dengan minimal 11 digit/karakter angka.
+         * Diproses tanpa menyalin ulang teks panjang di memori.
+         */
+        fun extractAutoSavableEntries(rawText: String): List<String> {
+            val (start, end) = TextChunker.trimmedBounds(rawText)
+            if (start >= end) return emptyList()
+
+            val results = linkedSetOf<String>()
+            val emailRanges = mutableListOf<IntRange>()
+
+            GMAIL_REGEX.findAll(rawText, start).forEach { match ->
+                if (match.range.first >= end) return@forEach
+                emailRanges.add(match.range)
+                val email = match.value.trim()
+                if (email.length >= 20) {
+                    results.add(email)
+                }
             }
-            return arr.toString()
+
+            NUMBER_REGEX.findAll(rawText, start).forEach { match ->
+                if (match.range.first >= end) return@forEach
+                val overlapsEmail = emailRanges.any { er ->
+                    match.range.first <= er.last && match.range.last >= er.first
+                }
+                if (overlapsEmail) return@forEach
+                val rawNumber = match.value.trim()
+                val digitCount = rawNumber.count { it.isDigit() }
+                if (digitCount >= 11 && rawNumber.length >= 11) {
+                    results.add(rawNumber)
+                }
+            }
+            return results.toList()
         }
     }
 }

@@ -11,15 +11,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,10 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -76,21 +69,15 @@ import com.example.ui.MainViewModel
 import com.example.ui.SyncActionState
 import com.example.ui.theme.AmberPending
 import com.example.ui.theme.JetBrainsMonoFamily
-import com.example.ui.theme.MintSynced
 import com.google.android.gms.auth.api.identity.Identity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @Composable
-fun DriveBackupUnauthenticatedScreen(
-    mainViewModel: MainViewModel,
+fun DriveBackupUnauthenticatedSheetContent(
     settings: KeyboardSettings,
     dictionary: List<PersonalDictionaryEntry>,
-    syncLocalState: SyncLocalState,
     onAuthSuccess: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -102,139 +89,103 @@ fun DriveBackupUnauthenticatedScreen(
 
     Column(
         modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .widthIn(max = 640.dp)
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item {
-                Spacer(Modifier.height(6.dp))
-                // Metode 1: Sinkronisasi Google Drive (Opsional)
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CloudDone,
-                                    contentDescription = "Google Drive",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                            Column {
-                                Text(
-                                    text = "Metode 1 • Sinkronisasi Google Drive",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Opsional • Belum terhubung ke akun Google",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        Text(
-                            text = "Masuk dengan akun Google untuk sinkronisasi otomatis 2 arah ke folder \"${settings.driveFolderName}\" di Google Drive.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        if (errorMsg != null) {
-                            Text(
-                                text = errorMsg.orEmpty(),
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-
-                        Button(
-                            onClick = {
-                                errorMsg = null
-                                isLoading = true
-                                AuthHelper.onGoogleSignInClicked(
-                                    context = context,
-                                    credentialManager = credentialManager,
-                                    onAuthSuccess = {
-                                        isLoading = false
-                                        onAuthSuccess()
-                                    },
-                                    onAuthError = { msg ->
-                                        isLoading = false
-                                        errorMsg = msg
-                                    },
-                                    scope = scope,
-                                    onAuthCancelled = { isLoading = false }
-                                )
-                            },
-                            enabled = !isLoading,
-                            shape = RoundedCornerShape(28.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp)
-                                .testTag("drive_connect_google_button")
-                        ) {
-                            if (isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Text("Masuk dengan Google (Drive Sync)", fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
-
-            item {
-                // Metode 2: Cadangan Lokal JSON Tanpa Login Drive
-                LocalJsonBackupCard(
-                    title = "Metode 2 • Cadangan Lokal (Tanpa Login Drive)",
-                    mainViewModel = mainViewModel,
-                    settings = settings,
-                    dictionary = dictionary,
-                    syncLocalState = syncLocalState
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CloudDone,
+                    contentDescription = "Auto-Sinkronisasi Google Drive",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(28.dp)
                 )
             }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Auto-Sinkronisasi Google Drive",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Opsional • Belum terhubung ke akun Google",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
 
-            item { Spacer(Modifier.height(24.dp)) }
+        Text(
+            text = "Masuk dengan Google jika ingin menyinkronkan kamus pribadi (${dictionary.count { !it.deleted }} kata) secara otomatis ke folder \"${settings.driveFolderName}\" di Google Drive (hanya ketikku_dictionary.json).",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        if (errorMsg != null) {
+            Text(
+                text = errorMsg.orEmpty(),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
+        Button(
+            onClick = {
+                errorMsg = null
+                isLoading = true
+                AuthHelper.onGoogleSignInClicked(
+                    context = context,
+                    credentialManager = credentialManager,
+                    onAuthSuccess = {
+                        isLoading = false
+                        onAuthSuccess()
+                    },
+                    onAuthError = { msg ->
+                        isLoading = false
+                        errorMsg = msg
+                    },
+                    scope = scope,
+                    onAuthCancelled = { isLoading = false }
+                )
+            },
+            enabled = !isLoading,
+            shape = RoundedCornerShape(28.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .testTag("drive_connect_google_button")
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Masuk dengan Google (Drive Sync)", fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
 
 @Composable
-fun DriveBackupScreen(
+fun DriveBackupSheetContent(
     userEmail: String,
     mainViewModel: MainViewModel,
     cloudViewModel: CloudSyncViewModel,
@@ -287,7 +238,6 @@ fun DriveBackupScreen(
                     cloudViewModel.setDriveTokenAndSync(token, direction)
                 },
                 onError = {
-                    // Fallback gracefully to Firestore cloud backup if Drive Play Services UI is unavailable
                     cloudViewModel.syncCloudMetadataOnly()
                 }
             )
@@ -320,7 +270,7 @@ fun DriveBackupScreen(
     }
 
     val statusHeadline = when (val st = syncActionState) {
-        is SyncActionState.Syncing -> "Menyinkronkan ke Google Drive..."
+        is SyncActionState.Syncing -> "Menyinkronkan kamus..."
         is SyncActionState.Done -> st.message
         is SyncActionState.Error -> st.message
         else -> if (syncLocalState.lastSyncedAtMillis > 0L) {
@@ -332,348 +282,264 @@ fun DriveBackupScreen(
 
     Column(
         modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .widthIn(max = 640.dp)
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+        // Header row matching screenshot 2
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            item {
-                Spacer(Modifier.height(6.dp))
-                // Primary Auto-Sinkronisasi Google Drive Card (matching user's screenshot design)
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Header row
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CloudDone,
-                                    contentDescription = "Auto-Sinkronisasi Google Drive",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Auto-Sinkronisasi Google Drive",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = userEmail.ifBlank { "Akun Google Terhubung" },
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-
-                        Text(
-                            text = "Simpan dan sinkronkan otomatis ke folder \"${settings.driveFolderName}\" di Google Drive Anda agar berkas pengaturan bisa langsung dilihat di Drive.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        // Status Box
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .clip(CircleShape)
-                                            .background(statusDotColor)
-                                    )
-                                    Text(
-                                        text = statusHeadline,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = if (isOnline) "Jaringan: Online" else "Jaringan: Offline",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = if (syncLocalState.pendingChanges) {
-                                            "Perubahan menunggu sinkron"
-                                        } else {
-                                            "Semua perubahan tersimpan"
-                                        },
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-
-                                Text(
-                                    text = "Folder Drive: ${settings.driveFolderName} (Sinkron 2 arah)",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .clickable { showFolderDialog = true }
-                                        .padding(vertical = 2.dp)
-                                )
-                            }
-                        }
-
-                        // Auto-Sync Toggle Row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    mainViewModel.updateSettings {
-                                        it.copy(autoSyncDriveEnabled = !it.autoSyncDriveEnabled)
-                                    }
-                                },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(end = 12.dp)
-                            ) {
-                                Text(
-                                    text = "Sinkronisasi Otomatis",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Unggah otomatis setiap ada perubahan atau saat kembali online",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = settings.autoSyncDriveEnabled,
-                                onCheckedChange = { enabled ->
-                                    mainViewModel.updateSettings { it.copy(autoSyncDriveEnabled = enabled) }
-                                },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = MaterialTheme.colorScheme.surface,
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary
-                                ),
-                                modifier = Modifier.testTag("drive_auto_sync_switch")
-                            )
-                        }
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-
-                        // Bottom Action Pills: Putuskan Akun & Sinkronkan Sekarang
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = {
-                                    cloudViewModel.clearCachedDriveToken()
-                                    AuthHelper.signOut(credentialManager, scope) {
-                                        onSignedOut()
-                                    }
-                                },
-                                shape = RoundedCornerShape(28.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(52.dp)
-                                    .testTag("drive_disconnect_button")
-                            ) {
-                                Text(
-                                    text = "Putuskan Akun",
-                                    color = MaterialTheme.colorScheme.error,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1
-                                )
-                            }
-
-                            Button(
-                                onClick = { triggerDriveSync(direction = null) },
-                                enabled = !isSyncing,
-                                shape = RoundedCornerShape(28.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                ),
-                                modifier = Modifier
-                                    .weight(1.25f)
-                                    .height(52.dp)
-                                    .testTag("drive_sync_now_button")
-                            ) {
-                                if (isSyncing) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = if (isSyncing) "Menyinkron..." else "Sinkronkan Sekarang",
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                    }
-                }
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CloudDone,
+                    contentDescription = "Auto-Sinkronisasi Google Drive",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(28.dp)
+                )
             }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Auto-Sinkronisasi Google Drive",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = userEmail.ifBlank { "Akun Google Terhubung" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
 
-            // Secondary Drive tools: Restore from Drive & JSON Preview
-            item {
+        Text(
+            text = "Simpan dan sinkronkan otomatis kamus pribadi (${dictionary.count { !it.deleted }} kata) ke folder \"${settings.driveFolderName}\" di Google Drive Anda (ketikku_dictionary.json).",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // Status Box
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = { triggerDriveSync(direction = SyncDirection.DOWNLOADED) },
-                        enabled = !isSyncing,
-                        shape = RoundedCornerShape(16.dp),
+                    Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                    ) {
-                        Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Pulihkan Drive")
-                    }
-
-                    OutlinedButton(
-                        onClick = { showJsonDialog = true },
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                    ) {
-                        Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Lihat JSON")
-                    }
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(statusDotColor)
+                    )
+                    Text(
+                        text = statusHeadline,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
-            }
 
-            // Metode 2: Cadangan Lokal JSON (Offline / Ekspor & Impor Perangkat)
-            item {
-                LocalJsonBackupCard(
-                    title = "Cadangan Lokal JSON (Offline)",
-                    mainViewModel = mainViewModel,
-                    settings = settings,
-                    dictionary = dictionary,
-                    syncLocalState = syncLocalState
-                )
-            }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = if (isOnline) "Jaringan: Online" else "Jaringan: Offline",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (syncLocalState.pendingChanges) {
+                            "Perubahan menunggu sinkron"
+                        } else {
+                            "Semua perubahan tersimpan"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
-            // Cloud Backup Snapshots History from Firestore
-            item {
                 Text(
-                    text = "Riwayat Cadangan Cloud",
+                    text = "Folder Drive: ${settings.driveFolderName} (Ubah)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable { showFolderDialog = true }
+                        .padding(vertical = 2.dp)
+                )
+            }
+        }
+
+        // Auto-Sync Switch Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable {
+                    mainViewModel.updateSettings {
+                        it.copy(autoSyncDriveEnabled = !it.autoSyncDriveEnabled)
+                    }
+                }
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp)
+            ) {
+                Text(
+                    text = "Sinkronisasi Otomatis",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(top = 4.dp)
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Unggah otomatis setiap ada perubahan kamus atau saat kembali online",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = settings.autoSyncDriveEnabled,
+                onCheckedChange = { enabled ->
+                    mainViewModel.updateSettings { it.copy(autoSyncDriveEnabled = enabled) }
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.surface,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.testTag("drive_auto_sync_switch")
+            )
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+
+        // Primary Action Pills: Putuskan Akun & Sinkronkan Sekarang
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = {
+                    cloudViewModel.clearCachedDriveToken()
+                    AuthHelper.signOut(credentialManager, scope) {
+                        onSignedOut()
+                    }
+                },
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp)
+                    .testTag("drive_disconnect_button")
+            ) {
+                Text(
+                    text = "Putuskan Akun",
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
                 )
             }
 
-            when (val st = snapshotsState) {
-                is CloudUiState.Loading -> {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
+            Button(
+                onClick = { triggerDriveSync(direction = null) },
+                enabled = !isSyncing,
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                modifier = Modifier
+                    .weight(1.25f)
+                    .height(52.dp)
+                    .testTag("drive_sync_now_button")
+            ) {
+                if (isSyncing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
-                is CloudUiState.Error -> {
-                    item {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = st.message,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(14.dp)
-                            )
-                        }
-                    }
-                }
-                is CloudUiState.Success -> {
-                    if (st.data.isEmpty()) {
-                        item {
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "Belum ada riwayat cadangan. Tekan \"Sinkronkan Sekarang\" untuk membuat cadangan pertama.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(16.dp)
-                                )
-                            }
-                        }
-                    } else {
-                        items(st.data, key = { it.id.ifEmpty { it.syncedAtMillis.toString() } }) { snap ->
-                            BackupHistoryItem(snap)
-                        }
-                    }
-                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = if (isSyncing) "Menyinkron..." else "Sinkronkan Sekarang",
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            }
+        }
+
+        // Secondary Drive tools: Restore from Drive & JSON Preview (Dictionary only)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            OutlinedButton(
+                onClick = { triggerDriveSync(direction = SyncDirection.DOWNLOADED) },
+                enabled = !isSyncing,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+            ) {
+                Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Pulihkan Drive")
             }
 
-            item { Spacer(Modifier.height(24.dp)) }
+            OutlinedButton(
+                onClick = { showJsonDialog = true },
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+            ) {
+                Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Lihat JSON")
+            }
+        }
+
+        // Snapshot History
+        val snapshots = (snapshotsState as? CloudUiState.Success)?.data.orEmpty()
+        if (snapshots.isNotEmpty()) {
+            Text(
+                text = "Riwayat Sinkron Kamus",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                snapshots.take(3).forEach { snap ->
+                    BackupHistoryItem(snap)
+                }
+            }
         }
     }
 
@@ -696,216 +562,8 @@ fun DriveBackupScreen(
 
     if (showJsonDialog) {
         JsonPreviewDialog(
-            settings = settings,
             dictionary = dictionary,
-            onDismiss = { showJsonDialog = false }
-        )
-    }
-}
-
-@Composable
-private fun LocalJsonBackupCard(
-    title: String,
-    mainViewModel: MainViewModel,
-    settings: KeyboardSettings,
-    dictionary: List<PersonalDictionaryEntry>,
-    syncLocalState: SyncLocalState
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var localStatus by remember { mutableStateOf<String?>(null) }
-    var localError by remember { mutableStateOf<String?>(null) }
-    var showJsonDialog by remember { mutableStateOf(false) }
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            runCatching {
-                val payload = mainViewModel.buildFullBackupJson()
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri)?.use { out ->
-                        out.write(payload.toByteArray(Charsets.UTF_8))
-                    } ?: error("Tidak dapat membuka berkas tujuan.")
-                }
-            }.onSuccess {
-                localError = null
-                localStatus = "Cadangan JSON lokal berhasil disimpan ke perangkat."
-            }.onFailure { err ->
-                localStatus = null
-                localError = err.localizedMessage ?: "Gagal mengekspor berkas JSON."
-            }
-        }
-    }
-
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val rawResult = runCatching {
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use {
-                        it.readText()
-                    } ?: error("Tidak dapat membaca berkas yang dipilih.")
-                }
-            }
-            rawResult.onSuccess { jsonText ->
-                mainViewModel.importLocalBackupJson(jsonText) { result ->
-                    result.onSuccess { msg ->
-                        localError = null
-                        localStatus = msg
-                    }.onFailure { err ->
-                        localStatus = null
-                        localError = err.localizedMessage ?: "Format JSON cadangan tidak valid."
-                    }
-                }
-            }.onFailure { err ->
-                localStatus = null
-                localError = err.localizedMessage ?: "Gagal membuka berkas JSON."
-            }
-        }
-    }
-
-    Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(24.dp))
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Storage,
-                        contentDescription = title,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Ekspor & pulihkan setelan + ${dictionary.count { !it.deleted }} kata kamus langsung ke file JSON tanpa akun Google.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            if (syncLocalState.lastSyncedAtMillis > 0L && localStatus == null) {
-                Text(
-                    text = "Status terakhir: ${syncLocalState.lastSyncMessage}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (localStatus != null) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = localStatus.orEmpty(),
-                        color = MaterialTheme.colorScheme.secondary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                }
-            }
-
-            if (localError != null) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.14f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = localError.orEmpty(),
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = {
-                        val stamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date())
-                        exportLauncher.launch("ketikku_backup_$stamp.json")
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .testTag("local_export_json_button")
-                ) {
-                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Ekspor JSON", maxLines = 1)
-                }
-
-                OutlinedButton(
-                    onClick = {
-                        importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .testTag("local_import_json_button")
-                ) {
-                    Icon(Icons.Default.UploadFile, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Pulihkan JSON", maxLines = 1)
-                }
-            }
-
-            TextButton(
-                onClick = { showJsonDialog = true },
-                modifier = Modifier
-                    .align(Alignment.End)
-                    .testTag("local_preview_json_button")
-            ) {
-                Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Lihat Pratinjau JSON")
-            }
-        }
-    }
-
-    if (showJsonDialog) {
-        JsonPreviewDialog(
-            settings = settings,
-            dictionary = dictionary,
+            updatedAtMillis = syncLocalState.lastSyncedAtMillis,
             onDismiss = { showJsonDialog = false }
         )
     }
@@ -913,18 +571,18 @@ private fun LocalJsonBackupCard(
 
 @Composable
 private fun JsonPreviewDialog(
-    settings: KeyboardSettings,
     dictionary: List<PersonalDictionaryEntry>,
+    updatedAtMillis: Long,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val repo = remember(context) { SettingsRepository(context) }
-    val jsonPreview = remember(settings, dictionary) {
-        repo.encodeFullBackupJson(settings, dictionary)
+    val jsonPreview = remember(dictionary, updatedAtMillis) {
+        repo.encodeDictionaryBackupJson(dictionary, updatedAtMillis)
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("ketikku_backup.json (${dictionary.count { !it.deleted }} kata kamus)") },
+        title = { Text("ketikku_dictionary.json (${dictionary.count { !it.deleted }} kata kamus)") },
         text = {
             Surface(
                 shape = RoundedCornerShape(12.dp),
@@ -956,21 +614,22 @@ private fun BackupHistoryItem(snap: BackupSnapshot) {
         SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(snap.syncedAtMillis))
     }
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp))
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = snap.deviceName,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(

@@ -42,6 +42,9 @@ class MainViewModel(
     val clipboard: StateFlow<List<ClipboardItem>> = settingsRepository.clipboardFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
 
+    val dismissedClipboardId: StateFlow<String?> = settingsRepository.dismissedClipboardIdFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), null)
+
     val syncLocalState: StateFlow<SyncLocalState> = settingsRepository.syncLocalStateFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), SyncLocalState())
 
@@ -54,10 +57,13 @@ class MainViewModel(
     var playgroundText by mutableStateOf(TextFieldValue(""))
         private set
 
+    var onNavigateToSettings: () -> Unit = {}
+
     val playgroundController = KeyboardController(
         target = TextFieldImeTarget(
             getValue = { playgroundText },
-            setValue = { updated -> playgroundText = updated }
+            setValue = { updated -> playgroundText = updated },
+            onOpenAppSettings = { onNavigateToSettings() }
         )
     )
 
@@ -67,11 +73,13 @@ class MainViewModel(
 
     fun updatePlaygroundText(value: TextFieldValue) {
         playgroundText = value
+        playgroundController.invalidateLocalWordCache()
         playgroundController.refreshState(settings.value, dictionary.value)
     }
 
     fun clearPlaygroundText() {
         playgroundText = TextFieldValue("")
+        playgroundController.invalidateLocalWordCache()
         playgroundController.refreshState(settings.value, dictionary.value)
     }
 
@@ -92,12 +100,27 @@ class MainViewModel(
 
     fun updateSettings(transform: (KeyboardSettings) -> KeyboardSettings) {
         viewModelScope.launch {
-            settingsRepository.updateSettings(markPendingSync = true, transform = transform)
+            settingsRepository.updateSettings(markPendingSync = false, transform = transform)
         }
     }
 
     fun toggleSerifMiring() {
         updateSettings { it.copy(serifMiringEnabled = !it.serifMiringEnabled) }
+    }
+
+    fun toggleFloatingMode() {
+        updateSettings { it.copy(floatingModeEnabled = !it.floatingModeEnabled) }
+    }
+
+    fun saveFloatingPosition(posX: Float, posY: Float) {
+        val clampedX = posX.coerceIn(0f, 1f)
+        val clampedY = posY.coerceIn(0f, 1f)
+        updateSettings {
+            it.copy(
+                floatingPosX = clampedX,
+                floatingPosY = clampedY
+            )
+        }
     }
 
     fun upsertDictionaryEntry(word: String, shortcut: String, language: String, existingId: String? = null) {
@@ -115,12 +138,53 @@ class MainViewModel(
     fun addClipboardText(text: String) {
         viewModelScope.launch {
             settingsRepository.addClipboardText(text)
+                .onFailure { playgroundController.showClipboardStatus("Gagal menyimpan klip") }
+        }
+    }
+
+    suspend fun loadClipboardFullText(clipboardId: String): String? {
+        return settingsRepository.getClipboardFullText(clipboardId)
+            .onFailure { playgroundController.showClipboardStatus("Gagal memuat klip") }
+            .getOrNull()
+    }
+
+    suspend fun loadLatestClipboardFullText(): String? {
+        return settingsRepository.getLatestClipboardFullText()
+            .onFailure { playgroundController.showClipboardStatus("Gagal memuat papan klip") }
+            .getOrNull()
+    }
+
+    fun dismissRecentClipboard(clipboardId: String) {
+        viewModelScope.launch {
+            settingsRepository.dismissRecentClipboard(clipboardId)
+        }
+    }
+
+    fun syncSystemClipboardFromDevice(context: Context) {
+        val appContext = context.applicationContext
+        viewModelScope.launch {
+            try {
+                val text = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val cm = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                        ?: return@withContext ""
+                    val clip = cm.primaryClip ?: return@withContext ""
+                    if (clip.itemCount > 0) {
+                        clip.getItemAt(0).coerceToText(appContext)?.toString().orEmpty()
+                    } else ""
+                }
+                if (text.isNotBlank()) {
+                    settingsRepository.syncSystemClipboardIfChanged(text)
+                }
+            } catch (_: Throwable) {
+                // Keep app running smoothly if system clipboard cannot be read
+            }
         }
     }
 
     fun clearAllClipboard() {
         viewModelScope.launch {
             settingsRepository.clearAllClipboard()
+                .onFailure { playgroundController.showClipboardStatus("Gagal membersihkan papan klip") }
         }
     }
 

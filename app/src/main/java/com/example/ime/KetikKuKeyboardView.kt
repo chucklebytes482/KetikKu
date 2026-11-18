@@ -1,5 +1,6 @@
 package com.example.ime
 
+import android.graphics.Rect as AndroidRect
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -7,8 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,54 +29,71 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.FormatItalic
-import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardCapslock
-import androidx.compose.material.icons.filled.OpenWith
-import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -84,18 +101,344 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.ui.zIndex
 import com.example.model.ClipboardItem
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
-import com.example.ui.theme.ArialFamily
 import com.example.ui.theme.InterFamily
 import com.example.ui.theme.PlusJakartaSansFamily
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+private class CoordsRef {
+    var coords: LayoutCoordinates? = null
+}
+
+private class KeySlot(
+    val id: String,
+    var onTap: () -> Unit,
+    var hasLongPress: Boolean = false,
+    var isBackspaceRepeat: Boolean = false,
+    var isTapReorderFlushable: Boolean = false,
+    var onFeedback: () -> Unit = {},
+    var onLongPressStart: (LayoutCoordinates?, Offset) -> Unit = { _, _ -> },
+    var onLongPressDrag: (Offset) -> Unit = {},
+    var onLongPressRelease: () -> Unit = {},
+    var onLongPressCancel: () -> Unit = {},
+    var coords: LayoutCoordinates? = null
+)
+
+/**
+ * Multi-touch pointer tracker modeled after Julow/Unexpected-Keyboard's Pointers.java:
+ * locks each finger's PointerId to its down key independently, preserves two-thumb
+ * rollover in FIFO DOWN order without cancelling prior pressed keys, runs no per-key
+ * pointer coroutine overhead on regular taps, and isolates visual highlights to draw-phase reads.
+ */
+private class KeyPointersTracker(
+    private val scope: CoroutineScope,
+    private val cancelMoveRadiusPx: Float,
+    private val gapSnapSlopPx: Float
+) {
+    private class ActivePointer(
+        val id: PointerId,
+        val slot: KeySlot,
+        val downPosInGrid: Offset,
+        var job: Job? = null,
+        var popupActive: Boolean = false,
+        var repeated: Boolean = false,
+        var committed: Boolean = false,
+        var cancelled: Boolean = false
+    )
+
+    var gridCoords: LayoutCoordinates? = null
+    private val slots = LinkedHashMap<String, KeySlot>(48)
+    private val activePointers = LinkedHashMap<PointerId, ActivePointer>(8)
+    val pressedCounts = mutableStateMapOf<String, Int>()
+
+    fun registerSlot(slot: KeySlot) {
+        slots[slot.id] = slot
+    }
+
+    fun unregisterSlot(slotId: String) {
+        slots.remove(slotId)
+        val iter = activePointers.entries.iterator()
+        while (iter.hasNext()) {
+            val entry = iter.next()
+            val ap = entry.value
+            if (ap.slot.id == slotId) {
+                ap.job?.cancel()
+                if (ap.popupActive) {
+                    ap.slot.onLongPressCancel()
+                }
+                iter.remove()
+            }
+        }
+        pressedCounts.remove(slotId)
+    }
+
+    fun hasPointer(id: PointerId): Boolean = activePointers.containsKey(id)
+
+    fun findSlotAt(posInGrid: Offset, gCoords: LayoutCoordinates): KeySlot? {
+        if (!gCoords.isAttached) return null
+        var bestFallback: KeySlot? = null
+        var bestFallbackDistSq = Float.MAX_VALUE
+        val maxSnapDistSq = gapSnapSlopPx * gapSnapSlopPx
+        for (slot in slots.values) {
+            val kCoords = slot.coords ?: continue
+            if (!kCoords.isAttached) continue
+            val topLeft = try {
+                gCoords.localPositionOf(kCoords, Offset.Zero)
+            } catch (_: IllegalArgumentException) {
+                continue
+            }
+            val right = topLeft.x + kCoords.size.width.toFloat()
+            val bottom = topLeft.y + kCoords.size.height.toFloat()
+            if (posInGrid.x >= topLeft.x && posInGrid.x <= right &&
+                posInGrid.y >= topLeft.y && posInGrid.y <= bottom
+            ) {
+                return slot
+            }
+            val clampedX = posInGrid.x.coerceIn(topLeft.x, right)
+            val clampedY = posInGrid.y.coerceIn(topLeft.y, bottom)
+            val dx = posInGrid.x - clampedX
+            val dy = posInGrid.y - clampedY
+            val distSq = dx * dx + dy * dy
+            if (distSq <= maxSnapDistSq && distSq < bestFallbackDistSq) {
+                bestFallbackDistSq = distSq
+                bestFallback = slot
+            }
+        }
+        return bestFallback
+    }
+
+    private fun slotLocalOffset(slot: KeySlot, posInGrid: Offset): Offset {
+        val gCoords = gridCoords
+        val kCoords = slot.coords
+        if (gCoords != null && kCoords != null && gCoords.isAttached && kCoords.isAttached) {
+            val topLeft = try {
+                gCoords.localPositionOf(kCoords, Offset.Zero)
+            } catch (_: IllegalArgumentException) {
+                Offset.Zero
+            }
+            return posInGrid - topLeft
+        }
+        return Offset.Zero
+    }
+
+    private fun incrementPressed(slotId: String) {
+        pressedCounts[slotId] = (pressedCounts[slotId] ?: 0) + 1
+    }
+
+    private fun decrementPressed(slotId: String) {
+        val cur = pressedCounts[slotId] ?: 0
+        if (cur <= 1) {
+            pressedCounts.remove(slotId)
+        } else {
+            pressedCounts[slotId] = cur - 1
+        }
+    }
+
+    fun handleDown(id: PointerId, posInGrid: Offset, slot: KeySlot, longPressTimeoutMs: Long) {
+        if (activePointers.containsKey(id)) {
+            cancelPointer(id)
+        }
+        val ap = ActivePointer(id = id, slot = slot, downPosInGrid = posInGrid)
+        activePointers[id] = ap
+        incrementPressed(slot.id)
+
+        if (slot.isBackspaceRepeat) {
+            ap.job = scope.launch {
+                delay(380L)
+                if (!activePointers.containsKey(id) || ap.cancelled) return@launch
+                ap.repeated = true
+                while (activePointers.containsKey(id) && !ap.cancelled) {
+                    ap.slot.onFeedback()
+                    ap.slot.onTap()
+                    delay(60L)
+                }
+            }
+        } else if (slot.hasLongPress) {
+            ap.job = scope.launch {
+                delay(longPressTimeoutMs)
+                if (!activePointers.containsKey(id) || ap.cancelled) return@launch
+                ap.popupActive = true
+                val localDown = slotLocalOffset(ap.slot, ap.downPosInGrid)
+                ap.slot.onLongPressStart(ap.slot.coords, localDown)
+            }
+        }
+    }
+
+    fun handleMove(id: PointerId, posInGrid: Offset) {
+        val ap = activePointers[id] ?: return
+        if (ap.cancelled) return
+        if (ap.popupActive) {
+            ap.slot.onLongPressDrag(slotLocalOffset(ap.slot, posInGrid))
+            return
+        }
+        if ((posInGrid - ap.downPosInGrid).getDistance() > cancelMoveRadiusPx) {
+            ap.cancelled = true
+            ap.job?.cancel()
+            decrementPressed(ap.slot.id)
+        }
+    }
+
+    fun handleUp(id: PointerId) {
+        val target = activePointers[id]
+        var toFlush: ArrayList<ActivePointer>? = null
+        if (activePointers.size > 1 && target != null && !target.cancelled && !target.popupActive && !target.committed) {
+            for (ap in activePointers.values) {
+                if (ap.id == id) break
+                if (ap.slot.isTapReorderFlushable && !ap.committed && !ap.cancelled && !ap.popupActive) {
+                    val list = toFlush ?: ArrayList<ActivePointer>(2).also { toFlush = it }
+                    list.add(ap)
+                }
+            }
+        }
+        if (toFlush != null) {
+            for (earlier in toFlush!!) {
+                earlier.committed = true
+                earlier.job?.cancel()
+                earlier.slot.onTap()
+            }
+        }
+
+        val ap = activePointers.remove(id) ?: return
+        ap.job?.cancel()
+        if (!ap.cancelled) {
+            decrementPressed(ap.slot.id)
+            if (!ap.committed) {
+                when {
+                    ap.popupActive -> ap.slot.onLongPressRelease()
+                    ap.slot.isBackspaceRepeat -> {
+                        if (!ap.repeated) {
+                            ap.slot.onFeedback()
+                            ap.slot.onTap()
+                        }
+                    }
+                    else -> ap.slot.onTap()
+                }
+            }
+        }
+    }
+
+    fun cancelPointer(id: PointerId) {
+        val ap = activePointers.remove(id) ?: return
+        ap.job?.cancel()
+        if (!ap.cancelled) {
+            decrementPressed(ap.slot.id)
+            if (ap.popupActive) {
+                ap.slot.onLongPressCancel()
+            }
+        }
+    }
+
+    fun cancelAll() {
+        val keys = activePointers.keys.toList()
+        for (id in keys) {
+            cancelPointer(id)
+        }
+    }
+}
+
+@Composable
+private fun rememberKeyPointersTracker(): KeyPointersTracker {
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val cancelMoveRadiusPx = with(density) { 72.dp.toPx() }
+    val gapSnapSlopPx = with(density) { 6.dp.toPx() }
+    val tracker = remember(scope, cancelMoveRadiusPx, gapSnapSlopPx) {
+        KeyPointersTracker(
+            scope = scope,
+            cancelMoveRadiusPx = cancelMoveRadiusPx,
+            gapSnapSlopPx = gapSnapSlopPx
+        )
+    }
+    DisposableEffect(tracker) {
+        onDispose { tracker.cancelAll() }
+    }
+    return tracker
+}
+
+private fun Modifier.keyPointersSurface(tracker: KeyPointersTracker): Modifier =
+    this
+        .onGloballyPositioned { tracker.gridCoords = it }
+        .pointerInput(tracker) {
+            awaitPointerEventScope {
+                try {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Main)
+                        val gCoords = tracker.gridCoords ?: continue
+                        if (!gCoords.isAttached) continue
+                        val longPressMs = viewConfiguration.longPressTimeoutMillis
+                        for (change in event.changes) {
+                            if (change.changedToDown()) {
+                                val hitSlot = tracker.findSlotAt(change.position, gCoords)
+                                if (hitSlot != null) {
+                                    change.consume()
+                                    tracker.handleDown(change.id, change.position, hitSlot, longPressMs)
+                                }
+                            } else if (change.changedToUpIgnoreConsumed()) {
+                                if (tracker.hasPointer(change.id)) {
+                                    change.consume()
+                                    tracker.handleUp(change.id)
+                                }
+                            } else if (change.pressed && tracker.hasPointer(change.id)) {
+                                change.consume()
+                                tracker.handleMove(change.id, change.position)
+                            }
+                        }
+                    }
+                } finally {
+                    tracker.cancelAll()
+                }
+            }
+        }
+
+@Composable
+private fun rememberRegisteredKeySlot(
+    tracker: KeyPointersTracker?,
+    slotId: String,
+    onTap: () -> Unit,
+    hasLongPress: Boolean = false,
+    isBackspaceRepeat: Boolean = false,
+    isTapReorderFlushable: Boolean = false,
+    onFeedback: () -> Unit = {},
+    onLongPressStart: (LayoutCoordinates?, Offset) -> Unit = { _, _ -> },
+    onLongPressDrag: (Offset) -> Unit = {},
+    onLongPressRelease: () -> Unit = {},
+    onLongPressCancel: () -> Unit = {}
+): KeySlot? {
+    if (tracker == null) return null
+    val slot = remember(tracker, slotId) { KeySlot(id = slotId, onTap = onTap) }
+    SideEffect {
+        slot.onTap = onTap
+        slot.hasLongPress = hasLongPress
+        slot.isBackspaceRepeat = isBackspaceRepeat
+        slot.isTapReorderFlushable = isTapReorderFlushable
+        slot.onFeedback = onFeedback
+        slot.onLongPressStart = onLongPressStart
+        slot.onLongPressDrag = onLongPressDrag
+        slot.onLongPressRelease = onLongPressRelease
+        slot.onLongPressCancel = onLongPressCancel
+    }
+    DisposableEffect(tracker, slotId) {
+        tracker.registerSlot(slot)
+        onDispose {
+            tracker.unregisterSlot(slotId)
+        }
+    }
+    return slot
+}
+
+@Immutable
 private data class KeyboardPalette(
     val boardBg: Color,
     val stripBg: Color,
@@ -155,7 +498,7 @@ private val longPressAlternates: Map<String, List<String>> = mapOf(
     "o" to listOf("9"),
     "p" to listOf("0"),
     "a" to listOf("@"),
-    "s" to listOf("#", "$"),
+    "s" to listOf("%"),
     "d" to listOf("&"),
     "f" to listOf("_"),
     "g" to listOf("-"),
@@ -172,49 +515,118 @@ private val longPressAlternates: Map<String, List<String>> = mapOf(
     "m" to listOf("?")
 )
 
+private const val RECENT_CLIPBOARD_SUGGESTION_MAX_CHARS = 120
+
 @Composable
 fun KetikKuKeyboardView(
     controller: KeyboardController,
     settings: KeyboardSettings,
     personalEntries: List<PersonalDictionaryEntry>,
     clipboardItems: List<ClipboardItem>,
+    dismissedClipboardId: String? = null,
     onPasteClipboard: (String) -> Unit,
+    onPasteClipboardItem: ((ClipboardItem) -> Unit)? = null,
+    onRequestCtrlPaste: (() -> Unit)? = null,
+    onDismissRecentClipboard: (String) -> Unit = {},
     onCopySelectionToClipboard: (String) -> Unit,
     onClearAllClipboard: () -> Unit = {},
     onToggleSerifMiring: () -> Unit = {},
     onToggleArialItalic: () -> Unit = {},
     onShowInputMethodPicker: () -> Unit = {},
+    onToggleFloatingMode: () -> Unit = {},
+    onSaveFloatingPosition: (Float, Float) -> Unit = { _, _ -> },
+    onFloatingBoundsChanged: (AndroidRect) -> Unit = {},
     applySystemBarInsets: Boolean = false,
+    isImeFloatingOverlay: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
     val palette = remember(isDark) { defaultKeyboardPalette(isDark) }
-    val keyFontFamily = if (settings.serifMiringEnabled) FontFamily.Serif else PlusJakartaSansFamily
-    val chipFontFamily = if (settings.serifMiringEnabled) FontFamily.Serif else InterFamily
-    val keyFontStyle = if (settings.serifMiringEnabled) FontStyle.Italic else FontStyle.Normal
+    val keyFontFamily = PlusJakartaSansFamily
+    val chipFontFamily = InterFamily
+    val keyFontStyle = FontStyle.Normal
+    val isFloating = settings.floatingModeEnabled
     val view = LocalView.current
-
-    fun feedback() {
-        if (settings.hapticEnabled) {
-            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+    val context = LocalContext.current
+    val currentHapticEnabled by rememberUpdatedState(settings.hapticEnabled)
+    val onFeedbackStable = remember(view) {
+        {
+            if (currentHapticEnabled) {
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            }
         }
     }
 
-    val handleToggleSerifMiring: () -> Unit = {
-        controller.convertSelectionToSerifMiring(!settings.serifMiringEnabled)
-        onToggleSerifMiring()
-        onToggleArialItalic()
+    val currentSettings by rememberUpdatedState(settings)
+    val currentPersonalEntries by rememberUpdatedState(personalEntries)
+    val currentClipboardItems by rememberUpdatedState(clipboardItems)
+    val currentOnToggleSerifMiring by rememberUpdatedState(onToggleSerifMiring)
+    val currentOnToggleArialItalic by rememberUpdatedState(onToggleArialItalic)
+    val currentOnToggleFloatingMode by rememberUpdatedState(onToggleFloatingMode)
+    val currentOnSaveFloatingPosition by rememberUpdatedState(onSaveFloatingPosition)
+    val currentOnFloatingBoundsChanged by rememberUpdatedState(onFloatingBoundsChanged)
+    val currentOnPasteClipboard by rememberUpdatedState(onPasteClipboard)
+    val currentOnPasteClipboardItem by rememberUpdatedState(onPasteClipboardItem)
+    val currentOnRequestCtrlPaste by rememberUpdatedState(onRequestCtrlPaste)
+    val currentOnDismissRecentClipboard by rememberUpdatedState(onDismissRecentClipboard)
+    val onPasteRecentClipboardStable = remember(controller) {
+        { item: ClipboardItem ->
+            val itemHandler = currentOnPasteClipboardItem
+            if (itemHandler != null) {
+                itemHandler(item)
+            } else {
+                currentOnPasteClipboard(item.preview)
+            }
+            controller.dismissClipboardItem(item.id)
+            currentOnDismissRecentClipboard(item.id)
+        }
+    }
+    val onDismissRecentClipboardStable = remember(controller) {
+        { item: ClipboardItem ->
+            controller.dismissClipboardItem(item.id)
+            currentOnDismissRecentClipboard(item.id)
+        }
+    }
+    val onToggleFloatingModeStable = remember {
+        { currentOnToggleFloatingMode() }
+    }
+    val onPasteClipboardItemStable = remember {
+        { item: ClipboardItem ->
+            val itemHandler = currentOnPasteClipboardItem
+            if (itemHandler != null) {
+                itemHandler(item)
+            } else {
+                currentOnPasteClipboard(item.preview)
+            }
+        }
+    }
+    val onRequestCtrlPasteStable = remember(controller) {
+        {
+            val reqPaste = currentOnRequestCtrlPaste
+            if (reqPaste != null) {
+                reqPaste()
+            } else {
+                val latestPreview = currentClipboardItems.firstOrNull()?.preview.orEmpty()
+                controller.onCtrlPaste(latestPreview, currentSettings, currentPersonalEntries)
+            }
+        }
+    }
+
+    LaunchedEffect(isFloating) {
+        if (!isFloating) {
+            currentOnFloatingBoundsChanged(AndroidRect())
+        }
     }
 
     val density = LocalDensity.current
-    var containerCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val containerCoordsRef = remember { CoordsRef() }
     var activePopupKey by remember { mutableStateOf<String?>(null) }
     var activePopupKeyBounds by remember { mutableStateOf<Rect?>(null) }
     var longPressOptions by remember { mutableStateOf<List<String>>(emptyList()) }
     var selectedAltIndex by remember { mutableIntStateOf(0) }
     var longPressAnchorX by remember { mutableFloatStateOf(0f) }
 
-    val pillWidthDp = 42.dp
+    val pillWidthDp = if (isFloating) 36.dp else 42.dp
     val pillHeightDp = 38.dp
     val pillGapDp = 4.dp
     val popupPadHDp = 6.dp
@@ -227,239 +639,165 @@ fun KetikKuKeyboardView(
     val gapAboveKeyPx = with(density) { 6.dp.toPx() }
     val sideMarginPx = with(density) { 6.dp.toPx() }
     val dragThresholdPx = with(density) { 8.dp.toPx() }
+    val popupTopMinPx = with(density) { 2.dp.toPx() }
 
-    val optionCount = longPressOptions.size.coerceAtLeast(1)
-    val popupWidthPx = 2f * popupPadHPx + optionCount * pillWidthPx + (optionCount - 1) * pillGapPx
-    val containerW = (containerCoords?.size?.width ?: 0).toFloat()
-    val popupX = run {
-        val bounds = activePopupKeyBounds
-        if (bounds != null && containerW > 0f) {
-            val desiredX = if (optionCount == 1) {
-                bounds.center.x - popupWidthPx / 2f
-            } else {
-                bounds.center.x - popupPadHPx - pillWidthPx / 2f
+    val onKeyPopupStartStable = remember(controller) {
+        { label: String, keyCoords: LayoutCoordinates?, downLocalOffset: Offset, alts: List<String> ->
+            if (alts.isNotEmpty()) {
+                val cCoords = containerCoordsRef.coords
+                val bounds = if (
+                    cCoords != null && keyCoords != null &&
+                    cCoords.isAttached && keyCoords.isAttached
+                ) {
+                    val topLeft = cCoords.localPositionOf(keyCoords, Offset.Zero)
+                    Rect(
+                        left = topLeft.x,
+                        top = topLeft.y,
+                        right = topLeft.x + keyCoords.size.width.toFloat(),
+                        bottom = topLeft.y + keyCoords.size.height.toFloat()
+                    )
+                } else null
+                activePopupKey = label
+                activePopupKeyBounds = bounds
+                longPressOptions = alts
+                selectedAltIndex = 0
+                longPressAnchorX = (bounds?.left ?: 0f) + downLocalOffset.x
             }
-            desiredX.coerceIn(
-                sideMarginPx,
-                (containerW - popupWidthPx - sideMarginPx).coerceAtLeast(sideMarginPx)
-            )
-        } else {
-            sideMarginPx
         }
     }
-    val popupY = run {
-        val bounds = activePopupKeyBounds
-        if (bounds != null) {
-            (bounds.top - popupHeightPx - gapAboveKeyPx).coerceAtLeast(with(density) { 2.dp.toPx() })
-        } else {
-            with(density) { 2.dp.toPx() }
+    val onKeyPopupDragStable = remember(pillWidthPx, pillGapPx, popupPadHPx, dragThresholdPx, sideMarginPx) {
+        { localPos: Offset ->
+            val bounds = activePopupKeyBounds
+            val count = longPressOptions.size
+            if (bounds != null && count > 1) {
+                val popupWidthPx = 2f * popupPadHPx + count * pillWidthPx + (count - 1) * pillGapPx
+                val pointerX = bounds.left + localPos.x
+                if (abs(pointerX - longPressAnchorX) <= dragThresholdPx) {
+                    selectedAltIndex = 0
+                } else {
+                    var bestIdx = 0
+                    var bestDist = Float.MAX_VALUE
+                    val cW = (containerCoordsRef.coords?.size?.width ?: 0).toFloat()
+                    val currentPopupX = if (cW > 0f) {
+                        val desiredX = bounds.center.x - popupPadHPx - pillWidthPx / 2f
+                        desiredX.coerceIn(
+                            sideMarginPx,
+                            (cW - popupWidthPx - sideMarginPx).coerceAtLeast(sideMarginPx)
+                        )
+                    } else sideMarginPx
+                    for (i in longPressOptions.indices) {
+                        val pillCenterX = currentPopupX + popupPadHPx +
+                            i * (pillWidthPx + pillGapPx) + pillWidthPx / 2f
+                        val dist = abs(pointerX - pillCenterX)
+                        if (dist < bestDist) {
+                            bestDist = dist
+                            bestIdx = i
+                        }
+                    }
+                    selectedAltIndex = bestIdx
+                }
+            }
+        }
+    }
+    val onKeyPopupReleaseStable = remember(controller) {
+        {
+            val chosen = longPressOptions.getOrNull(selectedAltIndex)
+            if (chosen != null) {
+                onFeedbackStable()
+                controller.onCharacterTap(chosen, currentSettings, currentPersonalEntries)
+            }
+            activePopupKey = null
+            activePopupKeyBounds = null
+            longPressOptions = emptyList()
+            selectedAltIndex = 0
+        }
+    }
+    val onClearPopupStable = remember {
+        {
+            activePopupKey = null
+            activePopupKeyBounds = null
+            longPressOptions = emptyList()
+            selectedAltIndex = 0
         }
     }
 
     val totalHeightDp = remember(settings.heightPreset, controller.currentPage) {
         val baseRow = settings.heightEnum.keyHeightDp
-        val rows = if (controller.currentPage == KeyboardPage.QWERTY) 5 else 4
+        val rows = 4
         (rows * baseRow + rows * 6f + 46f).dp
     }
 
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = palette.boardBg
-    ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (applySystemBarInsets) {
-                        Modifier.windowInsetsPadding(
-                            WindowInsets.navigationBars
-                                .union(WindowInsets.displayCutout)
-                                .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
-                        )
-                    } else {
-                        Modifier
-                    }
-                )
-                .padding(bottom = 8.dp)
-                .onGloballyPositioned { containerCoords = it }
+    @Composable
+    fun KeyboardInnerContent(innerModifier: Modifier = Modifier) {
+        Box(
+            modifier = innerModifier.onGloballyPositioned { containerCoordsRef.coords = it }
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Top Strip: Utility toolbar + Suggestions (strictly NO Emoji / GIF / Stickers)
+                // Top Strip: Left = Suggestions / blank, Right = Fixed-position & fixed-size Utility Toolbar
                 TopUtilityAndSuggestionBar(
                     controller = controller,
                     palette = palette,
                     settings = settings,
                     personalEntries = personalEntries,
+                    clipboardItems = clipboardItems,
+                    dismissedClipboardId = dismissedClipboardId,
                     chipFontFamily = chipFontFamily,
                     keyFontStyle = keyFontStyle,
-                    onFeedback = ::feedback,
-                    onToggleSerifMiring = handleToggleSerifMiring
+                    isFloating = isFloating,
+                    onFeedback = onFeedbackStable,
+                    onPasteRecentClipboard = onPasteRecentClipboardStable,
+                    onDismissRecentClipboard = onDismissRecentClipboardStable,
+                    onToggleFloatingMode = onToggleFloatingModeStable
                 )
 
-                when (controller.utilityPanel) {
-                    UtilityPanel.CLIPBOARD -> {
-                        ClipboardPanel(
-                            palette = palette,
-                            items = clipboardItems,
-                            enabled = settings.clipboardHistoryEnabled,
-                            height = totalHeightDp - 46.dp,
-                            onPaste = { text ->
-                                feedback()
-                                onPasteClipboard(text)
-                                controller.toggleUtilityPanel(UtilityPanel.CLIPBOARD)
-                            },
-                            onClearAll = {
-                                feedback()
-                                onClearAllClipboard()
-                            }
-                        )
-                    }
-                    UtilityPanel.TEXT_EDIT -> {
-                        TextEditingPanel(
-                            palette = palette,
-                            controller = controller,
-                            clipboardItems = clipboardItems,
-                            height = totalHeightDp - 46.dp,
-                            onFeedback = ::feedback,
-                            onCopy = {
-                                val selected = controller.getSelectedText()
-                                if (selected.isNotEmpty()) {
-                                    onCopySelectionToClipboard(selected)
-                                }
-                            },
-                            onCut = {
-                                val selected = controller.getSelectedText()
-                                if (selected.isNotEmpty()) {
-                                    onCopySelectionToClipboard(selected)
-                                    controller.onBackspaceTap(settings, personalEntries)
-                                }
-                            },
-                            onPaste = {
-                                val latest = clipboardItems.firstOrNull()?.text
-                                if (!latest.isNullOrEmpty()) {
-                                    controller.pasteText(latest, settings, personalEntries)
-                                }
-                            }
-                        )
-                    }
-                    UtilityPanel.NONE -> {
-                        when (controller.currentPage) {
-                            KeyboardPage.QWERTY -> {
-                                QwertyKeyboardGrid(
-                                    controller = controller,
-                                    settings = settings,
-                                    personalEntries = personalEntries,
-                                    palette = palette,
-                                    keyFontFamily = keyFontFamily,
-                                    keyFontStyle = keyFontStyle,
-                                    onFeedback = ::feedback,
-                                    onShowInputMethodPicker = onShowInputMethodPicker,
-                                    onKeyPopupStart = { label, keyCoords, downLocalOffset, alts ->
-                                        if (alts.isEmpty()) return@QwertyKeyboardGrid
-                                        val cCoords = containerCoords
-                                        val bounds = if (
-                                            cCoords != null && keyCoords != null &&
-                                            cCoords.isAttached && keyCoords.isAttached
-                                        ) {
-                                            val topLeft = cCoords.localPositionOf(keyCoords, Offset.Zero)
-                                            Rect(
-                                                left = topLeft.x,
-                                                top = topLeft.y,
-                                                right = topLeft.x + keyCoords.size.width.toFloat(),
-                                                bottom = topLeft.y + keyCoords.size.height.toFloat()
-                                            )
-                                        } else null
-                                        activePopupKey = label
-                                        activePopupKeyBounds = bounds
-                                        longPressOptions = alts
-                                        selectedAltIndex = 0
-                                        longPressAnchorX = (bounds?.left ?: 0f) + downLocalOffset.x
-                                    },
-                                    onKeyPopupDrag = { localPos ->
-                                        val bounds = activePopupKeyBounds
-                                        if (bounds != null && longPressOptions.size > 1) {
-                                            val pointerX = bounds.left + localPos.x
-                                            if (abs(pointerX - longPressAnchorX) <= dragThresholdPx) {
-                                                selectedAltIndex = 0
-                                            } else {
-                                                var bestIdx = 0
-                                                var bestDist = Float.MAX_VALUE
-                                                for (i in longPressOptions.indices) {
-                                                    val pillCenterX = popupX + popupPadHPx +
-                                                        i * (pillWidthPx + pillGapPx) + pillWidthPx / 2f
-                                                    val dist = abs(pointerX - pillCenterX)
-                                                    if (dist < bestDist) {
-                                                        bestDist = dist
-                                                        bestIdx = i
-                                                    }
-                                                }
-                                                selectedAltIndex = bestIdx
-                                            }
-                                        }
-                                    },
-                                    onKeyPopupRelease = {
-                                        val chosen = longPressOptions.getOrNull(selectedAltIndex)
-                                        if (chosen != null) {
-                                            feedback()
-                                            controller.onCharacterTap(chosen, settings, personalEntries)
-                                        }
-                                        activePopupKey = null
-                                        activePopupKeyBounds = null
-                                        longPressOptions = emptyList()
-                                        selectedAltIndex = 0
-                                    },
-                                    onClearPopup = {
-                                        activePopupKey = null
-                                        activePopupKeyBounds = null
-                                        longPressOptions = emptyList()
-                                        selectedAltIndex = 0
-                                    }
-                                )
-                            }
-                            KeyboardPage.SYMBOLS_1 -> {
-                                SymbolsKeyboardGrid(
-                                    pageTwo = false,
-                                    controller = controller,
-                                    settings = settings,
-                                    personalEntries = personalEntries,
-                                    palette = palette,
-                                    keyFontFamily = keyFontFamily,
-                                    keyFontStyle = keyFontStyle,
-                                    onFeedback = ::feedback,
-                                    onShowInputMethodPicker = onShowInputMethodPicker
-                                )
-                            }
-                            KeyboardPage.SYMBOLS_2 -> {
-                                SymbolsKeyboardGrid(
-                                    pageTwo = true,
-                                    controller = controller,
-                                    settings = settings,
-                                    personalEntries = personalEntries,
-                                    palette = palette,
-                                    keyFontFamily = keyFontFamily,
-                                    keyFontStyle = keyFontStyle,
-                                    onFeedback = ::feedback,
-                                    onShowInputMethodPicker = onShowInputMethodPicker
-                                )
-                            }
-                            KeyboardPage.NUMPAD -> {
-                                NumpadKeyboardGrid(
-                                    controller = controller,
-                                    settings = settings,
-                                    personalEntries = personalEntries,
-                                    palette = palette,
-                                    keyFontFamily = keyFontFamily,
-                                    keyFontStyle = keyFontStyle,
-                                    onFeedback = ::feedback
-                                )
-                            }
-                        }
-                    }
-                }
+                KeyboardBodyContent(
+                    controller = controller,
+                    settings = settings,
+                    personalEntries = personalEntries,
+                    clipboardItems = clipboardItems,
+                    palette = palette,
+                    keyFontFamily = keyFontFamily,
+                    keyFontStyle = keyFontStyle,
+                    totalHeightDp = totalHeightDp,
+                    isFloating = isFloating,
+                    onFeedback = onFeedbackStable,
+                    onPasteClipboardItem = onPasteClipboardItemStable,
+                    onRequestCtrlPaste = onRequestCtrlPasteStable,
+                    onCopySelectionToClipboard = onCopySelectionToClipboard,
+                    onClearAllClipboard = onClearAllClipboard,
+                    onShowInputMethodPicker = onShowInputMethodPicker,
+                    onKeyPopupStart = onKeyPopupStartStable,
+                    onKeyPopupDrag = onKeyPopupDragStable,
+                    onKeyPopupRelease = onKeyPopupReleaseStable,
+                    onClearPopup = onClearPopupStable
+                )
             }
 
             // Floating Long-Press Symbol Shortcut Popup anchored right above the pressed key
             if (activePopupKey != null && longPressOptions.isNotEmpty()) {
+                val optionCount = longPressOptions.size.coerceAtLeast(1)
+                val popupWidthPx = 2f * popupPadHPx + optionCount * pillWidthPx + (optionCount - 1) * pillGapPx
+                val containerW = (containerCoordsRef.coords?.size?.width ?: 0).toFloat()
+                val bounds = activePopupKeyBounds
+                val popupX = if (bounds != null && containerW > 0f) {
+                    val desiredX = if (optionCount == 1) {
+                        bounds.center.x - popupWidthPx / 2f
+                    } else {
+                        bounds.center.x - popupPadHPx - pillWidthPx / 2f
+                    }
+                    desiredX.coerceIn(
+                        sideMarginPx,
+                        (containerW - popupWidthPx - sideMarginPx).coerceAtLeast(sideMarginPx)
+                    )
+                } else {
+                    sideMarginPx
+                }
+                val popupY = if (bounds != null) {
+                    (bounds.top - popupHeightPx - gapAboveKeyPx).coerceAtLeast(popupTopMinPx)
+                } else {
+                    popupTopMinPx
+                }
+
                 Surface(
                     modifier = Modifier
                         .zIndex(20f)
@@ -489,7 +827,7 @@ fun KetikKuKeyboardView(
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(if (isSelected) palette.accentBg else Color.Transparent)
                                     .clickable {
-                                        feedback()
+                                        onFeedbackStable()
                                         controller.onCharacterTap(alt, settings, personalEntries)
                                         activePopupKey = null
                                         activePopupKeyBounds = null
@@ -513,6 +851,301 @@ fun KetikKuKeyboardView(
             }
         }
     }
+
+    if (!isFloating) {
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            color = palette.boardBg
+        ) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (applySystemBarInsets) {
+                            Modifier.windowInsetsPadding(
+                                WindowInsets.navigationBars
+                                    .union(WindowInsets.displayCutout)
+                                    .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .padding(bottom = 8.dp)
+            ) {
+                KeyboardInnerContent(innerModifier = Modifier.fillMaxWidth())
+            }
+        }
+    } else {
+        // Mode Mengambang: lebar tetap 70% dari lebar vertikal (portrait) Android, tidak dapat diubah ukuran,
+        // posisi dapat digeser bebas dan diingat dari terakhir kali.
+        val metrics = context.resources.displayMetrics
+        val portraitWidthPx = minOf(metrics.widthPixels, metrics.heightPixels).toFloat()
+        val rawFloatingWidthDp = with(density) { (portraitWidthPx * 0.70f).toDp() }
+        val overlayRootModifier = if (isImeFloatingOverlay) {
+            val fullScreenHeightDp = with(density) { metrics.heightPixels.toDp() }
+            modifier
+                .fillMaxWidth()
+                .height(fullScreenHeightDp)
+                .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+        } else {
+            modifier.fillMaxSize()
+        }
+
+        BoxWithConstraints(modifier = overlayRootModifier) {
+            val floatingWidthDp = rawFloatingWidthDp.coerceAtMost(maxWidth)
+            val containerWidthPx = constraints.maxWidth.toFloat()
+            val containerHeightPx = constraints.maxHeight.toFloat()
+            var cardWidthPx by remember { mutableFloatStateOf(with(density) { floatingWidthDp.toPx() }) }
+            var cardHeightPx by remember { mutableFloatStateOf(with(density) { (totalHeightDp + 28.dp).toPx() }) }
+
+            var isDraggingFloating by remember { mutableStateOf(false) }
+            var dragOffsetX by remember { mutableFloatStateOf(0f) }
+            var dragOffsetY by remember { mutableFloatStateOf(0f) }
+            var pendingNormX by remember { mutableStateOf<Float?>(null) }
+            var pendingNormY by remember { mutableStateOf<Float?>(null) }
+
+            LaunchedEffect(settings.floatingPosX, settings.floatingPosY) {
+                pendingNormX = null
+                pendingNormY = null
+            }
+
+            val maxX = (containerWidthPx - cardWidthPx).coerceAtLeast(0f)
+            val maxY = (containerHeightPx - cardHeightPx).coerceAtLeast(0f)
+            val currentMaxX by rememberUpdatedState(maxX)
+            val currentMaxY by rememberUpdatedState(maxY)
+
+            val activeNormX = (pendingNormX ?: settings.floatingPosX).coerceIn(0f, 1f)
+            val activeNormY = (pendingNormY ?: settings.floatingPosY).coerceIn(0f, 1f)
+            val displayX = if (isDraggingFloating) {
+                dragOffsetX.coerceIn(0f, maxX)
+            } else {
+                activeNormX * maxX
+            }
+            val displayY = if (isDraggingFloating) {
+                dragOffsetY.coerceIn(0f, maxY)
+            } else {
+                activeNormY * maxY
+            }
+
+            Surface(
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            x = displayX.roundToInt(),
+                            y = displayY.roundToInt()
+                        )
+                    }
+                    .width(floatingWidthDp)
+                    .wrapContentHeight()
+                    .onSizeChanged { size ->
+                        cardWidthPx = size.width.toFloat()
+                        cardHeightPx = size.height.toFloat()
+                    }
+                    .onGloballyPositioned { coords ->
+                        val b = coords.boundsInWindow()
+                        currentOnFloatingBoundsChanged(
+                            AndroidRect(
+                                b.left.roundToInt(),
+                                b.top.roundToInt(),
+                                b.right.roundToInt(),
+                                b.bottom.roundToInt()
+                            )
+                        )
+                    }
+                    .testTag("floating_keyboard_container"),
+                shape = RoundedCornerShape(18.dp),
+                color = palette.boardBg,
+                tonalElevation = 6.dp,
+                shadowElevation = 10.dp,
+                border = BorderStroke(1.dp, palette.borderColor)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    KeyboardInnerContent(innerModifier = Modifier.fillMaxWidth())
+
+                    // Drag handle bar (fixed position-drag only, strictly NO resize handle)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp)
+                            .background(palette.stripBg)
+                            .pointerInput(Unit) {
+                                detectDragGestures(
+                                    onDragStart = {
+                                        isDraggingFloating = true
+                                        val startNormX = (pendingNormX ?: currentSettings.floatingPosX).coerceIn(0f, 1f)
+                                        val startNormY = (pendingNormY ?: currentSettings.floatingPosY).coerceIn(0f, 1f)
+                                        dragOffsetX = startNormX * currentMaxX
+                                        dragOffsetY = startNormY * currentMaxY
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        dragOffsetX = (dragOffsetX + dragAmount.x).coerceIn(0f, currentMaxX)
+                                        dragOffsetY = (dragOffsetY + dragAmount.y).coerceIn(0f, currentMaxY)
+                                    },
+                                    onDragEnd = {
+                                        val normX = if (currentMaxX > 0f) {
+                                            (dragOffsetX / currentMaxX).coerceIn(0f, 1f)
+                                        } else {
+                                            currentSettings.floatingPosX
+                                        }
+                                        val normY = if (currentMaxY > 0f) {
+                                            (dragOffsetY / currentMaxY).coerceIn(0f, 1f)
+                                        } else {
+                                            currentSettings.floatingPosY
+                                        }
+                                        pendingNormX = normX
+                                        pendingNormY = normY
+                                        isDraggingFloating = false
+                                        currentOnSaveFloatingPosition(normX, normY)
+                                    },
+                                    onDragCancel = {
+                                        val normX = if (currentMaxX > 0f) {
+                                            (dragOffsetX / currentMaxX).coerceIn(0f, 1f)
+                                        } else {
+                                            currentSettings.floatingPosX
+                                        }
+                                        val normY = if (currentMaxY > 0f) {
+                                            (dragOffsetY / currentMaxY).coerceIn(0f, 1f)
+                                        } else {
+                                            currentSettings.floatingPosY
+                                        }
+                                        pendingNormX = normX
+                                        pendingNormY = normY
+                                        isDraggingFloating = false
+                                        currentOnSaveFloatingPosition(normX, normY)
+                                    }
+                                )
+                            }
+                            .semantics { contentDescription = "Geser posisi keyboard mengambang" }
+                            .testTag("floating_drag_handle"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(42.dp)
+                                    .height(4.dp)
+                                    .clip(CircleShape)
+                                    .background(palette.keyHintText.copy(alpha = 0.55f))
+                            )
+                            Icon(
+                                imageVector = Icons.Default.DragHandle,
+                                contentDescription = null,
+                                tint = palette.keyHintText.copy(alpha = 0.85f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun KeyboardBodyContent(
+    controller: KeyboardController,
+    settings: KeyboardSettings,
+    personalEntries: List<PersonalDictionaryEntry>,
+    clipboardItems: List<ClipboardItem>,
+    palette: KeyboardPalette,
+    keyFontFamily: FontFamily,
+    keyFontStyle: FontStyle,
+    totalHeightDp: Dp,
+    isFloating: Boolean,
+    onFeedback: () -> Unit,
+    onPasteClipboardItem: (ClipboardItem) -> Unit,
+    onRequestCtrlPaste: () -> Unit,
+    onCopySelectionToClipboard: (String) -> Unit,
+    onClearAllClipboard: () -> Unit,
+    onShowInputMethodPicker: () -> Unit,
+    onKeyPopupStart: (String, LayoutCoordinates?, Offset, List<String>) -> Unit,
+    onKeyPopupDrag: (Offset) -> Unit,
+    onKeyPopupRelease: () -> Unit,
+    onClearPopup: () -> Unit
+) {
+    when (controller.utilityPanel) {
+        UtilityPanel.CLIPBOARD -> {
+            ClipboardPanel(
+                palette = palette,
+                items = clipboardItems,
+                enabled = settings.clipboardHistoryEnabled,
+                statusMessage = controller.clipboardStatusMessage,
+                height = totalHeightDp - 46.dp,
+                onPasteItem = { item ->
+                    onFeedback()
+                    onPasteClipboardItem(item)
+                    controller.closeUtilityPanel()
+                },
+                onClearAll = {
+                    onFeedback()
+                    onClearAllClipboard()
+                },
+                onClose = {
+                    onFeedback()
+                    controller.closeUtilityPanel()
+                }
+            )
+        }
+        UtilityPanel.NONE -> {
+            when (controller.currentPage) {
+                KeyboardPage.QWERTY -> {
+                    QwertyKeyboardGrid(
+                        controller = controller,
+                        settings = settings,
+                        personalEntries = personalEntries,
+                        palette = palette,
+                        keyFontFamily = keyFontFamily,
+                        keyFontStyle = keyFontStyle,
+                        isFloating = isFloating,
+                        onFeedback = onFeedback,
+                        onCopySelectionToClipboard = onCopySelectionToClipboard,
+                        onRequestCtrlPaste = onRequestCtrlPaste,
+                        onShowInputMethodPicker = onShowInputMethodPicker,
+                        onKeyPopupStart = onKeyPopupStart,
+                        onKeyPopupDrag = onKeyPopupDrag,
+                        onKeyPopupRelease = onKeyPopupRelease,
+                        onClearPopup = onClearPopup
+                    )
+                }
+                KeyboardPage.SYMBOLS_1, KeyboardPage.SYMBOLS_2 -> {
+                    SymbolsKeyboardGrid(
+                        controller = controller,
+                        settings = settings,
+                        personalEntries = personalEntries,
+                        palette = palette,
+                        keyFontFamily = keyFontFamily,
+                        keyFontStyle = keyFontStyle,
+                        isFloating = isFloating,
+                        onFeedback = onFeedback,
+                        onCopySelectionToClipboard = onCopySelectionToClipboard,
+                        onRequestCtrlPaste = onRequestCtrlPaste,
+                        onShowInputMethodPicker = onShowInputMethodPicker,
+                        onKeyPopupStart = onKeyPopupStart,
+                        onKeyPopupDrag = onKeyPopupDrag,
+                        onKeyPopupRelease = onKeyPopupRelease,
+                        onClearPopup = onClearPopup
+                    )
+                }
+                KeyboardPage.NUMPAD -> {
+                    NumpadKeyboardGrid(
+                        controller = controller,
+                        settings = settings,
+                        personalEntries = personalEntries,
+                        palette = palette,
+                        keyFontFamily = keyFontFamily,
+                        keyFontStyle = keyFontStyle,
+                        isFloating = isFloating,
+                        onFeedback = onFeedback
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -521,135 +1154,158 @@ private fun TopUtilityAndSuggestionBar(
     palette: KeyboardPalette,
     settings: KeyboardSettings,
     personalEntries: List<PersonalDictionaryEntry>,
+    clipboardItems: List<ClipboardItem>,
+    dismissedClipboardId: String?,
     chipFontFamily: FontFamily,
     keyFontStyle: FontStyle,
+    isFloating: Boolean,
     onFeedback: () -> Unit,
-    onToggleSerifMiring: () -> Unit
+    onPasteRecentClipboard: (ClipboardItem) -> Unit,
+    onDismissRecentClipboard: (ClipboardItem) -> Unit,
+    onToggleFloatingMode: () -> Unit
 ) {
+    val barHeight = if (isFloating) 40.dp else 44.dp
+    val hPadding = if (isFloating) 4.dp else 6.dp
+    val btnSize = if (isFloating) 28.dp else 34.dp
+    val iconSize = if (isFloating) 15.dp else 18.dp
+    val statusMsg = controller.clipboardStatusMessage
+    val recentClipboardItem = if (settings.clipboardHistoryEnabled && !controller.isPasswordField) {
+        clipboardItems.firstOrNull()?.takeIf { item ->
+            item.id.isNotBlank() &&
+                item.preview.isNotBlank() &&
+                item.charCount <= RECENT_CLIPBOARD_SUGGESTION_MAX_CHARS &&
+                item.id != dismissedClipboardId &&
+                item.id != controller.dismissedClipboardId
+        }
+    } else {
+        null
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(barHeight)
             .background(palette.stripBg)
-            .padding(horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = hPadding),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(if (isFloating) 4.dp else 6.dp)
     ) {
-        if (controller.suggestions.isEmpty() || controller.utilityPanel != UtilityPanel.NONE) {
-            ToolbarIconRow(
-                controller = controller,
-                palette = palette,
-                serifMiringEnabled = settings.serifMiringEnabled,
-                onFeedback = onFeedback,
-                onToggleSerifMiring = onToggleSerifMiring,
-                modifier = Modifier.fillMaxWidth()
-            )
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                SuggestionChipsRow(
-                    suggestions = controller.suggestions,
-                    primaryAutoCorrect = controller.primaryAutoCorrect,
-                    palette = palette,
-                    fontFamily = chipFontFamily,
-                    fontStyle = keyFontStyle,
-                    onTap = { word ->
-                        onFeedback()
-                        controller.onSuggestionTap(word, settings, personalEntries)
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-                UtilityIconButton(
-                    icon = Icons.Default.FormatItalic,
-                    contentDesc = "Pintasan Font Serif Miring",
-                    active = settings.serifMiringEnabled,
-                    palette = palette,
-                    modifier = Modifier.testTag("ime_arial_italic_shortcut"),
-                    onClick = {
-                        onFeedback()
-                        onToggleSerifMiring()
-                    }
-                )
-                UtilityIconButton(
-                    icon = Icons.Outlined.ContentPaste,
-                    contentDesc = "Papan Klip",
-                    active = controller.utilityPanel == UtilityPanel.CLIPBOARD,
-                    palette = palette,
-                    onClick = {
-                        onFeedback()
-                        controller.toggleUtilityPanel(UtilityPanel.CLIPBOARD)
-                    }
-                )
-                UtilityIconButton(
-                    icon = Icons.Default.OpenWith,
-                    contentDesc = "Pengeditan Teks",
-                    active = controller.utilityPanel == UtilityPanel.TEXT_EDIT,
-                    palette = palette,
-                    onClick = {
-                        onFeedback()
-                        controller.toggleUtilityPanel(UtilityPanel.TEXT_EDIT)
-                    }
-                )
-                UtilityIconButton(
-                    icon = Icons.Default.Settings,
-                    contentDesc = "Buka Pengaturan KetikKu",
-                    active = false,
-                    palette = palette,
-                    onClick = {
-                        onFeedback()
-                        controller.onOpenSettings()
-                    }
-                )
+        // Left side: Suggestion area (leaves space empty when no suggestions, never shifts right toolbar)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .testTag("suggestion_strip_slot"),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            when {
+                !statusMsg.isNullOrBlank() -> {
+                    Text(
+                        text = statusMsg,
+                        color = palette.accentBg,
+                        fontSize = if (isFloating) 11.sp else 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .padding(horizontal = 6.dp)
+                            .testTag("clipboard_status_banner")
+                    )
+                }
+                controller.utilityPanel == UtilityPanel.NONE && recentClipboardItem != null -> {
+                    RecentClipboardSuggestionChip(
+                        item = recentClipboardItem,
+                        palette = palette,
+                        fontFamily = chipFontFamily,
+                        isFloating = isFloating,
+                        onPaste = {
+                            onFeedback()
+                            onPasteRecentClipboard(recentClipboardItem)
+                        },
+                        onDismiss = {
+                            onFeedback()
+                            onDismissRecentClipboard(recentClipboardItem)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                controller.utilityPanel == UtilityPanel.NONE && controller.suggestions.isNotEmpty() -> {
+                    SuggestionChipsRow(
+                        suggestions = controller.suggestions,
+                        primaryAutoCorrect = controller.primaryAutoCorrect,
+                        palette = palette,
+                        fontFamily = chipFontFamily,
+                        fontStyle = keyFontStyle,
+                        isFloating = isFloating,
+                        onTap = { word ->
+                            onFeedback()
+                            controller.onSuggestionTap(word, settings, personalEntries)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                else -> {
+                    Spacer(Modifier.fillMaxSize())
+                }
             }
         }
+
+        // Right side: Fixed-position, fixed-size utility toolbar (never shifts or wraps)
+        FixedToolbarIconRow(
+            controller = controller,
+            palette = palette,
+            floatingModeEnabled = settings.floatingModeEnabled,
+            btnSize = btnSize,
+            iconSize = iconSize,
+            onFeedback = onFeedback,
+            onToggleFloatingMode = onToggleFloatingMode,
+            modifier = Modifier
+                .wrapContentWidth()
+                .testTag("ime_fixed_toolbar")
+        )
     }
 }
 
 @Composable
-private fun ToolbarIconRow(
+private fun FixedToolbarIconRow(
     controller: KeyboardController,
     palette: KeyboardPalette,
-    serifMiringEnabled: Boolean,
+    floatingModeEnabled: Boolean,
+    btnSize: Dp,
+    iconSize: Dp,
     onFeedback: () -> Unit,
-    onToggleSerifMiring: () -> Unit,
+    onToggleFloatingMode: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.SpaceEvenly,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        UtilityIconButton(
-            icon = Icons.Default.FormatItalic,
-            contentDesc = "Pintasan Font Serif Miring",
-            active = serifMiringEnabled,
-            palette = palette,
-            modifier = Modifier.testTag("ime_arial_italic_shortcut"),
-            onClick = {
-                onFeedback()
-                onToggleSerifMiring()
-            }
-        )
         UtilityIconButton(
             icon = Icons.Outlined.ContentPaste,
             contentDesc = "Papan Klip",
             active = controller.utilityPanel == UtilityPanel.CLIPBOARD,
             palette = palette,
+            buttonSize = btnSize,
+            iconSize = iconSize,
+            modifier = Modifier.testTag("ime_clipboard_button"),
             onClick = {
                 onFeedback()
                 controller.toggleUtilityPanel(UtilityPanel.CLIPBOARD)
             }
         )
         UtilityIconButton(
-            icon = Icons.Default.OpenWith,
-            contentDesc = "Navigasi & Edit Teks",
-            active = controller.utilityPanel == UtilityPanel.TEXT_EDIT,
+            icon = Icons.Default.PictureInPictureAlt,
+            contentDesc = "Mode Keyboard Mengambang",
+            active = floatingModeEnabled,
             palette = palette,
+            buttonSize = btnSize,
+            iconSize = iconSize,
+            modifier = Modifier.testTag("ime_floating_mode_toggle"),
             onClick = {
                 onFeedback()
-                controller.toggleUtilityPanel(UtilityPanel.TEXT_EDIT)
+                onToggleFloatingMode()
             }
         )
         UtilityIconButton(
@@ -657,6 +1313,9 @@ private fun ToolbarIconRow(
             contentDesc = "Buka Pengaturan KetikKu",
             active = false,
             palette = palette,
+            buttonSize = btnSize,
+            iconSize = iconSize,
+            modifier = Modifier.testTag("ime_settings_button"),
             onClick = {
                 onFeedback()
                 controller.onOpenSettings()
@@ -671,12 +1330,14 @@ private fun UtilityIconButton(
     contentDesc: String,
     active: Boolean,
     palette: KeyboardPalette,
+    buttonSize: Dp = 34.dp,
+    iconSize: Dp = 18.dp,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Box(
         modifier = modifier
-            .size(40.dp)
+            .size(buttonSize)
             .clip(CircleShape)
             .background(if (active) palette.chipHighlightBg else Color.Transparent)
             .clickable(onClick = onClick)
@@ -687,8 +1348,72 @@ private fun UtilityIconButton(
             imageVector = icon,
             contentDescription = contentDesc,
             tint = if (active) palette.accentBg else palette.keyText.copy(alpha = 0.85f),
-            modifier = Modifier.size(19.dp)
+            modifier = Modifier.size(iconSize)
         )
+    }
+}
+
+@Composable
+private fun RecentClipboardSuggestionChip(
+    item: ClipboardItem,
+    palette: KeyboardPalette,
+    fontFamily: FontFamily,
+    isFloating: Boolean,
+    onPaste: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val chipHeight = if (isFloating) 30.dp else 32.dp
+    val shape = RoundedCornerShape(8.dp)
+    Row(
+        modifier = modifier
+            .height(chipHeight)
+            .clip(shape)
+            .background(palette.chipHighlightBg)
+            .border(1.dp, palette.accentBg.copy(alpha = 0.45f), shape),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clickable(onClick = onPaste)
+                .padding(start = if (isFloating) 6.dp else 8.dp, end = 4.dp)
+                .testTag("recent_clipboard_suggestion_chip"),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(if (isFloating) 4.dp else 6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.ContentPaste,
+                contentDescription = "Tempel teks baru disalin",
+                tint = palette.accentBg,
+                modifier = Modifier.size(if (isFloating) 13.dp else 15.dp)
+            )
+            Text(
+                text = item.preview,
+                color = palette.keyText,
+                fontSize = if (isFloating) 11.sp else 12.sp,
+                fontWeight = FontWeight.Medium,
+                fontFamily = fontFamily,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(width = if (isFloating) 26.dp else 30.dp, height = chipHeight)
+                .clickable(onClick = onDismiss)
+                .semantics { contentDescription = "Tutup saran teks disalin" }
+                .testTag("dismiss_recent_clipboard_button"),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Tutup saran teks disalin",
+                tint = palette.keyHintText,
+                modifier = Modifier.size(if (isFloating) 13.dp else 15.dp)
+            )
+        }
     }
 }
 
@@ -699,30 +1424,37 @@ private fun SuggestionChipsRow(
     palette: KeyboardPalette,
     fontFamily: FontFamily,
     fontStyle: FontStyle,
+    isFloating: Boolean,
     onTap: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier.fillMaxHeight(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (isFloating) 3.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        suggestions.take(3).forEach { word ->
+        (0 until 3).forEach { index ->
+            val word = suggestions.getOrNull(index)
+            if (word == null) {
+                Spacer(Modifier.weight(1f))
+                return@forEach
+            }
             val isHighlighted = primaryAutoCorrect != null && word == primaryAutoCorrect
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(32.dp)
+                    .height(if (isFloating) 30.dp else 32.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(if (isHighlighted) palette.chipHighlightBg else palette.chipBg)
                     .clickable { onTap(word) }
-                    .padding(horizontal = 6.dp),
+                    .padding(horizontal = if (isFloating) 4.dp else 6.dp)
+                    .testTag("suggestion_chip"),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = word,
                     color = if (isHighlighted) palette.accentBg else palette.keyText,
-                    fontSize = 13.sp,
+                    fontSize = if (isFloating) 11.sp else 13.sp,
                     fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Medium,
                     fontFamily = fontFamily,
                     fontStyle = fontStyle,
@@ -734,6 +1466,24 @@ private fun SuggestionChipsRow(
     }
 }
 
+private val QWERTY_ROW_1 = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p")
+private val QWERTY_ROW_2 = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
+private val QWERTY_ROW_3 = listOf("z", "x", "c", "v", "b", "n", "m")
+
+// Same geometry as QWERTY: 10 / 9 / (1.45 + 7 + 1.45) slots.
+private val SYMBOL_ROWS = listOf(
+    listOf("←", "→", "↑", "↓", "✓", "✗", "×", "÷", "=", "#"),
+    listOf("[", "]", "\\", "|", "<", ">", "Rp", "$", "€"),
+    listOf("😂", "😍", "👍", "🙏", "!", "?", "@")
+)
+
+private val NUMPAD_ROWS = listOf(
+    listOf("1", "2", "3", "-"),
+    listOf("4", "5", "6", ","),
+    listOf("7", "8", "9", "."),
+    listOf("ABC", "0", "⌫", "↵")
+)
+
 @Composable
 private fun QwertyKeyboardGrid(
     controller: KeyboardController,
@@ -742,7 +1492,10 @@ private fun QwertyKeyboardGrid(
     palette: KeyboardPalette,
     keyFontFamily: FontFamily,
     keyFontStyle: FontStyle,
+    isFloating: Boolean,
     onFeedback: () -> Unit,
+    onCopySelectionToClipboard: (String) -> Unit,
+    onRequestCtrlPaste: () -> Unit,
     onShowInputMethodPicker: () -> Unit,
     onKeyPopupStart: (String, LayoutCoordinates?, Offset, List<String>) -> Unit,
     onKeyPopupDrag: (Offset) -> Unit,
@@ -750,59 +1503,51 @@ private fun QwertyKeyboardGrid(
     onClearPopup: () -> Unit
 ) {
     val keyHeight = settings.heightEnum.keyHeightDp.dp
-    val row1 = remember { listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p") }
-    val row2 = remember { listOf("a", "s", "d", "f", "g", "h", "j", "k", "l") }
-    val row3 = remember { listOf("z", "x", "c", "v", "b", "n", "m") }
+    val gridPadH = if (isFloating) 3.dp else 4.dp
+    val rowGap = if (isFloating) 2.5.dp else 4.dp
+    val row2PadH = if (isFloating) 9.dp else 14.dp
+    val keyFontSize = if (isFloating) 15.sp else 18.sp
+    val hintFontSize = if (isFloating) 7.sp else 9.sp
+    val pointerTracker = rememberKeyPointersTracker()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp),
+            .keyPointersSurface(pointerTracker)
+            .padding(horizontal = gridPadH, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        // Default permanent number row (1..0)
+        // Row 1: q..p (with small digit hints 1..0 at top-right corner for long-press)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(rowGap)
         ) {
-            (1..9).map { it.toString() }.plus("0").forEach { digit ->
-                CharKey(
-                    label = digit,
-                    hint = null,
-                    height = (keyHeight.value * 0.84f).dp,
-                    palette = palette,
-                    bordered = true,
-                    fontFamily = keyFontFamily,
-                    fontStyle = keyFontStyle,
-                    onTap = {
-                        onFeedback()
-                        controller.onCharacterTap(digit, settings, personalEntries)
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        // Row 1: q..p
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            row1.forEach { ch ->
+            QWERTY_ROW_1.forEach { ch ->
                 val display = if (controller.shiftState != ShiftState.OFF) ch.uppercase() else ch
                 val alts = longPressAlternates[ch].orEmpty()
+                val hint = alts.firstOrNull()
                 CharKey(
                     label = display,
-                    hint = null,
+                    hint = hint,
                     height = keyHeight,
                     palette = palette,
                     bordered = true,
                     fontFamily = keyFontFamily,
                     fontStyle = keyFontStyle,
+                    fontSize = keyFontSize,
+                    hintFontSize = hintFontSize,
                     hasLongPress = alts.isNotEmpty(),
+                    pointerTracker = pointerTracker,
+                    slotId = "qwerty_$ch",
                     onTap = {
                         onFeedback()
-                        controller.onCharacterTap(ch, settings, personalEntries)
+                        controller.onCharacterTap(
+                            rawChar = ch,
+                            settings = settings,
+                            personalEntries = personalEntries,
+                            onCopyResult = onCopySelectionToClipboard,
+                            onPasteRequest = onRequestCtrlPaste
+                        )
                     },
                     onLongPressStart = { coords, downOffset ->
                         onKeyPopupStart(display, coords, downOffset, alts)
@@ -819,10 +1564,10 @@ private fun QwertyKeyboardGrid(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(horizontal = row2PadH),
+            horizontalArrangement = Arrangement.spacedBy(rowGap)
         ) {
-            row2.forEach { ch ->
+            QWERTY_ROW_2.forEach { ch ->
                 val display = if (controller.shiftState != ShiftState.OFF) ch.uppercase() else ch
                 val alts = longPressAlternates[ch].orEmpty()
                 val hint = alts.firstOrNull()
@@ -834,10 +1579,20 @@ private fun QwertyKeyboardGrid(
                     bordered = true,
                     fontFamily = keyFontFamily,
                     fontStyle = keyFontStyle,
+                    fontSize = keyFontSize,
+                    hintFontSize = hintFontSize,
                     hasLongPress = alts.isNotEmpty(),
+                    pointerTracker = pointerTracker,
+                    slotId = "qwerty_$ch",
                     onTap = {
                         onFeedback()
-                        controller.onCharacterTap(ch, settings, personalEntries)
+                        controller.onCharacterTap(
+                            rawChar = ch,
+                            settings = settings,
+                            personalEntries = personalEntries,
+                            onCopyResult = onCopySelectionToClipboard,
+                            onPasteRequest = onRequestCtrlPaste
+                        )
                     },
                     onLongPressStart = { coords, downOffset ->
                         onKeyPopupStart(display, coords, downOffset, alts)
@@ -850,10 +1605,10 @@ private fun QwertyKeyboardGrid(
             }
         }
 
-        // Row 3: Shift + z..m + Backspace (with swipe-left delete word)
+        // Row 3: Shift + z..m + Backspace
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(rowGap),
             verticalAlignment = Alignment.CenterVertically
         ) {
             SpecialActionKey(
@@ -862,6 +1617,8 @@ private fun QwertyKeyboardGrid(
                 bordered = true,
                 highlighted = controller.shiftState != ShiftState.OFF,
                 contentDescription = "Shift",
+                pointerTracker = pointerTracker,
+                slotId = "qwerty_shift",
                 onTap = {
                     onFeedback()
                     controller.onShiftTap()
@@ -876,11 +1633,11 @@ private fun QwertyKeyboardGrid(
                     },
                     contentDescription = "Shift",
                     tint = if (controller.shiftState != ShiftState.OFF) palette.accentBg else palette.keyText,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(if (isFloating) 18.dp else 22.dp)
                 )
             }
 
-            row3.forEach { ch ->
+            QWERTY_ROW_3.forEach { ch ->
                 val display = if (controller.shiftState != ShiftState.OFF) ch.uppercase() else ch
                 val alts = longPressAlternates[ch].orEmpty()
                 val hint = alts.firstOrNull()
@@ -892,10 +1649,20 @@ private fun QwertyKeyboardGrid(
                     bordered = true,
                     fontFamily = keyFontFamily,
                     fontStyle = keyFontStyle,
+                    fontSize = keyFontSize,
+                    hintFontSize = hintFontSize,
                     hasLongPress = alts.isNotEmpty(),
+                    pointerTracker = pointerTracker,
+                    slotId = "qwerty_$ch",
                     onTap = {
                         onFeedback()
-                        controller.onCharacterTap(ch, settings, personalEntries)
+                        controller.onCharacterTap(
+                            rawChar = ch,
+                            settings = settings,
+                            personalEntries = personalEntries,
+                            onCopyResult = onCopySelectionToClipboard,
+                            onPasteRequest = onRequestCtrlPaste
+                        )
                     },
                     onLongPressStart = { coords, downOffset ->
                         onKeyPopupStart(display, coords, downOffset, alts)
@@ -911,27 +1678,21 @@ private fun QwertyKeyboardGrid(
                 height = keyHeight,
                 palette = palette,
                 bordered = true,
-                onTap = {
-                    onFeedback()
-                    controller.onBackspaceReleaseOrTap(settings, personalEntries)
-                },
-                onSelectStep = { delta ->
-                    controller.onBackspaceSelectStep(delta)
-                },
-                onCancelSelection = {
-                    controller.cancelBackspaceSelection()
-                },
-                onReleaseDelete = {
-                    onFeedback()
-                    controller.onBackspaceReleaseOrTap(settings, personalEntries)
+                isFloating = isFloating,
+                pointerTracker = pointerTracker,
+                slotId = "qwerty_backspace",
+                onFeedback = onFeedback,
+                onDelete = {
+                    controller.onBackspaceTap(settings, personalEntries)
                 },
                 modifier = Modifier.weight(1.45f)
             )
         }
 
-        // Row 4: ?123 | , | Spacebar (trackpad + tahan untuk pilih keyboard) | . | Enter
+        // Row 4: Ω | Ctrl | Spacebar (80%, trimmed left) | , (long-press .) | Enter
         BottomNavigationRow(
-            leftModeLabel = "?123",
+            leftModeLabel = "Ω",
+            leftModeContentDesc = "Simbol",
             onLeftModeTap = {
                 onFeedback()
                 controller.setPage(KeyboardPage.SYMBOLS_1)
@@ -943,127 +1704,122 @@ private fun QwertyKeyboardGrid(
             palette = palette,
             keyFontFamily = keyFontFamily,
             keyFontStyle = keyFontStyle,
+            isFloating = isFloating,
+            pointerTracker = pointerTracker,
             onFeedback = onFeedback,
-            onShowInputMethodPicker = onShowInputMethodPicker
+            onShowInputMethodPicker = onShowInputMethodPicker,
+            onKeyPopupStart = onKeyPopupStart,
+            onKeyPopupDrag = onKeyPopupDrag,
+            onKeyPopupRelease = onKeyPopupRelease,
+            onClearPopup = onClearPopup
         )
     }
 }
 
 @Composable
 private fun SymbolsKeyboardGrid(
-    pageTwo: Boolean,
     controller: KeyboardController,
     settings: KeyboardSettings,
     personalEntries: List<PersonalDictionaryEntry>,
     palette: KeyboardPalette,
     keyFontFamily: FontFamily,
     keyFontStyle: FontStyle,
+    isFloating: Boolean,
     onFeedback: () -> Unit,
-    onShowInputMethodPicker: () -> Unit
+    onCopySelectionToClipboard: (String) -> Unit,
+    onRequestCtrlPaste: () -> Unit,
+    onShowInputMethodPicker: () -> Unit,
+    onKeyPopupStart: (String, LayoutCoordinates?, Offset, List<String>) -> Unit,
+    onKeyPopupDrag: (Offset) -> Unit,
+    onKeyPopupRelease: () -> Unit,
+    onClearPopup: () -> Unit
 ) {
     val keyHeight = settings.heightEnum.keyHeightDp.dp
-    val row1 = if (!pageTwo) listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
-    else listOf("~", "`", "|", "•", "√", "π", "÷", "×", "§", "Δ")
-    val row2 = if (!pageTwo) listOf("@", "#", "$", "_", "&", "-", "+", "(", ")", "/")
-    else listOf("£", "¢", "€", "¥", "^", "°", "=", "{", "}", "\\")
-    val row3 = if (!pageTwo) listOf("*", "\"", "'", ":", ";", "!", "?")
-    else listOf("%", "©", "®", "™", "✓", "[", "]")
+    val gridPadH = if (isFloating) 3.dp else 4.dp
+    val rowGap = if (isFloating) 2.5.dp else 4.dp
+    val baseFontSize = if (isFloating) 14.sp else 17.sp
+    val pointerTracker = rememberKeyPointersTracker()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp),
+            .keyPointersSurface(pointerTracker)
+            .padding(horizontal = gridPadH, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        listOf(row1, row2).forEach { row ->
-            Row(
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("symbols_panel")
+        ) {
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                row.forEach { sym ->
-                    CharKey(
-                        label = sym,
-                        hint = null,
-                        height = keyHeight,
-                        palette = palette,
-                        bordered = true,
-                        fontFamily = keyFontFamily,
-                        fontStyle = keyFontStyle,
-                        onTap = {
-                            onFeedback()
-                            controller.onCharacterTap(sym, settings, personalEntries)
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
+                SYMBOL_ROWS.forEachIndexed { rowIndex, rowSymbols ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().then(
+                            if (rowIndex == 1) Modifier.padding(horizontal = if (isFloating) 9.dp else 14.dp)
+                            else Modifier
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(rowGap)
+                    ) {
+                        if (rowIndex == 2) {
+                            SpecialActionKey(
+                                height = keyHeight, palette = palette, bordered = true,
+                                highlighted = false, contentDescription = "Kembali ke Huruf",
+                                pointerTracker = pointerTracker, slotId = "symbols_abc",
+                                onTap = { onFeedback(); controller.setPage(KeyboardPage.QWERTY) },
+                                modifier = Modifier.weight(1.45f)
+                            ) { Text("ABC", color = palette.keyText, fontSize = 11.sp) }
+                        }
+                        rowSymbols.forEach { sym ->
+                            val symFontSize = if (sym.length > 1) {
+                                if (isFloating) 11.sp else 13.sp
+                            } else {
+                                baseFontSize
+                            }
+                            CharKey(
+                                label = sym,
+                                hint = null,
+                                height = keyHeight,
+                                palette = palette,
+                                bordered = true,
+                                fontFamily = keyFontFamily,
+                                fontStyle = keyFontStyle,
+                                fontSize = symFontSize,
+                                pointerTracker = pointerTracker,
+                                slotId = "sym_$sym",
+                                onTap = {
+                                    onFeedback()
+                                    controller.onCharacterTap(
+                                        rawChar = sym,
+                                        settings = settings,
+                                        personalEntries = personalEntries,
+                                        onCopyResult = onCopySelectionToClipboard,
+                                        onPasteRequest = onRequestCtrlPaste
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (rowIndex == 2) {
+                            BackspaceKey(
+                                height = keyHeight, palette = palette, bordered = true,
+                                isFloating = isFloating, pointerTracker = pointerTracker,
+                                slotId = "symbols_backspace", onFeedback = onFeedback,
+                                onDelete = { controller.onBackspaceTap(settings, personalEntries) },
+                                modifier = Modifier.weight(1.45f)
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            SpecialActionKey(
-                height = keyHeight,
-                palette = palette,
-                bordered = true,
-                highlighted = pageTwo,
-                contentDescription = "Simbol Lainnya",
-                onTap = {
-                    onFeedback()
-                    controller.setPage(if (pageTwo) KeyboardPage.SYMBOLS_1 else KeyboardPage.SYMBOLS_2)
-                },
-                modifier = Modifier.weight(1.45f)
-            ) {
-                Text(
-                    text = if (pageTwo) "?123" else "=\\<",
-                    color = palette.keyText,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            row3.forEach { sym ->
-                CharKey(
-                    label = sym,
-                    hint = null,
-                    height = keyHeight,
-                    palette = palette,
-                    bordered = true,
-                    fontFamily = keyFontFamily,
-                    fontStyle = keyFontStyle,
-                    onTap = {
-                        onFeedback()
-                        controller.onCharacterTap(sym, settings, personalEntries)
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            BackspaceKey(
-                height = keyHeight,
-                palette = palette,
-                bordered = true,
-                onTap = {
-                    onFeedback()
-                    controller.onBackspaceReleaseOrTap(settings, personalEntries)
-                },
-                onSelectStep = { delta ->
-                    controller.onBackspaceSelectStep(delta)
-                },
-                onCancelSelection = {
-                    controller.cancelBackspaceSelection()
-                },
-                onReleaseDelete = {
-                    onFeedback()
-                    controller.onBackspaceReleaseOrTap(settings, personalEntries)
-                },
-                modifier = Modifier.weight(1.45f)
-            )
-        }
-
         BottomNavigationRow(
             leftModeLabel = "ABC",
+            leftModeContentDesc = "Kembali ke Huruf",
             onLeftModeTap = {
                 onFeedback()
                 controller.setPage(KeyboardPage.QWERTY)
@@ -1075,8 +1831,14 @@ private fun SymbolsKeyboardGrid(
             palette = palette,
             keyFontFamily = keyFontFamily,
             keyFontStyle = keyFontStyle,
+            isFloating = isFloating,
+            pointerTracker = pointerTracker,
             onFeedback = onFeedback,
-            onShowInputMethodPicker = onShowInputMethodPicker
+            onShowInputMethodPicker = onShowInputMethodPicker,
+            onKeyPopupStart = onKeyPopupStart,
+            onKeyPopupDrag = onKeyPopupDrag,
+            onKeyPopupRelease = onKeyPopupRelease,
+            onClearPopup = onClearPopup
         )
     }
 }
@@ -1089,25 +1851,25 @@ private fun NumpadKeyboardGrid(
     palette: KeyboardPalette,
     keyFontFamily: FontFamily,
     keyFontStyle: FontStyle,
+    isFloating: Boolean,
     onFeedback: () -> Unit
 ) {
     val keyHeight = (settings.heightEnum.keyHeightDp + 4f).dp
-    val rows = listOf(
-        listOf("1", "2", "3", "-"),
-        listOf("4", "5", "6", ","),
-        listOf("7", "8", "9", "."),
-        listOf("ABC", "0", "⌫", "↵")
-    )
+    val gridPad = if (isFloating) 4.dp else 6.dp
+    val keyFontSize = if (isFloating) 16.sp else 18.sp
+    val pointerTracker = rememberKeyPointersTracker()
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 6.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .keyPointersSurface(pointerTracker)
+            .padding(horizontal = gridPad, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(gridPad)
     ) {
-        rows.forEach { row ->
+        NUMPAD_ROWS.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(gridPad)
             ) {
                 row.forEach { cell ->
                     when (cell) {
@@ -1117,6 +1879,8 @@ private fun NumpadKeyboardGrid(
                             bordered = true,
                             highlighted = false,
                             contentDescription = "Kembali ke Huruf",
+                            pointerTracker = pointerTracker,
+                            slotId = "numpad_abc",
                             onTap = {
                                 onFeedback()
                                 controller.setPage(KeyboardPage.QWERTY)
@@ -1126,6 +1890,7 @@ private fun NumpadKeyboardGrid(
                             Text(
                                 text = "ABC",
                                 color = palette.keyText,
+                                fontSize = if (isFloating) 12.sp else 14.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 fontFamily = keyFontFamily,
                                 fontStyle = keyFontStyle
@@ -1135,19 +1900,12 @@ private fun NumpadKeyboardGrid(
                             height = keyHeight,
                             palette = palette,
                             bordered = true,
-                            onTap = {
-                                onFeedback()
-                                controller.onBackspaceReleaseOrTap(settings, personalEntries)
-                            },
-                            onSelectStep = { delta ->
-                                controller.onBackspaceSelectStep(delta)
-                            },
-                            onCancelSelection = {
-                                controller.cancelBackspaceSelection()
-                            },
-                            onReleaseDelete = {
-                                onFeedback()
-                                controller.onBackspaceReleaseOrTap(settings, personalEntries)
+                            isFloating = isFloating,
+                            pointerTracker = pointerTracker,
+                            slotId = "numpad_backspace",
+                            onFeedback = onFeedback,
+                            onDelete = {
+                                controller.onBackspaceTap(settings, personalEntries)
                             },
                             modifier = Modifier.weight(1f)
                         )
@@ -1158,6 +1916,8 @@ private fun NumpadKeyboardGrid(
                             highlighted = true,
                             useAccentFill = true,
                             contentDescription = controller.enterActionType.label,
+                            pointerTracker = pointerTracker,
+                            slotId = "numpad_enter",
                             onTap = {
                                 onFeedback()
                                 controller.onEnterTap(settings, personalEntries)
@@ -1178,6 +1938,9 @@ private fun NumpadKeyboardGrid(
                             bordered = true,
                             fontFamily = keyFontFamily,
                             fontStyle = keyFontStyle,
+                            fontSize = keyFontSize,
+                            pointerTracker = pointerTracker,
+                            slotId = "numpad_$cell",
                             onTap = {
                                 onFeedback()
                                 controller.onCharacterTap(cell, settings, personalEntries)
@@ -1194,6 +1957,7 @@ private fun NumpadKeyboardGrid(
 @Composable
 private fun BottomNavigationRow(
     leftModeLabel: String,
+    leftModeContentDesc: String,
     onLeftModeTap: () -> Unit,
     keyHeight: Dp,
     controller: KeyboardController,
@@ -1202,63 +1966,72 @@ private fun BottomNavigationRow(
     palette: KeyboardPalette,
     keyFontFamily: FontFamily,
     keyFontStyle: FontStyle,
+    isFloating: Boolean,
+    pointerTracker: KeyPointersTracker,
     onFeedback: () -> Unit,
-    onShowInputMethodPicker: () -> Unit
+    onShowInputMethodPicker: () -> Unit,
+    onKeyPopupStart: (String, LayoutCoordinates?, Offset, List<String>) -> Unit,
+    onKeyPopupDrag: (Offset) -> Unit,
+    onKeyPopupRelease: () -> Unit,
+    onClearPopup: () -> Unit
 ) {
-    val spaceLabel = if (settings.serifMiringEnabled) {
-        "KetikKu • Serif Miring"
-    } else {
-        "KetikKu"
-    }
+    val rowGap = if (isFloating) 2.5.dp else 4.dp
+    val keyFontSize = if (isFloating) 15.sp else 18.sp
+    val hintFontSize = if (isFloating) 7.sp else 9.sp
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(rowGap),
         verticalAlignment = Alignment.CenterVertically
     ) {
         SpecialActionKey(
             height = keyHeight,
             palette = palette,
             bordered = true,
-            highlighted = false,
-            contentDescription = leftModeLabel,
+            highlighted = controller.currentPage == KeyboardPage.SYMBOLS_1 ||
+                controller.currentPage == KeyboardPage.SYMBOLS_2,
+            contentDescription = leftModeContentDesc,
+            pointerTracker = pointerTracker,
+            slotId = "bottom_symbols",
             onTap = onLeftModeTap,
-            modifier = Modifier.weight(1.45f)
+            modifier = Modifier
+                .weight(1.45f)
+                .testTag("key_symbols")
         ) {
             Text(
                 text = leftModeLabel,
                 color = palette.keyText,
-                fontSize = 13.sp,
+                fontSize = if (leftModeLabel == "Ω") {
+                    if (isFloating) 15.sp else 18.sp
+                } else {
+                    if (isFloating) 11.sp else 13.sp
+                },
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = keyFontFamily,
                 fontStyle = keyFontStyle
             )
         }
 
-        CharKey(
-            label = ",",
-            hint = null,
+        // Ctrl key occupies space freed by standalone comma removal (1.0f) + 20% left trim of spacebar (0.96f)
+        CtrlKey(
+            ctrlState = controller.ctrlState,
             height = keyHeight,
             palette = palette,
-            bordered = true,
-            fontFamily = keyFontFamily,
-            fontStyle = keyFontStyle,
+            isFloating = isFloating,
+            pointerTracker = pointerTracker,
+            slotId = "bottom_ctrl",
             onTap = {
                 onFeedback()
-                controller.onCharacterTap(",", settings, personalEntries)
+                controller.onCtrlTap()
             },
-            modifier = Modifier.weight(1.0f)
+            modifier = Modifier.weight(1.96f)
         )
 
-        // Spacebar with horizontal Cursor Trackpad + long-press Input Method Picker
+        // Blank Spacebar (80% width, trimmed from left side) with trackpad & long-press IME picker
         SpacebarTrackpadKey(
             height = keyHeight,
-            label = spaceLabel,
             palette = palette,
             bordered = true,
-            serifMiringEnabled = settings.serifMiringEnabled,
-            fontFamily = keyFontFamily,
-            fontStyle = keyFontStyle,
             onTap = {
                 onFeedback()
                 controller.onSpaceTap(settings, personalEntries)
@@ -1268,23 +2041,36 @@ private fun BottomNavigationRow(
                 onShowInputMethodPicker()
             },
             onMoveCursorStep = { step ->
+                onFeedback()
                 controller.onSpacebarTrackpadStep(step)
             },
-            modifier = Modifier.weight(4.8f)
+            modifier = Modifier.weight(3.84f)
         )
 
+        // Combined comma (tap) / period (long-press) key with "." hint in top-right corner
         CharKey(
-            label = ".",
-            hint = null,
+            label = ",",
+            hint = ".",
             height = keyHeight,
             palette = palette,
             bordered = true,
             fontFamily = keyFontFamily,
             fontStyle = keyFontStyle,
+            fontSize = keyFontSize,
+            hintFontSize = hintFontSize,
+            hasLongPress = true,
+            pointerTracker = pointerTracker,
+            slotId = "bottom_comma",
             onTap = {
                 onFeedback()
-                controller.onCharacterTap(".", settings, personalEntries)
+                controller.onCharacterTap(",", settings, personalEntries)
             },
+            onLongPressStart = { coords, downOffset ->
+                onKeyPopupStart(",", coords, downOffset, listOf("."))
+            },
+            onLongPressDrag = onKeyPopupDrag,
+            onLongPressRelease = onKeyPopupRelease,
+            onLongPressCancel = onClearPopup,
             modifier = Modifier.weight(1.0f)
         )
 
@@ -1295,27 +2081,153 @@ private fun BottomNavigationRow(
             highlighted = true,
             useAccentFill = true,
             contentDescription = controller.enterActionType.label,
+            pointerTracker = pointerTracker,
+            slotId = "bottom_enter",
             onTap = {
                 onFeedback()
                 controller.onEnterTap(settings, personalEntries)
             },
-            modifier = Modifier.weight(1.6f)
+            modifier = Modifier
+                .weight(1.6f)
+                .testTag("key_enter")
         ) {
             if (controller.enterActionType == EnterActionType.ENTER) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
                     contentDescription = "Enter",
                     tint = palette.accentContent,
-                    modifier = Modifier.size(21.dp)
+                    modifier = Modifier.size(if (isFloating) 18.dp else 21.dp)
                 )
             } else {
                 Text(
                     text = controller.enterActionType.label,
                     color = palette.accentContent,
-                    fontSize = 12.sp,
+                    fontSize = if (isFloating) 10.sp else 12.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CtrlKey(
+    ctrlState: CtrlState,
+    height: Dp,
+    palette: KeyboardPalette,
+    isFloating: Boolean,
+    onTap: () -> Unit,
+    modifier: Modifier = Modifier,
+    pointerTracker: KeyPointersTracker? = null,
+    slotId: String = "ctrl"
+) {
+    val shape = remember { RoundedCornerShape(8.dp) }
+    val density = LocalDensity.current
+    val cornerRadiusPx = with(density) { 8.dp.toPx() }
+    val currentPalette by rememberUpdatedState(palette)
+    val currentCtrlState by rememberUpdatedState(ctrlState)
+    val currentOnTap by rememberUpdatedState(onTap)
+    val slot = rememberRegisteredKeySlot(
+        tracker = pointerTracker,
+        slotId = slotId,
+        onTap = onTap
+    )
+    val bgColor = when (ctrlState) {
+        CtrlState.OFF -> palette.specialKeyBg
+        CtrlState.ARMED -> palette.chipHighlightBg
+        CtrlState.LOCKED -> palette.accentBg
+    }
+    val borderColor = when (ctrlState) {
+        CtrlState.OFF -> palette.borderColor
+        CtrlState.ARMED -> palette.accentBg
+        CtrlState.LOCKED -> palette.accentBg
+    }
+    val borderWidth = if (ctrlState == CtrlState.OFF) 0.75.dp else 1.5.dp
+    val contentColor = when (ctrlState) {
+        CtrlState.OFF -> palette.keyText
+        CtrlState.ARMED -> palette.accentBg
+        CtrlState.LOCKED -> palette.accentContent
+    }
+    val statusDesc = when (ctrlState) {
+        CtrlState.OFF -> "Ctrl nonaktif"
+        CtrlState.ARMED -> "Ctrl aktif"
+        CtrlState.LOCKED -> "Ctrl terkunci"
+    }
+
+    Box(
+        modifier = modifier
+            .height(height)
+            .clip(shape)
+            .drawBehind {
+                val isPressed = (pointerTracker?.pressedCounts?.get(slotId) ?: 0) > 0
+                val fill = when {
+                    isPressed && currentCtrlState == CtrlState.OFF -> currentPalette.keyPressedBg
+                    isPressed && currentCtrlState == CtrlState.LOCKED -> currentPalette.accentBg.copy(alpha = 0.82f)
+                    else -> when (currentCtrlState) {
+                        CtrlState.OFF -> currentPalette.specialKeyBg
+                        CtrlState.ARMED -> currentPalette.chipHighlightBg
+                        CtrlState.LOCKED -> currentPalette.accentBg
+                    }
+                }
+                drawRoundRect(
+                    color = fill,
+                    cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
+                )
+            }
+            .border(borderWidth, borderColor, shape)
+            .onGloballyPositioned { coords ->
+                slot?.coords = coords
+            }
+            .then(
+                if (pointerTracker == null) {
+                    Modifier.clickable(onClick = onTap)
+                } else {
+                    Modifier
+                }
+            )
+            .semantics(mergeDescendants = true) {
+                contentDescription = statusDesc
+                onClick {
+                    currentOnTap()
+                    true
+                }
+            }
+            .testTag("key_ctrl"),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = "Ctrl",
+                color = contentColor,
+                fontSize = if (isFloating) 11.sp else 13.sp,
+                fontWeight = if (ctrlState == CtrlState.OFF) FontWeight.SemiBold else FontWeight.Bold,
+                maxLines = 1
+            )
+            when (ctrlState) {
+                CtrlState.ARMED -> {
+                    Box(
+                        modifier = Modifier
+                            .size(5.dp)
+                            .clip(CircleShape)
+                            .background(palette.accentBg)
+                            .testTag("ctrl_armed_indicator")
+                    )
+                }
+                CtrlState.LOCKED -> {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Ctrl terkunci",
+                        tint = palette.accentContent,
+                        modifier = Modifier
+                            .size(if (isFloating) 10.dp else 12.dp)
+                            .testTag("ctrl_locked_indicator")
+                    )
+                }
+                CtrlState.OFF -> Unit
             }
         }
     }
@@ -1330,96 +2242,73 @@ private fun CharKey(
     bordered: Boolean,
     fontFamily: FontFamily = PlusJakartaSansFamily,
     fontStyle: FontStyle = FontStyle.Normal,
+    fontSize: TextUnit = 18.sp,
+    hintFontSize: TextUnit = 9.sp,
     hasLongPress: Boolean = false,
     onTap: () -> Unit,
     onLongPressStart: (LayoutCoordinates?, Offset) -> Unit = { _, _ -> },
     onLongPressDrag: (Offset) -> Unit = {},
     onLongPressRelease: () -> Unit = {},
     onLongPressCancel: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    pointerTracker: KeyPointersTracker? = null,
+    slotId: String = "char_$label"
 ) {
-    var pressed by remember { mutableStateOf(false) }
-    var keyCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    val currentHasLongPress by rememberUpdatedState(hasLongPress)
+    val pressedState = remember { mutableStateOf(false) }
+    val keyCoordsRef = remember { CoordsRef() }
+    val currentPalette by rememberUpdatedState(palette)
     val currentOnTap by rememberUpdatedState(onTap)
-    val currentOnLongPressStart by rememberUpdatedState(onLongPressStart)
-    val currentOnLongPressDrag by rememberUpdatedState(onLongPressDrag)
-    val currentOnLongPressRelease by rememberUpdatedState(onLongPressRelease)
-    val currentOnLongPressCancel by rememberUpdatedState(onLongPressCancel)
+    val slot = rememberRegisteredKeySlot(
+        tracker = pointerTracker,
+        slotId = slotId,
+        onTap = onTap,
+        hasLongPress = hasLongPress,
+        isTapReorderFlushable = true,
+        onLongPressStart = onLongPressStart,
+        onLongPressDrag = onLongPressDrag,
+        onLongPressRelease = onLongPressRelease,
+        onLongPressCancel = onLongPressCancel
+    )
 
-    val shape = RoundedCornerShape(8.dp)
+    val density = LocalDensity.current
+    val shape = remember { RoundedCornerShape(8.dp) }
+    val cornerRadiusPx = with(density) { 8.dp.toPx() }
+
     Box(
         modifier = modifier
             .height(height)
             .clip(shape)
-            .background(if (pressed) palette.keyPressedBg else palette.keyBg)
+            .drawBehind {
+                // Draw-phase read prevents full-key recomposition on every press/release
+                val isPressed = if (pointerTracker != null) {
+                    (pointerTracker.pressedCounts[slotId] ?: 0) > 0
+                } else {
+                    pressedState.value
+                }
+                drawRoundRect(
+                    color = if (isPressed) currentPalette.keyPressedBg else currentPalette.keyBg,
+                    cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
+                )
+            }
             .then(if (bordered) Modifier.border(0.75.dp, palette.borderColor, shape) else Modifier)
-            .onGloballyPositioned { keyCoords = it }
-            .pointerInput(label) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    pressed = true
-                    val longPressTimeout = viewConfiguration.longPressTimeoutMillis
-                    val touchSlop = viewConfiguration.touchSlop
-                    var movedBeforeLongPress = false
-
-                    val earlyOutcome = withTimeoutOrNull(longPressTimeout) {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: continue
-                            if (!change.pressed) {
-                                return@withTimeoutOrNull if (!movedBeforeLongPress) "TAP" else "CANCEL"
-                            }
-                            if ((change.position - down.position).getDistance() > touchSlop) {
-                                movedBeforeLongPress = true
-                                return@withTimeoutOrNull "MOVED"
-                            }
-                        }
-                        "CANCEL"
-                    }
-
-                    if (earlyOutcome == "TAP") {
-                        pressed = false
-                        currentOnTap()
-                        return@awaitEachGesture
-                    }
-                    if (earlyOutcome == "MOVED" || earlyOutcome == "CANCEL") {
-                        pressed = false
-                        return@awaitEachGesture
-                    }
-
-                    // Long-press threshold reached without dragging away
-                    if (!currentHasLongPress) {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            if (!change.pressed) break
-                        }
-                        pressed = false
-                        return@awaitEachGesture
-                    }
-
-                    var completed = false
-                    currentOnLongPressStart(keyCoords, down.position)
-                    try {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            if (!change.pressed) {
-                                change.consume()
-                                completed = true
-                                currentOnLongPressRelease()
-                                break
-                            }
-                            change.consume()
-                            currentOnLongPressDrag(change.position)
-                        }
-                    } finally {
-                        pressed = false
-                        if (!completed) {
-                            currentOnLongPressCancel()
-                        }
-                    }
+            .onGloballyPositioned { coords ->
+                if (slot != null) {
+                    slot.coords = coords
+                } else {
+                    keyCoordsRef.coords = coords
+                }
+            }
+            .then(
+                if (pointerTracker == null) {
+                    Modifier.clickable(onClick = onTap)
+                } else {
+                    Modifier
+                }
+            )
+            .semantics(mergeDescendants = true) {
+                onClick {
+                    currentOnTap()
+                    true
                 }
             }
             .testTag("key_$label"),
@@ -1429,7 +2318,7 @@ private fun CharKey(
             Text(
                 text = hint,
                 color = palette.keyHintText,
-                fontSize = 9.sp,
+                fontSize = hintFontSize,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 2.dp, end = 4.dp)
@@ -1438,10 +2327,12 @@ private fun CharKey(
         Text(
             text = label,
             color = palette.keyText,
-            fontSize = 18.sp,
+            fontSize = fontSize,
             fontWeight = FontWeight.Medium,
             fontFamily = fontFamily,
-            fontStyle = fontStyle
+            fontStyle = fontStyle,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
@@ -1456,22 +2347,63 @@ private fun SpecialActionKey(
     contentDescription: String,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
+    pointerTracker: KeyPointersTracker? = null,
+    slotId: String = "action_$contentDescription",
     content: @Composable () -> Unit
 ) {
-    val shape = RoundedCornerShape(8.dp)
-    val bg = when {
-        useAccentFill -> palette.accentBg
-        highlighted -> palette.chipHighlightBg
-        else -> palette.specialKeyBg
-    }
+    val pressedState = remember { mutableStateOf(false) }
+    val currentOnTap by rememberUpdatedState(onTap)
+    val currentPalette by rememberUpdatedState(palette)
+    val currentHighlighted by rememberUpdatedState(highlighted)
+    val currentAccentFill by rememberUpdatedState(useAccentFill)
+    val slot = rememberRegisteredKeySlot(
+        tracker = pointerTracker,
+        slotId = slotId,
+        onTap = onTap
+    )
+    val density = LocalDensity.current
+    val cornerRadiusPx = with(density) { 8.dp.toPx() }
+    val shape = remember { RoundedCornerShape(8.dp) }
+
     Box(
         modifier = modifier
             .height(height)
             .clip(shape)
-            .background(bg)
+            .drawBehind {
+                val isPressed = if (pointerTracker != null) {
+                    (pointerTracker.pressedCounts[slotId] ?: 0) > 0
+                } else {
+                    pressedState.value
+                }
+                val bg = when {
+                    currentAccentFill -> if (isPressed) currentPalette.accentBg.copy(alpha = 0.82f) else currentPalette.accentBg
+                    isPressed -> currentPalette.keyPressedBg
+                    currentHighlighted -> currentPalette.chipHighlightBg
+                    else -> currentPalette.specialKeyBg
+                }
+                drawRoundRect(
+                    color = bg,
+                    cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
+                )
+            }
             .then(if (bordered && !useAccentFill) Modifier.border(0.75.dp, palette.borderColor, shape) else Modifier)
-            .clickable(onClick = onTap)
-            .semantics { this.contentDescription = contentDescription },
+            .onGloballyPositioned { coords ->
+                slot?.coords = coords
+            }
+            .then(
+                if (pointerTracker == null) {
+                    Modifier.clickable(onClick = onTap)
+                } else {
+                    Modifier
+                }
+            )
+            .semantics(mergeDescendants = true) {
+                this.contentDescription = contentDescription
+                onClick {
+                    currentOnTap()
+                    true
+                }
+            },
         contentAlignment = Alignment.Center
     ) {
         content()
@@ -1483,84 +2415,128 @@ private fun BackspaceKey(
     height: Dp,
     palette: KeyboardPalette,
     bordered: Boolean,
-    onTap: () -> Unit,
-    onSelectStep: (Int) -> Unit,
-    onCancelSelection: () -> Unit,
-    onReleaseDelete: () -> Unit,
-    modifier: Modifier = Modifier
+    isFloating: Boolean = false,
+    onFeedback: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    pointerTracker: KeyPointersTracker? = null,
+    slotId: String = "backspace"
 ) {
-    var isSelecting by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(8.dp)
+    val pressedState = remember { mutableStateOf(false) }
+    val currentPalette by rememberUpdatedState(palette)
+    val currentOnFeedback by rememberUpdatedState(onFeedback)
+    val currentOnDelete by rememberUpdatedState(onDelete)
+    val slot = rememberRegisteredKeySlot(
+        tracker = pointerTracker,
+        slotId = slotId,
+        onTap = onDelete,
+        isBackspaceRepeat = true,
+        onFeedback = onFeedback
+    )
+
+    val density = LocalDensity.current
+    val cancelMoveRadiusPx = with(density) { 40.dp.toPx() }
+    val cornerRadiusPx = with(density) { 8.dp.toPx() }
+    val shape = remember { RoundedCornerShape(8.dp) }
+
     Box(
         modifier = modifier
             .height(height)
             .clip(shape)
-            .background(if (isSelecting) palette.accentBg.copy(alpha = 0.28f) else palette.specialKeyBg)
-            .then(if (bordered) Modifier.border(0.75.dp, if (isSelecting) palette.accentBg else palette.borderColor, shape) else Modifier)
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    isSelecting = false
-                    var dragged = false
-                    var lastDragX = down.position.x
+            .drawBehind {
+                val isPressed = if (pointerTracker != null) {
+                    (pointerTracker.pressedCounts[slotId] ?: 0) > 0
+                } else {
+                    pressedState.value
+                }
+                drawRoundRect(
+                    color = if (isPressed) currentPalette.keyPressedBg else currentPalette.specialKeyBg,
+                    cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
+                )
+            }
+            .then(if (bordered) Modifier.border(0.75.dp, palette.borderColor, shape) else Modifier)
+            .onGloballyPositioned { coords ->
+                slot?.coords = coords
+            }
+            .then(
+                if (pointerTracker == null) {
+                    Modifier.pointerInput(cancelMoveRadiusPx) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            pressedState.value = true
+                            val initialDelayMs = 380L
+                            val repeatIntervalMs = 60L
 
-                    try {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            if (!change.pressed) {
-                                change.consume()
-                                if (isSelecting) {
-                                    onReleaseDelete()
-                                } else if (!dragged) {
-                                    onTap()
+                            try {
+                                val firstOutcome = withTimeoutOrNull(initialDelayMs) {
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val change = event.changes.firstOrNull { it.id == down.id } ?: continue
+                                        if (!change.pressed) {
+                                            change.consume()
+                                            return@withTimeoutOrNull "TAP"
+                                        }
+                                        if ((change.position - down.position).getDistance() > cancelMoveRadiusPx) {
+                                            return@withTimeoutOrNull "CANCEL"
+                                        }
+                                    }
+                                    "CANCEL"
                                 }
-                                break
-                            }
-                            val totalDeltaX = change.position.x - down.position.x
-                            val totalDeltaY = change.position.y - down.position.y
-                            val stepDelta = change.position.x - lastDragX
 
-                            if (abs(totalDeltaX) > 8f || abs(totalDeltaY) > 8f) {
-                                dragged = true
-                            }
+                                if (firstOutcome == "TAP") {
+                                    currentOnFeedback()
+                                    currentOnDelete()
+                                    return@awaitEachGesture
+                                }
+                                if (firstOutcome == "CANCEL") {
+                                    return@awaitEachGesture
+                                }
 
-                            // Geser kiri: untuk memilih / hapus perkata setelah marking
-                            if (totalDeltaX < -18f) {
-                                if (!isSelecting) {
-                                    isSelecting = true
+                                while (true) {
+                                    currentOnFeedback()
+                                    currentOnDelete()
+
+                                    val repeatOutcome = withTimeoutOrNull(repeatIntervalMs) {
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            val change = event.changes.firstOrNull { it.id == down.id } ?: continue
+                                            if (!change.pressed) {
+                                                change.consume()
+                                                return@withTimeoutOrNull "STOP"
+                                            }
+                                            if ((change.position - down.position).getDistance() > cancelMoveRadiusPx) {
+                                                return@withTimeoutOrNull "STOP"
+                                            }
+                                        }
+                                        "STOP"
+                                    }
+                                    if (repeatOutcome == "STOP") break
                                 }
-                                if (abs(stepDelta) >= 14f) {
-                                    onSelectStep(-1)
-                                    lastDragX = change.position.x
-                                }
-                                change.consume()
-                            } 
-                            // Geser miring ke kanan / geser kanan: untuk batal
-                            else if ((totalDeltaX > 18f || (totalDeltaX > 10f && totalDeltaY < -10f)) && isSelecting) {
-                                isSelecting = false
-                                onCancelSelection()
-                                lastDragX = change.position.x
-                                change.consume()
+                            } finally {
+                                pressedState.value = false
                             }
                         }
-                    } finally {
-                        if (isSelecting) {
-                            onReleaseDelete()
-                        }
-                        isSelecting = false
                     }
+                } else {
+                    Modifier
+                }
+            )
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Hapus"
+                onClick {
+                    currentOnFeedback()
+                    currentOnDelete()
+                    true
                 }
             }
-            .semantics { contentDescription = "Hapus" }
             .testTag("key_backspace"),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.Backspace,
             contentDescription = "Hapus",
-            tint = if (isSelecting) palette.accentBg else palette.keyText,
-            modifier = Modifier.size(20.dp)
+            tint = palette.keyText,
+            modifier = Modifier.size(if (isFloating) 17.dp else 20.dp)
         )
     }
 }
@@ -1568,71 +2544,122 @@ private fun BackspaceKey(
 @Composable
 private fun SpacebarTrackpadKey(
     height: Dp,
-    label: String,
     palette: KeyboardPalette,
     bordered: Boolean,
-    serifMiringEnabled: Boolean = false,
-    fontFamily: FontFamily = InterFamily,
-    fontStyle: FontStyle = FontStyle.Normal,
     onTap: () -> Unit,
     onLongPress: () -> Unit = {},
     onMoveCursorStep: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var dragAccum by remember { mutableFloatStateOf(0f) }
-    val shape = RoundedCornerShape(8.dp)
+    val pressedState = remember { mutableStateOf(false) }
+    val currentPalette by rememberUpdatedState(palette)
+    val currentOnTap by rememberUpdatedState(onTap)
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
+    val currentOnMoveCursorStep by rememberUpdatedState(onMoveCursorStep)
+    val density = LocalDensity.current
+    val dragStartSlopPx = with(density) { 12.dp.toPx() }
+    val stepPx = with(density) { 10.dp.toPx() }
+    val cornerRadiusPx = with(density) { 8.dp.toPx() }
+    val shape = remember { RoundedCornerShape(8.dp) }
+
     Box(
         modifier = modifier
             .height(height)
             .clip(shape)
-            .background(palette.keyBg)
-            .then(
-                if (serifMiringEnabled) {
-                    Modifier.border(1.dp, palette.accentBg.copy(alpha = 0.65f), shape)
-                } else if (bordered) {
-                    Modifier.border(0.75.dp, palette.borderColor, shape)
-                } else {
-                    Modifier
-                }
-            )
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = { onTap() },
-                    onLongPress = { onLongPress() }
+            .drawBehind {
+                drawRoundRect(
+                    color = if (pressedState.value) currentPalette.keyPressedBg else currentPalette.keyBg,
+                    cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
                 )
             }
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragStart = { dragAccum = 0f },
-                    onHorizontalDrag = { _, dragAmount ->
-                        dragAccum += dragAmount
-                        val stepPx = 22f
-                        if (dragAccum >= stepPx) {
-                            val steps = (dragAccum / stepPx).toInt()
-                            dragAccum -= steps * stepPx
-                            onMoveCursorStep(steps)
-                        } else if (dragAccum <= -stepPx) {
-                            val steps = (dragAccum / stepPx).toInt()
-                            dragAccum -= steps * stepPx
-                            onMoveCursorStep(steps)
+            .then(if (bordered) Modifier.border(0.75.dp, palette.borderColor, shape) else Modifier)
+            .pointerInput(stepPx) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    pressedState.value = true
+                    var draggingTrackpad = false
+                    var dragAccum = 0f
+                    var lastX = down.position.x
+                    val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+
+                    try {
+                        val beforeLongPress = withTimeoutOrNull(longPressTimeout) {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull "ENDED"
+                                if (!change.pressed) {
+                                    change.consume()
+                                    if (!draggingTrackpad) {
+                                        currentOnTap()
+                                    }
+                                    return@withTimeoutOrNull "ENDED"
+                                }
+                                val curX = change.position.x
+                                if (!draggingTrackpad && abs(curX - down.position.x) > dragStartSlopPx) {
+                                    draggingTrackpad = true
+                                    return@withTimeoutOrNull "DRAG"
+                                }
+                                lastX = curX
+                            }
+                            "ENDED"
                         }
+
+                        if (beforeLongPress == "ENDED") {
+                            return@awaitEachGesture
+                        }
+
+                        if (beforeLongPress == null && !draggingTrackpad) {
+                            currentOnLongPress()
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) break
+                            }
+                            return@awaitEachGesture
+                        }
+
+                        // Horizontal trackpad sliding
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) {
+                                change.consume()
+                                break
+                            }
+                            val deltaX = change.position.x - lastX
+                            lastX = change.position.x
+                            dragAccum += deltaX
+                            if (dragAccum >= stepPx) {
+                                val steps = (dragAccum / stepPx).toInt()
+                                dragAccum -= steps * stepPx
+                                currentOnMoveCursorStep(steps)
+                            } else if (dragAccum <= -stepPx) {
+                                val steps = (dragAccum / stepPx).toInt()
+                                dragAccum -= steps * stepPx
+                                currentOnMoveCursorStep(steps)
+                            }
+                            change.consume()
+                        }
+                    } finally {
+                        pressedState.value = false
                     }
-                )
+                }
             }
-            .semantics { contentDescription = "Spasi" }
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Spasi"
+                onClick {
+                    currentOnTap()
+                    true
+                }
+                onLongClick {
+                    currentOnLongPress()
+                    true
+                }
+            }
             .testTag("key_spacebar"),
         contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = label,
-            color = if (serifMiringEnabled) palette.accentBg else palette.keyHintText,
-            fontSize = 11.sp,
-            fontFamily = fontFamily,
-            fontStyle = fontStyle,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
+    ) {}
 }
 
 @Composable
@@ -1640,9 +2667,11 @@ private fun ClipboardPanel(
     palette: KeyboardPalette,
     items: List<ClipboardItem>,
     enabled: Boolean,
+    statusMessage: String?,
     height: Dp,
-    onPaste: (String) -> Unit,
-    onClearAll: () -> Unit
+    onPasteItem: (ClipboardItem) -> Unit,
+    onClearAll: () -> Unit,
+    onClose: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -1655,24 +2684,56 @@ private fun ClipboardPanel(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Papan Klip",
-                color = palette.keyText,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp
-            )
-            if (items.isNotEmpty()) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Bersihkan semua",
-                    color = palette.accentBg,
-                    fontSize = 12.sp,
+                    text = "Papan Klip",
+                    color = palette.keyText,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(onClick = onClearAll)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                        .testTag("clipboard_clear_all")
+                    fontSize = 14.sp
                 )
+                if (!statusMessage.isNullOrBlank()) {
+                    Text(
+                        text = statusMessage,
+                        color = palette.accentBg,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (items.isNotEmpty()) {
+                    Text(
+                        text = "Bersihkan semua",
+                        color = palette.accentBg,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onClearAll)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .testTag("clipboard_clear_all")
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(palette.chipBg)
+                        .clickable(onClick = onClose)
+                        .semantics { contentDescription = "Tutup Papan Klip" },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Tutup",
+                        tint = palette.keyText,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
         Spacer(Modifier.height(6.dp))
@@ -1702,188 +2763,36 @@ private fun ClipboardPanel(
                     .testTag("clipboard_grid")
             ) {
                 items(items, key = { it.id }) { item ->
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 54.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(palette.keyBg)
                             .border(0.75.dp, palette.borderColor, RoundedCornerShape(10.dp))
-                            .clickable { onPaste(item.text) }
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.CenterStart
+                            .clickable { onPasteItem(item) }
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                            .testTag("clipboard_item_${item.id}"),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Text(
-                            text = item.text,
+                            text = item.preview,
                             color = palette.keyText,
                             fontSize = 13.sp,
-                            maxLines = 3,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
+                        if (item.charCount > 200) {
+                            Text(
+                                text = "${item.charCount} karakter",
+                                color = palette.keyHintText,
+                                fontSize = 10.sp,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun TextEditingPanel(
-    palette: KeyboardPalette,
-    controller: KeyboardController,
-    clipboardItems: List<ClipboardItem>,
-    height: Dp,
-    onFeedback: () -> Unit,
-    onCopy: () -> Unit,
-    onCut: () -> Unit,
-    onPaste: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(height)
-            .padding(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Directional pad
-        Column(
-            modifier = Modifier.weight(1.3f).fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Row(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                EditPadButton("Awal", palette, Modifier.weight(1f)) {
-                    onFeedback(); controller.onMoveEdge(toStart = true)
-                }
-                EditPadIconButton(Icons.Default.KeyboardArrowUp, "Atas", palette, Modifier.weight(1f)) {
-                    onFeedback(); controller.onArrowMove(0, -1)
-                }
-                EditPadButton("Akhir", palette, Modifier.weight(1f)) {
-                    onFeedback(); controller.onMoveEdge(toStart = false)
-                }
-            }
-            Row(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                EditPadIconButton(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Kiri", palette, Modifier.weight(1f)) {
-                    onFeedback(); controller.onArrowMove(-1, 0)
-                }
-                EditPadButton(
-                    label = if (controller.isSelectionMode) "Pilih ✓" else "Pilih",
-                    palette = palette,
-                    modifier = Modifier.weight(1f),
-                    active = controller.isSelectionMode
-                ) {
-                    onFeedback(); controller.toggleSelectionMode()
-                }
-                EditPadIconButton(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Kanan", palette, Modifier.weight(1f)) {
-                    onFeedback(); controller.onArrowMove(1, 0)
-                }
-            }
-            Row(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                EditPadIconButton(Icons.Default.SelectAll, "Pilih Semua", palette, Modifier.weight(1f)) {
-                    onFeedback(); controller.onSelectAll()
-                }
-                EditPadIconButton(Icons.Default.KeyboardArrowDown, "Bawah", palette, Modifier.weight(1f)) {
-                    onFeedback(); controller.onArrowMove(0, 1)
-                }
-                Spacer(Modifier.weight(1f))
-            }
-        }
-
-        // Clipboard Actions column
-        Column(
-            modifier = Modifier.weight(0.9f).fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            EditActionRow(Icons.Default.ContentCopy, "Salin", palette, Modifier.weight(1f)) {
-                onFeedback(); onCopy()
-            }
-            EditActionRow(Icons.Default.ContentCut, "Potong", palette, Modifier.weight(1f)) {
-                onFeedback(); onCut()
-            }
-            EditActionRow(
-                Icons.Default.ContentPaste,
-                if (clipboardItems.isNotEmpty()) "Tempel" else "Tempel",
-                palette,
-                Modifier.weight(1f)
-            ) {
-                onFeedback(); onPaste()
-            }
-        }
-    }
-}
-
-@Composable
-private fun EditPadButton(
-    label: String,
-    palette: KeyboardPalette,
-    modifier: Modifier = Modifier,
-    active: Boolean = false,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = modifier
-            .fillMaxHeight()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (active) palette.chipHighlightBg else palette.keyBg)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = label,
-            color = if (active) palette.accentBg else palette.keyText,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-
-@Composable
-private fun EditPadIconButton(
-    icon: ImageVector,
-    contentDesc: String,
-    palette: KeyboardPalette,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = modifier
-            .fillMaxHeight()
-            .clip(RoundedCornerShape(10.dp))
-            .background(palette.keyBg)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(imageVector = icon, contentDescription = contentDesc, tint = palette.keyText)
-    }
-}
-
-@Composable
-private fun EditActionRow(
-    icon: ImageVector,
-    label: String,
-    palette: KeyboardPalette,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(palette.specialKeyBg)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(imageVector = icon, contentDescription = label, tint = palette.accentBg, modifier = Modifier.size(18.dp))
-        Text(text = label, color = palette.keyText, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
