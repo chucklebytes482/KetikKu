@@ -204,7 +204,7 @@ class KeyboardController(
     }
 
     private fun formatOutput(text: String, settings: KeyboardSettings): String =
-        if (settings.arialItalicEnabled && !isPasswordField) {
+        if (settings.serifMiringEnabled && !isPasswordField) {
             FontStyleConverter.toArialItalic(text)
         } else {
             text
@@ -283,7 +283,8 @@ class KeyboardController(
     ) {
         val before = target.getTextBeforeCursor(64)
         if (before.isEmpty()) return
-        val deleteCount = FontStyleConverter.lastWordDeleteCharCount(before)
+        val pair = FontStyleConverter.extractCurrentWordRawAndPlain(before)
+        val deleteCount = if (pair.first > 0) pair.first else 1
         target.deleteBeforeCursor(deleteCount)
         refreshState(settings, personalEntries)
     }
@@ -342,7 +343,7 @@ class KeyboardController(
         refreshState(settings, personalEntries)
     }
 
-    fun convertSelectionToArialItalic(enableItalic: Boolean) {
+    fun convertSelectionToSerifMiring(enableItalic: Boolean) {
         val selected = target.getSelectedText()
         if (selected.isEmpty() || isPasswordField) return
         val converted = if (enableItalic) {
@@ -353,6 +354,10 @@ class KeyboardController(
         if (converted != selected) {
             target.commitText(converted)
         }
+    }
+
+    fun convertSelectionToArialItalic(enableItalic: Boolean) {
+        convertSelectionToSerifMiring(enableItalic)
     }
 
     fun onOpenSettings() {
@@ -375,7 +380,6 @@ class KeyboardController(
         val result = DictionaryEngine.getSuggestions(
             currentWord = currentWord,
             previousWord = previousWord,
-            language = settings.languageEnum,
             personalEntries = personalEntries
         )
         suggestions = result.suggestions

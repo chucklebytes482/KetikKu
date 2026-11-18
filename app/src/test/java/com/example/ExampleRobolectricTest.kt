@@ -108,7 +108,7 @@ class ExampleRobolectricTest {
                     applySystemBarInsets = true,
                     onPasteClipboard = {},
                     onCopySelectionToClipboard = {},
-                    onToggleArialItalic = {}
+                    onToggleSerifMiring = {}
                 )
             }
         }
@@ -177,7 +177,7 @@ class ExampleRobolectricTest {
                     clipboardItems = emptyList(),
                     onPasteClipboard = {},
                     onCopySelectionToClipboard = {},
-                    onToggleArialItalic = {}
+                    onToggleSerifMiring = {}
                 )
             }
         }
@@ -223,9 +223,9 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun keyboardView_arialItalicShortcutTogglesAndCommitsItalicText() {
+    fun keyboardView_serifMiringShortcutTogglesAndCommitsItalicText() {
         var value = TextFieldValue("")
-        var settings = KeyboardSettings(arialItalicEnabled = false)
+        var settings = KeyboardSettings(serifMiringEnabled = false)
         var toggleCount = 0
         val controller = KeyboardController(
             TextFieldImeTarget(
@@ -238,14 +238,14 @@ class ExampleRobolectricTest {
             KetikKuTheme {
                 KetikKuKeyboardView(
                     controller = controller,
-                    settings = settings.copy(arialItalicEnabled = true),
+                    settings = settings.copy(serifMiringEnabled = true),
                     personalEntries = emptyList(),
                     clipboardItems = emptyList(),
                     onPasteClipboard = {},
                     onCopySelectionToClipboard = {},
-                    onToggleArialItalic = {
+                    onToggleSerifMiring = {
                         toggleCount++
-                        settings = settings.copy(arialItalicEnabled = !settings.arialItalicEnabled)
+                        settings = settings.copy(serifMiringEnabled = !settings.serifMiringEnabled)
                     }
                 )
             }
@@ -257,7 +257,7 @@ class ExampleRobolectricTest {
         assertEquals(1, toggleCount)
 
         assertTrue(
-            composeRule.onAllNodesWithText("Bahasa Indonesia • Arial Italic")
+            composeRule.onAllNodesWithText("KetikKu • Serif Miring")
                 .fetchSemanticsNodes().isNotEmpty()
         )
         composeRule.onNodeWithTag("key_q").performClick()
@@ -285,7 +285,7 @@ class ExampleRobolectricTest {
                     clipboardItems = emptyList(),
                     onPasteClipboard = {},
                     onCopySelectionToClipboard = {},
-                    onToggleArialItalic = {},
+                    onToggleSerifMiring = {},
                     onShowInputMethodPicker = { pickerShownCount++ }
                 )
             }
@@ -323,7 +323,7 @@ class ExampleRobolectricTest {
                     onPasteClipboard = { text -> controller.pasteText(text, KeyboardSettings(), emptyList()) },
                     onCopySelectionToClipboard = {},
                     onClearAllClipboard = { clearedAllCount++ },
-                    onToggleArialItalic = {}
+                    onToggleSerifMiring = {}
                 )
             }
         }
@@ -429,7 +429,8 @@ class ExampleRobolectricTest {
             "Tema Keyboard",
             "Mode Satu Tangan",
             "Tombol Ganti Bahasa",
-            "Font Arial Italic",
+            "Font Serif Miring",
+            "Bahasa Utama",
             "Pengetikan Cerdas",
             "Koreksi Otomatis",
             "Bilah Saran Kata",
@@ -451,7 +452,6 @@ class ExampleRobolectricTest {
         }
 
         composeRule.onNodeWithTag("open_dictionary_menu_button").assertIsDisplayed()
-        assertTrue(composeRule.onAllNodesWithText("Bahasa Utama").fetchSemanticsNodes().isNotEmpty())
         assertTrue(composeRule.onAllNodesWithText("Tinggi Keyboard").fetchSemanticsNodes().isNotEmpty())
 
         composeRule.onNode(hasScrollAction()).performScrollToIndex(3)

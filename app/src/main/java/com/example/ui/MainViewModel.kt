@@ -96,8 +96,8 @@ class MainViewModel(
         }
     }
 
-    fun toggleArialItalic() {
-        updateSettings { it.copy(arialItalicEnabled = !it.arialItalicEnabled) }
+    fun toggleSerifMiring() {
+        updateSettings { it.copy(serifMiringEnabled = !it.serifMiringEnabled) }
     }
 
     fun upsertDictionaryEntry(word: String, shortcut: String, language: String, existingId: String? = null) {

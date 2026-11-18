@@ -8,7 +8,6 @@ import com.example.data.SettingsRepository
 import com.example.ime.KeyboardController
 import com.example.ime.ShiftState
 import com.example.ime.TextFieldImeTarget
-import com.example.model.KeyboardLanguage
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import org.junit.Assert.assertEquals
@@ -20,32 +19,29 @@ import org.junit.Test
 class KeyboardEngineUnitTest {
 
     @Test
-    fun dictionaryEngine_suggestsPersonalShortcutWithoutTypoAutoCorrect() {
+    fun dictionaryEngine_suggestsPersonalShortcut() {
         val entries = listOf(
             PersonalDictionaryEntry(
                 id = "1",
                 word = "Hormat kami, Budi",
                 shortcut = "ttd",
-                language = KeyboardLanguage.INDONESIAN.code,
                 updatedAtMillis = 100L
             )
         )
         val shortcutResult = DictionaryEngine.getSuggestions(
             currentWord = "ttd",
             previousWord = "",
-            language = KeyboardLanguage.INDONESIAN,
             personalEntries = entries
         )
         assertEquals("Hormat kami, Budi", shortcutResult.primaryAutoCorrect)
 
-        val typoResult = DictionaryEngine.getSuggestions(
+        val unknownResult = DictionaryEngine.getSuggestions(
             currentWord = "tidk",
             previousWord = "saya",
-            language = KeyboardLanguage.INDONESIAN,
             personalEntries = entries
         )
-        assertNull(typoResult.primaryAutoCorrect)
-        assertTrue("Expected 'tidak' in suggestions: ${typoResult.suggestions}", typoResult.suggestions.contains("tidak"))
+        assertNull(unknownResult.primaryAutoCorrect)
+        assertTrue(unknownResult.suggestions.contains("tidk"))
     }
 
     @Test
@@ -109,14 +105,13 @@ class KeyboardEngineUnitTest {
 
         var tf = TextFieldValue("")
         val settings = KeyboardSettings(
-            arialItalicEnabled = true
+            serifMiringEnabled = true
         )
         val entries = listOf(
             PersonalDictionaryEntry(
                 id = "1",
                 word = "Hormat kami",
                 shortcut = "ttd",
-                language = KeyboardLanguage.INDONESIAN.code,
                 updatedAtMillis = 100L
             )
         )
@@ -140,9 +135,9 @@ class KeyboardEngineUnitTest {
         controller.onBackspaceTap(settings, entries)
         assertEquals(FontStyleConverter.toArialItalic("Hormat kam"), tf.text)
 
-        // Selection toggle helper converts between plain and Arial Italic
+        // Selection toggle helper converts between plain and Serif Miring
         tf = TextFieldValue("Salam", selection = TextRange(0, 5))
-        controller.convertSelectionToArialItalic(enableItalic = true)
+        controller.convertSelectionToSerifMiring(enableItalic = true)
         assertEquals(FontStyleConverter.toArialItalic("Salam"), tf.text)
     }
 }

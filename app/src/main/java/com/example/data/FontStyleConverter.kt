@@ -2,10 +2,10 @@ package com.example.data
 
 object FontStyleConverter {
 
-    private const val SANS_SERIF_ITALIC_UPPER_START = 0x1D608 // '𝘈'
-    private const val SANS_SERIF_ITALIC_LOWER_START = 0x1D622 // '𝘢'
+    private const val SERIF_ITALIC_UPPER_START = 0x1D434 // '𝐴'
+    private const val SERIF_ITALIC_LOWER_START = 0x1D44E // '𝑎'
 
-    fun toArialItalic(input: String): String {
+    fun toSerifItalic(input: String): String {
         if (input.isEmpty()) return input
         val sb = StringBuilder(input.length * 2)
         var i = 0
@@ -14,10 +14,10 @@ object FontStyleConverter {
             val charCount = Character.charCount(cp)
             when (cp) {
                 in 'A'.code..'Z'.code -> {
-                    sb.appendCodePoint(SANS_SERIF_ITALIC_UPPER_START + (cp - 'A'.code))
+                    sb.appendCodePoint(SERIF_ITALIC_UPPER_START + (cp - 'A'.code))
                 }
                 in 'a'.code..'z'.code -> {
-                    sb.appendCodePoint(SANS_SERIF_ITALIC_LOWER_START + (cp - 'a'.code))
+                    sb.appendCodePoint(SERIF_ITALIC_LOWER_START + (cp - 'a'.code))
                 }
                 else -> sb.appendCodePoint(cp)
             }
@@ -26,7 +26,9 @@ object FontStyleConverter {
         return sb.toString()
     }
 
-    fun fromArialItalic(input: String): String {
+    fun toArialItalic(input: String): String = toSerifItalic(input)
+
+    fun fromSerifItalic(input: String): String {
         if (input.isEmpty()) return input
         val sb = StringBuilder(input.length)
         var i = 0
@@ -38,26 +40,32 @@ object FontStyleConverter {
         return sb.toString()
     }
 
+    fun fromArialItalic(input: String): String = fromSerifItalic(input)
+
     fun decodeCodePoint(cp: Int): Int = when (cp) {
-        in SANS_SERIF_ITALIC_UPPER_START..(SANS_SERIF_ITALIC_UPPER_START + 25) ->
-            'A'.code + (cp - SANS_SERIF_ITALIC_UPPER_START)
-        in SANS_SERIF_ITALIC_LOWER_START..(SANS_SERIF_ITALIC_LOWER_START + 25) ->
-            'a'.code + (cp - SANS_SERIF_ITALIC_LOWER_START)
+        in SERIF_ITALIC_UPPER_START..(SERIF_ITALIC_UPPER_START + 25) ->
+            'A'.code + (cp - SERIF_ITALIC_UPPER_START)
+        in SERIF_ITALIC_LOWER_START..(SERIF_ITALIC_LOWER_START + 25) ->
+            'a'.code + (cp - SERIF_ITALIC_LOWER_START)
         else -> cp
     }
 
-    fun isArialItalicCodePoint(cp: Int): Boolean =
-        cp in SANS_SERIF_ITALIC_UPPER_START..(SANS_SERIF_ITALIC_LOWER_START + 25)
+    fun isSerifItalicCodePoint(cp: Int): Boolean =
+        cp in SERIF_ITALIC_UPPER_START..(SERIF_ITALIC_LOWER_START + 25)
 
-    fun containsArialItalic(input: String): Boolean {
+    fun isArialItalicCodePoint(cp: Int): Boolean = isSerifItalicCodePoint(cp)
+
+    fun containsSerifItalic(input: String): Boolean {
         var i = 0
         while (i < input.length) {
             val cp = input.codePointAt(i)
-            if (isArialItalicCodePoint(cp)) return true
+            if (isSerifItalicCodePoint(cp)) return true
             i += Character.charCount(cp)
         }
         return false
     }
+
+    fun containsArialItalic(input: String): Boolean = containsSerifItalic(input)
 
     fun lastCodePointCharCount(textBeforeCursor: String): Int {
         if (textBeforeCursor.isEmpty()) return 1
@@ -65,11 +73,6 @@ object FontStyleConverter {
         return Character.charCount(cp)
     }
 
-    /**
-     * Extracts the word immediately before the cursor, returning:
-     * first = UTF-16 character length in [before] (for replaceWordBeforeCursor),
-     * second = plain ASCII-normalized word (for dictionary matching).
-     */
     fun extractCurrentWordRawAndPlain(before: String): Pair<Int, String> {
         if (before.isEmpty()) return 0 to ""
         var i = before.length
@@ -99,53 +102,12 @@ object FontStyleConverter {
         while (i > 0) {
             val cp = Character.codePointBefore(before, i)
             val count = Character.charCount(cp)
-            if (Character.isWhitespace(cp)) {
-                i -= count
-            } else {
-                break
-            }
-        }
-        val reversedPlain = mutableListOf<Int>()
-        while (i > 0) {
-            val cp = Character.codePointBefore(before, i)
-            val count = Character.charCount(cp)
             val plainCp = decodeCodePoint(cp)
-            if (Character.isLetter(plainCp)) {
-                reversedPlain.add(plainCp)
-                i -= count
-            } else {
-                break
+            if (Character.isLetter(plainCp) || plainCp == '\''.code) {
+                return decodeCodePoint(cp).toChar().toString()
             }
+            i -= count
         }
-        if (reversedPlain.isEmpty()) return ""
-        val sb = StringBuilder(reversedPlain.size)
-        for (idx in reversedPlain.size - 1 downTo 0) {
-            sb.appendCodePoint(reversedPlain[idx])
-        }
-        return sb.toString()
-    }
-
-    fun lastWordDeleteCharCount(before: String): Int {
-        if (before.isEmpty()) return 0
-        var i = before.length
-        while (i > 0) {
-            val cp = Character.codePointBefore(before, i)
-            val count = Character.charCount(cp)
-            if (Character.isWhitespace(cp)) {
-                i -= count
-            } else {
-                break
-            }
-        }
-        while (i > 0) {
-            val cp = Character.codePointBefore(before, i)
-            val count = Character.charCount(cp)
-            if (!Character.isWhitespace(cp)) {
-                i -= count
-            } else {
-                break
-            }
-        }
-        return (before.length - i).coerceAtLeast(1)
+        return ""
     }
 }
