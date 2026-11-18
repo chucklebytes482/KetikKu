@@ -1,4 +1,4 @@
-Signer #1 certificate DN: CN=KetikKu Release, OU=Android, O=KetikKu, L=Jakarta, ST=Jakarta, C=ID
-Signer #1 certificate SHA-256 digest: a3348e39a101bc8032c4d6b9a01947d929eadc41dbc9e73cf7986c7dba02feac
-Signer #1 certificate SHA-1 digest: 90d49054d3737b84e39375ef59a227c870c7642b
-Signer #1 certificate MD5 digest: 4ce80257a30581ac3e1132fcff54c0bf
+Signer #1 certificate DN: CN=Ketikku, OU=Mobile, O=Ketikku, L=Jakarta, ST=DKI, C=ID
+Signer #1 certificate SHA-256 digest: 7fa97cb286e3363e6b2a9c8ba8812e75fda6a69b173e9b024dc0a285de060992
+Signer #1 certificate SHA-1 digest: 96c59514fdf7c93bc38cd9581a80c1574a2adb3b
+Signer #1 certificate MD5 digest: 539ee0e00bd17a4cfb6f140a4cc09978
