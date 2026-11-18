@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.util.Log
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
@@ -26,6 +27,12 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+
+tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
 
 object AuthHelper {
     private const val TAG = "Auth"
@@ -87,7 +94,7 @@ object AuthHelper {
             onAuthError("Konfigurasi Google Sign-In tidak ditemukan: default_web_client_id tidak tersedia.")
             return
         }
-        val activity = context as? Activity
+        val activity = context.findActivity()
         if (activity == null) {
             onAuthError("Context Activity diperlukan untuk masuk dengan Google.")
             return
