@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -132,7 +133,7 @@ fun PlaygroundScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Ketuk ikon (I) untuk Arial Italic • Tahan spasi untuk pilih keyboard",
+                                text = "Ketuk ikon (I) untuk Serif Miring • Tahan spasi untuk pilih keyboard",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -175,8 +176,8 @@ fun PlaygroundScreen(
                         onValueChange = { viewModel.updatePlaygroundText(it) },
                         readOnly = true,
                         textStyle = LocalTextStyle.current.copy(
-                            fontFamily = if (settings.arialItalicEnabled) ArialFamily else InterFamily,
-                            fontStyle = if (settings.arialItalicEnabled) FontStyle.Italic else FontStyle.Normal
+                            fontFamily = if (settings.serifMiringEnabled) FontFamily.Serif else InterFamily,
+                            fontStyle = if (settings.serifMiringEnabled) FontStyle.Italic else FontStyle.Normal
                         ),
                         placeholder = {
                             Text(
@@ -216,7 +217,7 @@ fun PlaygroundScreen(
                 viewModel.addClipboardText(selected)
             },
             onClearAllClipboard = { viewModel.clearAllClipboard() },
-            onToggleArialItalic = { viewModel.toggleArialItalic() },
+            onToggleSerifMiring = { viewModel.toggleSerifMiring() },
             onShowInputMethodPicker = {
                 val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
                 imm?.showInputMethodPicker()

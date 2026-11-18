@@ -203,7 +203,6 @@ fun DictionaryScreen(
     if (showAddDialog || editingEntry != null) {
         DictionaryEntryDialog(
             initialEntry = editingEntry,
-            defaultLanguage = settings.language,
             onDismiss = {
                 showAddDialog = false
                 editingEntry = null
@@ -290,13 +289,12 @@ private fun DictionaryItemCard(
 @Composable
 private fun DictionaryEntryDialog(
     initialEntry: PersonalDictionaryEntry?,
-    defaultLanguage: String,
     onDismiss: () -> Unit,
     onSave: (String, String, String) -> Unit
 ) {
     var word by remember(initialEntry) { mutableStateOf(initialEntry?.word.orEmpty()) }
     var shortcut by remember(initialEntry) { mutableStateOf(initialEntry?.shortcut.orEmpty()) }
-    val language = initialEntry?.language ?: defaultLanguage
+    val language = initialEntry?.language ?: "id-ID"
 
     AlertDialog(
         onDismissRequest = onDismiss,

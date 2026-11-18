@@ -53,7 +53,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.model.KeyboardHeightPreset
-import com.example.model.KeyboardLanguage
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.ui.ImeActivationStatus
@@ -164,29 +163,9 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 1: Tata Letak & Bahasa
+            // Section 1: Tata Letak Keyboard
             item {
-                SettingsSectionCard(title = "Tata Letak & Bahasa") {
-                    Text(
-                        text = "Bahasa Utama",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        KeyboardLanguage.entries.forEach { lang ->
-                            FilterChip(
-                                selected = settings.languageEnum == lang,
-                                onClick = { viewModel.updateSettings { it.copy(language = lang.code) } },
-                                label = { Text(lang.displayName) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = MaterialTheme.colorScheme.primary
-                                )
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
+                SettingsSectionCard(title = "Tata Letak Keyboard") {
                     Text(
                         text = "Tinggi Keyboard",
                         style = MaterialTheme.typography.titleMedium,

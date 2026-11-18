@@ -32,17 +32,16 @@ enum class KeyboardHeightPreset(val label: String, val keyHeightDp: Float) {
 
 @JsonClass(generateAdapter = true)
 data class KeyboardSettings(
-    val language: String = KeyboardLanguage.INDONESIAN.code,
     val heightPreset: String = KeyboardHeightPreset.NORMAL.name,
     val hapticEnabled: Boolean = true,
     val clipboardHistoryEnabled: Boolean = true,
     val arialItalicEnabled: Boolean = false,
+    val serifMiringEnabled: Boolean = false,
     val autoSyncDriveEnabled: Boolean = true,
     val driveFolderName: String = "KetikKu",
     val driveShortcutFolderId: String = "",
     val updatedAtMillis: Long = 0L
 ) {
-    val languageEnum: KeyboardLanguage get() = KeyboardLanguage.fromCode(language)
     val heightEnum: KeyboardHeightPreset get() = KeyboardHeightPreset.fromName(heightPreset)
 }
 

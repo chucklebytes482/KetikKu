@@ -181,16 +181,17 @@ fun KetikKuKeyboardView(
     onPasteClipboard: (String) -> Unit,
     onCopySelectionToClipboard: (String) -> Unit,
     onClearAllClipboard: () -> Unit = {},
-    onToggleArialItalic: () -> Unit,
+    onToggleSerifMiring: () -> Unit = {},
+    onToggleArialItalic: () -> Unit = {},
     onShowInputMethodPicker: () -> Unit = {},
     applySystemBarInsets: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
     val palette = remember(isDark) { defaultKeyboardPalette(isDark) }
-    val keyFontFamily = if (settings.arialItalicEnabled) ArialFamily else PlusJakartaSansFamily
-    val chipFontFamily = if (settings.arialItalicEnabled) ArialFamily else InterFamily
-    val keyFontStyle = if (settings.arialItalicEnabled) FontStyle.Italic else FontStyle.Normal
+    val keyFontFamily = if (settings.serifMiringEnabled) FontFamily.Serif else PlusJakartaSansFamily
+    val chipFontFamily = if (settings.serifMiringEnabled) FontFamily.Serif else InterFamily
+    val keyFontStyle = if (settings.serifMiringEnabled) FontStyle.Italic else FontStyle.Normal
     val view = LocalView.current
 
     fun feedback() {
@@ -199,8 +200,9 @@ fun KetikKuKeyboardView(
         }
     }
 
-    val handleToggleArialItalic: () -> Unit = {
-        controller.convertSelectionToArialItalic(!settings.arialItalicEnabled)
+    val handleToggleSerifMiring: () -> Unit = {
+        controller.convertSelectionToSerifMiring(!settings.serifMiringEnabled)
+        onToggleSerifMiring()
         onToggleArialItalic()
     }
 
@@ -291,7 +293,7 @@ fun KetikKuKeyboardView(
                     chipFontFamily = chipFontFamily,
                     keyFontStyle = keyFontStyle,
                     onFeedback = ::feedback,
-                    onToggleArialItalic = handleToggleArialItalic
+                    onToggleSerifMiring = handleToggleSerifMiring
                 )
 
                 when (controller.utilityPanel) {
@@ -522,7 +524,7 @@ private fun TopUtilityAndSuggestionBar(
     chipFontFamily: FontFamily,
     keyFontStyle: FontStyle,
     onFeedback: () -> Unit,
-    onToggleArialItalic: () -> Unit
+    onToggleSerifMiring: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -536,9 +538,9 @@ private fun TopUtilityAndSuggestionBar(
             ToolbarIconRow(
                 controller = controller,
                 palette = palette,
-                arialItalicEnabled = settings.arialItalicEnabled,
+                serifMiringEnabled = settings.serifMiringEnabled,
                 onFeedback = onFeedback,
-                onToggleArialItalic = onToggleArialItalic,
+                onToggleSerifMiring = onToggleSerifMiring,
                 modifier = Modifier.fillMaxWidth()
             )
         } else {
@@ -561,13 +563,13 @@ private fun TopUtilityAndSuggestionBar(
                 )
                 UtilityIconButton(
                     icon = Icons.Default.FormatItalic,
-                    contentDesc = "Pintasan Font Arial Italic",
-                    active = settings.arialItalicEnabled,
+                    contentDesc = "Pintasan Font Serif Miring",
+                    active = settings.serifMiringEnabled,
                     palette = palette,
                     modifier = Modifier.testTag("ime_arial_italic_shortcut"),
                     onClick = {
                         onFeedback()
-                        onToggleArialItalic()
+                        onToggleSerifMiring()
                     }
                 )
                 UtilityIconButton(
@@ -590,6 +592,16 @@ private fun TopUtilityAndSuggestionBar(
                         controller.toggleUtilityPanel(UtilityPanel.TEXT_EDIT)
                     }
                 )
+                UtilityIconButton(
+                    icon = Icons.Default.Settings,
+                    contentDesc = "Buka Pengaturan KetikKu",
+                    active = false,
+                    palette = palette,
+                    onClick = {
+                        onFeedback()
+                        controller.onOpenSettings()
+                    }
+                )
             }
         }
     }
@@ -599,9 +611,9 @@ private fun TopUtilityAndSuggestionBar(
 private fun ToolbarIconRow(
     controller: KeyboardController,
     palette: KeyboardPalette,
-    arialItalicEnabled: Boolean,
+    serifMiringEnabled: Boolean,
     onFeedback: () -> Unit,
-    onToggleArialItalic: () -> Unit,
+    onToggleSerifMiring: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -611,13 +623,13 @@ private fun ToolbarIconRow(
     ) {
         UtilityIconButton(
             icon = Icons.Default.FormatItalic,
-            contentDesc = "Pintasan Font Arial Italic",
-            active = arialItalicEnabled,
+            contentDesc = "Pintasan Font Serif Miring",
+            active = serifMiringEnabled,
             palette = palette,
             modifier = Modifier.testTag("ime_arial_italic_shortcut"),
             onClick = {
                 onFeedback()
-                onToggleArialItalic()
+                onToggleSerifMiring()
             }
         )
         UtilityIconButton(
@@ -1193,10 +1205,10 @@ private fun BottomNavigationRow(
     onFeedback: () -> Unit,
     onShowInputMethodPicker: () -> Unit
 ) {
-    val spaceLabel = if (settings.arialItalicEnabled) {
-        "${settings.languageEnum.displayName} • Arial Italic"
+    val spaceLabel = if (settings.serifMiringEnabled) {
+        "KetikKu • Serif Miring"
     } else {
-        settings.languageEnum.displayName
+        "KetikKu"
     }
 
     Row(
@@ -1244,7 +1256,7 @@ private fun BottomNavigationRow(
             label = spaceLabel,
             palette = palette,
             bordered = true,
-            arialItalicEnabled = settings.arialItalicEnabled,
+            serifMiringEnabled = settings.serifMiringEnabled,
             fontFamily = keyFontFamily,
             fontStyle = keyFontStyle,
             onTap = {
@@ -1506,12 +1518,14 @@ private fun BackspaceKey(
                                 break
                             }
                             val totalDeltaX = change.position.x - down.position.x
+                            val totalDeltaY = change.position.y - down.position.y
                             val stepDelta = change.position.x - lastDragX
 
-                            if (abs(totalDeltaX) > 8f) {
+                            if (abs(totalDeltaX) > 8f || abs(totalDeltaY) > 8f) {
                                 dragged = true
                             }
 
+                            // Geser kiri: untuk memilih / hapus perkata setelah marking
                             if (totalDeltaX < -18f) {
                                 if (!isSelecting) {
                                     isSelecting = true
@@ -1521,7 +1535,9 @@ private fun BackspaceKey(
                                     lastDragX = change.position.x
                                 }
                                 change.consume()
-                            } else if (totalDeltaX > 18f && isSelecting) {
+                            } 
+                            // Geser miring ke kanan / geser kanan: untuk batal
+                            else if ((totalDeltaX > 18f || (totalDeltaX > 10f && totalDeltaY < -10f)) && isSelecting) {
                                 isSelecting = false
                                 onCancelSelection()
                                 lastDragX = change.position.x
@@ -1555,7 +1571,7 @@ private fun SpacebarTrackpadKey(
     label: String,
     palette: KeyboardPalette,
     bordered: Boolean,
-    arialItalicEnabled: Boolean = false,
+    serifMiringEnabled: Boolean = false,
     fontFamily: FontFamily = InterFamily,
     fontStyle: FontStyle = FontStyle.Normal,
     onTap: () -> Unit,
@@ -1571,7 +1587,7 @@ private fun SpacebarTrackpadKey(
             .clip(shape)
             .background(palette.keyBg)
             .then(
-                if (arialItalicEnabled) {
+                if (serifMiringEnabled) {
                     Modifier.border(1.dp, palette.accentBg.copy(alpha = 0.65f), shape)
                 } else if (bordered) {
                     Modifier.border(0.75.dp, palette.borderColor, shape)
@@ -1609,7 +1625,7 @@ private fun SpacebarTrackpadKey(
     ) {
         Text(
             text = label,
-            color = if (arialItalicEnabled) palette.accentBg else palette.keyHintText,
+            color = if (serifMiringEnabled) palette.accentBg else palette.keyHintText,
             fontSize = 11.sp,
             fontFamily = fontFamily,
             fontStyle = fontStyle,

@@ -45,11 +45,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     private val dictListAdapter = moshi.adapter<List<PersonalDictionaryEntry>>(dictListType)
 
     private object Keys {
-        val LANGUAGE = stringPreferencesKey("language")
         val HEIGHT_PRESET = stringPreferencesKey("height_preset")
         val HAPTIC_ENABLED = booleanPreferencesKey("haptic_enabled")
         val CLIPBOARD_HISTORY = booleanPreferencesKey("clipboard_history")
-        val ARIAL_ITALIC_ENABLED = booleanPreferencesKey("arial_italic_enabled")
+        val SERIF_MIRING_ENABLED = booleanPreferencesKey("serif_miring_enabled")
         val AUTO_SYNC_DRIVE = booleanPreferencesKey("auto_sync_drive")
         val DRIVE_FOLDER_NAME = stringPreferencesKey("drive_folder_name")
         val DRIVE_SHORTCUT_FOLDER_ID = stringPreferencesKey("drive_shortcut_folder_id")
@@ -68,11 +67,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     val settingsFlow: Flow<KeyboardSettings> = dataStore.data.map { prefs ->
         KeyboardSettings(
-            language = prefs[Keys.LANGUAGE] ?: KeyboardLanguage.INDONESIAN.code,
             heightPreset = prefs[Keys.HEIGHT_PRESET] ?: KeyboardHeightPreset.NORMAL.name,
             hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: true,
             clipboardHistoryEnabled = prefs[Keys.CLIPBOARD_HISTORY] ?: true,
-            arialItalicEnabled = prefs[Keys.ARIAL_ITALIC_ENABLED] ?: false,
+            serifMiringEnabled = prefs[Keys.SERIF_MIRING_ENABLED] ?: false,
             autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: true,
             driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
             driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
@@ -116,11 +114,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         var result = getCurrentSettings()
         dataStore.edit { prefs ->
             val current = KeyboardSettings(
-                language = prefs[Keys.LANGUAGE] ?: KeyboardLanguage.INDONESIAN.code,
                 heightPreset = prefs[Keys.HEIGHT_PRESET] ?: KeyboardHeightPreset.NORMAL.name,
                 hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: true,
                 clipboardHistoryEnabled = prefs[Keys.CLIPBOARD_HISTORY] ?: true,
-                arialItalicEnabled = prefs[Keys.ARIAL_ITALIC_ENABLED] ?: false,
+                serifMiringEnabled = prefs[Keys.SERIF_MIRING_ENABLED] ?: false,
                 autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: true,
                 driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
                 driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
@@ -333,11 +330,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         prefs: androidx.datastore.preferences.core.MutablePreferences,
         s: KeyboardSettings
     ) {
-        prefs[Keys.LANGUAGE] = s.language
         prefs[Keys.HEIGHT_PRESET] = s.heightPreset
         prefs[Keys.HAPTIC_ENABLED] = s.hapticEnabled
         prefs[Keys.CLIPBOARD_HISTORY] = s.clipboardHistoryEnabled
-        prefs[Keys.ARIAL_ITALIC_ENABLED] = s.arialItalicEnabled
+        prefs[Keys.SERIF_MIRING_ENABLED] = s.serifMiringEnabled
         prefs[Keys.AUTO_SYNC_DRIVE] = s.autoSyncDriveEnabled
         prefs[Keys.DRIVE_FOLDER_NAME] = s.driveFolderName.ifBlank { "KetikKu" }
         prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] = s.driveShortcutFolderId

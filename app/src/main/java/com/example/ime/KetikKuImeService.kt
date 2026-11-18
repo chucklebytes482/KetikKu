@@ -135,9 +135,9 @@ class KetikKuImeService : InputMethodService() {
                     onClearAllClipboard = {
                         serviceScope.launch { settingsRepository.clearAllClipboard() }
                     },
-                    onToggleArialItalic = {
+                    onToggleSerifMiring = {
                         serviceScope.launch {
-                            settingsRepository.updateSettings { it.copy(arialItalicEnabled = !it.arialItalicEnabled) }
+                            settingsRepository.updateSettings { it.copy(serifMiringEnabled = !it.serifMiringEnabled) }
                         }
                     },
                     onShowInputMethodPicker = {
@@ -206,10 +206,10 @@ class KetikKuImeService : InputMethodService() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_I && event?.isCtrlPressed == true && event.repeatCount == 0) {
-            val enableItalic = !latestSettings.arialItalicEnabled
-            controller.convertSelectionToArialItalic(enableItalic)
+            val enableItalic = !latestSettings.serifMiringEnabled
+            controller.convertSelectionToSerifMiring(enableItalic)
             serviceScope.launch {
-                settingsRepository.updateSettings { it.copy(arialItalicEnabled = enableItalic) }
+                settingsRepository.updateSettings { it.copy(serifMiringEnabled = enableItalic) }
             }
             return true
         }

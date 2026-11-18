@@ -43,8 +43,8 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = true
-      isShrinkResources = true
+      isMinifyEnabled = false
+      isShrinkResources = false
       ndk {
         abiFilters += "arm64-v8a"
       }
