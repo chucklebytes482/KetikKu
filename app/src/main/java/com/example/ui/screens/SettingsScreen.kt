@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.background
@@ -30,6 +31,7 @@ import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -37,15 +39,20 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -66,7 +73,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
@@ -74,6 +80,9 @@ import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.theme.AmberPending
 import com.example.ui.theme.MintSynced
+import kotlinx.coroutines.delay
+
+internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/KetikKu/"
 
 @Composable
 fun SettingsScreen(
@@ -109,99 +118,11 @@ fun SettingsScreen(
             modifier = Modifier
                 .widthIn(max = 640.dp)
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .testTag("settings_list"),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // IME Activation Status Card
-            item {
-                ImeStatusCard(
-                    imeStatus = imeStatus,
-                    onEnableInSettings = {
-                        val intent = Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        context.startActivity(intent)
-                    },
-                    onSelectIme = {
-                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                        imm?.showInputMethodPicker()
-                        viewModel.refreshImeStatus(context)
-                    }
-                )
-            }
-
-            item {
-                CompositionLocalProvider(
-                    LocalTextSelectionColors provides TextSelectionColors(
-                        handleColor = MaterialTheme.colorScheme.primary,
-                        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-                    )
-                ) {
-                    OutlinedTextField(
-                        value = testInput,
-                        onValueChange = { testInput = it },
-                        label = { Text("Coba ketik di sini") },
-                        placeholder = { Text("Ketik, tekan lama, lalu pilih teks") },
-                        minLines = 3,
-                        maxLines = 6,
-                        modifier = Modifier.fillMaxWidth().testTag("settings_typing_field")
-                    )
-                }
-            }
-
-            // Menu Kamus Pribadi
-            item {
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
-                        .clip(RoundedCornerShape(18.dp))
-                        .clickable(onClick = onOpenDictionary)
-                        .testTag("open_dictionary_menu_button")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Book,
-                                contentDescription = "Kamus Pribadi",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Kamus Pribadi",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "$activeWordCount kata • $activeShortcutCount pintasan",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Buka Kamus Pribadi",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            // Menu Auto-Sinkronisasi Kamus Google Drive (ModalBottomSheet)
+            // 1. Paling atas: Auto-Sinkronisasi Google Drive (ModalBottomSheet)
             item {
                 val driveSubtitle = if (!connectedUserEmail.isNullOrBlank()) {
                     "$connectedUserEmail • ${syncLocalState.lastSyncMessage}"
@@ -260,7 +181,175 @@ fun SettingsScreen(
                 }
             }
 
-            // Instruksi AI (klik untuk salin) untuk mengedit ketikku_dictionary.json
+            // 2. Nomor 2: Website & Panduan Resmi (GitHub Pages)
+            item {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(18.dp))
+                        .clickable {
+                            runCatching {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(KETIKKU_WEBSITE_URL)).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            }
+                        }
+                        .testTag("open_website_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Public,
+                                contentDescription = "Website Panduan KetikKu",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Website & Panduan KetikKu",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Cara pakai, pintasan Ctrl & variasi prompt AI",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = "Buka Website KetikKu",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // 3. Status Aktivasi Keyboard
+            item {
+                ImeStatusCard(
+                    imeStatus = imeStatus,
+                    onEnableInSettings = {
+                        val intent = Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    },
+                    onSelectIme = {
+                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                        imm?.showInputMethodPicker()
+                        viewModel.refreshImeStatus(context)
+                    }
+                )
+            }
+
+            // 4. Kolom Uji Ketik
+            item {
+                CompositionLocalProvider(
+                    LocalTextSelectionColors provides TextSelectionColors(
+                        handleColor = MaterialTheme.colorScheme.primary,
+                        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                    )
+                ) {
+                    OutlinedTextField(
+                        value = testInput,
+                        onValueChange = { testInput = it },
+                        label = { Text("Coba ketik di sini") },
+                        placeholder = { Text("Ketik, tekan lama, lalu pilih teks") },
+                        minLines = 3,
+                        maxLines = 6,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("settings_typing_field")
+                    )
+                }
+            }
+
+            // 5. Menu Kamus Pribadi (File Manager)
+            item {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
+                        .clip(RoundedCornerShape(18.dp))
+                        .clickable(onClick = onOpenDictionary)
+                        .testTag("open_dictionary_menu_button")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Book,
+                                contentDescription = "Kamus Pribadi",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Kamus Pribadi",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "$activeWordCount kata • $activeShortcutCount pintasan",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Buka Kamus Pribadi",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            // 6. Personalisasi Keyboard (Tukar titik/koma & Tukar Panel Simbol 1/2)
+            item {
+                PersonalizationCard(
+                    swapPeriodCommaEnabled = settings.swapPeriodCommaEnabled,
+                    swapSymbolPanelsEnabled = settings.swapSymbolPanelsEnabled,
+                    onToggleSwapPeriodComma = { enabled ->
+                        viewModel.updateSettings { it.copy(swapPeriodCommaEnabled = enabled) }
+                    },
+                    onToggleSwapSymbolPanels = { enabled ->
+                        viewModel.updateSettings { it.copy(swapSymbolPanelsEnabled = enabled) }
+                    }
+                )
+            }
+
+            // 7. Instruksi AI (klik untuk salin) untuk mengedit ketikku_dictionary.json
             item {
                 AiDictionaryPromptCard(
                     onCopyPrompt = {
@@ -273,6 +362,136 @@ fun SettingsScreen(
             }
 
             item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun PersonalizationCard(
+    swapPeriodCommaEnabled: Boolean,
+    swapSymbolPanelsEnabled: Boolean,
+    onToggleSwapPeriodComma: (Boolean) -> Unit,
+    onToggleSwapSymbolPanels: (Boolean) -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
+            .testTag("personalization_card")
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "Personalisasi Keyboard",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Personalisasi Keyboard",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Sesuaikan tata letak tombol & panel simbol",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onToggleSwapPeriodComma(!swapPeriodCommaEnabled) }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp)
+                ) {
+                    Text(
+                        text = "Tukar posisi titik & koma",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Ketuk koma (,) langsung, tekan tahan untuk titik (.)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = swapPeriodCommaEnabled,
+                    onCheckedChange = onToggleSwapPeriodComma,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.surface,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.testTag("toggle_swap_period_comma")
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onToggleSwapSymbolPanels(!swapSymbolPanelsEnabled) }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 12.dp)
+                ) {
+                    Text(
+                        text = "Tukar Panel Simbol 1 & 2",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Menekan Ω membuka panel panah, emoji & kode terlebih dahulu",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = swapSymbolPanelsEnabled,
+                    onCheckedChange = onToggleSwapSymbolPanels,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.surface,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.testTag("toggle_swap_symbol_panels")
+                )
+            }
         }
     }
 }
@@ -383,26 +602,30 @@ private fun ImeStatusCard(
 
 internal val AI_DICTIONARY_JSON_PROMPT = """
 Bantu edit file JSON kamus KetikKu (ketikku_dictionary.json).
-Format wajib:
+Format wajib (setiap entri memiliki 6 field seragam tanpa field opsional):
 {
   "updatedAtMillis": <timestamp_ms_terbaru>,
+  "folders": ["Gmail", "Nomor", "Kerja", "Kerja/CS"],
   "entries": [
     {
       "id": "<id_unik>",
       "word": "<kalimat_atau_frasa>",
       "shortcut": "<pintasan_singkat_atau_kosong>",
-      "updatedAtMillis": <timestamp_ms_terbaru>
+      "folder": "<path_folder_atau_kosong>",
+      "updatedAtMillis": <timestamp_ms_terbaru>,
+      "deleted": false
     }
   ]
 }
 Aturan:
-1. Jangan sertakan field "language".
-2. Pertahankan semua entri & "id" lama yang sudah ada.
-3. Tambah data baru di bawah dengan "id" unik (mis. "ai_001"), "shortcut" huruf kecil tanpa spasi (atau ""), dan "updatedAtMillis" saat ini.
-4. Kembalikan satu blok kode JSON valid siap simpan ke ketikku_dictionary.json.
+1. Jangan sertakan field "language" atau field tambahan lain.
+2. Setiap objek di "entries" wajib berisi keenam field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
+3. Gunakan "" untuk entry tanpa shortcut atau tanpa folder, serta gunakan "/" untuk subfolder (mis. "Kerja/CS").
+4. Cantumkan seluruh path folder & subfolder yang dipakai di array "folders".
+5. Pertahankan entri & "id" lama, lalu kembalikan 1 blok kode JSON valid.
 
-Daftar kalimat & pintasan baru:
-- [tulis kalimat dan pintasan di sini]
+Daftar kalimat, pintasan & folder baru:
+- [tulis daftar data atau folder di sini]
 """.trimIndent()
 
 @Composable

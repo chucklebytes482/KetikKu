@@ -389,29 +389,29 @@
         </div>
 
         <div class="subcard">
-          <h3>Kamus Pribadi &amp; Saran Personality</h3>
+          <h3>Kamus Pribadi (Simple File Manager)</h3>
           <ul>
-            <li>Buka menu <strong>Kamus Pribadi</strong> untuk menambah kata/kalimat lengkap beserta <strong>pintasan</strong> singkat (contoh: <kbd>ttd</kbd> → <em>Terima kasih, salam hangat</em>).</li>
-            <li>Saat mengetik pintasan tunggal lalu menekan <kbd>Spasi</kbd>, kata otomatis berubah ke isi pintasan.</li>
-            <li>Jika ada <strong>lebih dari 1 entri</strong> memakai pintasan yang sama, KetikKu menampilkan hingga <strong>3 pilihan</strong> di bilah saran sesuai frekuensi pemakaian (<em>personality</em>), dan <kbd>Spasi</kbd> menjaga ketikan asli.</li>
-            <li>Kosakata saran bawaan difokuskan pada kata panjang (≥ 8 huruf) agar bilah saran bersih dan akurat.</li>
+            <li>Kelola kamus layaknya file manager: buat <strong>Folder</strong> &amp; <strong>Subfolder</strong> (pakai <kbd>/</kbd>, mis. <code>Kerja/CS</code>), ubah nama, <strong>Pilih Semua</strong>, <strong>Pindahkan</strong>, dan <strong>Hapus</strong> banyak item sekaligus.</li>
+            <li>Di halaman utama, folder otomatis <strong>Gmail</strong> &amp; <strong>Nomor</strong> selalu di atas, diikuti folder baru, lalu entri tanpa folder di bawahnya.</li>
+            <li><strong>Semua entri di setiap folder/subfolder tetap aktif</strong> untuk pintasan &amp; saran keyboard.</li>
+            <li>Kosakata saran bawaan kini <strong>3× lebih luas</strong> (fokus kata panjang ≥ 8 huruf) agar bilah saran makin akurat.</li>
           </ul>
         </div>
 
         <div class="subcard">
-          <h3>Bilah Saran &amp; Papan Klip Pintar</h3>
+          <h3>Pemfolderan Otomatis &amp; Papan Klip</h3>
           <ul>
-            <li>Teks yang baru disalin muncul sebagai tombol cepat di bilah atas keyboard; ketuk untuk menempelkan langsung.</li>
-            <li>Tekan tombol <strong>X</strong> untuk menyembunyikan teks tersebut dari bilah saran tanpa menghapusnya dari <strong>Papan Klip</strong>.</li>
-            <li>Alamat <code>@gmail.com</code> (≥ 20 karakter) dan nomor telepon/rekening (≥ 11 digit) yang disalin otomatis tersimpan ke Kamus Pribadi.</li>
+            <li>Teks yang baru disalin muncul sebagai tombol cepat di bilah atas keyboard; tekan <strong>X</strong> untuk menyembunyikan dari bilah saran tanpa menghapus dari Papan Klip.</li>
+            <li>Alamat <code>@gmail.com</code> (≥ 20 karakter) yang disalin otomatis tersimpan ke folder <strong>Gmail</strong>.</li>
+            <li>Nomor telepon/rekening (≥ 11 digit) yang disalin otomatis tersimpan ke folder <strong>Nomor</strong>.</li>
           </ul>
         </div>
 
         <div class="subcard">
-          <h3>Mode Floating &amp; Baris Bawah</h3>
+          <h3>Personalisasi, Mode Floating &amp; Baris Bawah</h3>
           <ul>
+            <li>Buka <strong>Personalisasi Keyboard</strong> di Setelan untuk menukar fungsi <strong>titik &amp; koma</strong> atau menukar urutan <strong>Panel Simbol 1 &amp; 2</strong>.</li>
             <li>Aktifkan <strong>Mode Melayang (Floating)</strong> dari ikon bilah alat atas dan geser pegangan untuk memindahkan posisi keyboard.</li>
-            <li>Ketuk <kbd>.</kbd> untuk titik, atau <strong>tekan tahan</strong> <kbd>.</kbd> untuk memilih koma <kbd>,</kbd>.</li>
             <li>Tekan tahan huruf (seperti <kbd>q</kbd>–<kbd>p</kbd>, <kbd>a</kbd>–<kbd>l</kbd>, <kbd>z</kbd>–<kbd>m</kbd>) untuk menyisipkan angka dan simbol cepat ala Google Keyboard.</li>
           </ul>
         </div>
@@ -513,19 +513,19 @@
     <section id="sinkronisasi-drive" class="card">
       <h2>4. Sinkronisasi 2 File Google Drive</h2>
       <p class="section-desc">
-        Buka <strong>Auto-Sinkronisasi Google Drive</strong> di Setelan untuk mencadangkan dan menyinkronkan data secara dua arah ke folder <code>KetikKu</code> di Google Drive.
+        Buka <strong>Auto-Sinkronisasi Google Drive</strong> di bagian paling atas Setelan untuk mencadangkan dan menyinkronkan data dua arah ke folder <code>KetikKu</code>.
       </p>
       <div class="grid-2">
         <div class="subcard">
           <h3>1. <code>ketikku_dictionary.json</code></h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Menyimpan seluruh entri kamus pribadi dalam format ringkas tanpa field <code>"language"</code> agar mudah dibaca manusia maupun diedit oleh AI.
+            Menyimpan daftar <code>"folders"</code> serta array <code>"entries"</code> dengan 6 field seragam (<code>id</code>, <code>word</code>, <code>shortcut</code>, <code>folder</code>, <code>updatedAtMillis</code>, <code>deleted</code>) tanpa field <code>"language"</code>.
           </p>
         </div>
         <div class="subcard">
           <h3>2. <code>ketikku_settings.json</code></h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Menyimpan pengaturan keyboard (mode melayang, posisi, getaran, papan klip, dan auto-sinkronisasi) sehingga tetap sama di perangkat lain.
+            Menyimpan pengaturan &amp; personalisasi keyboard (mode melayang, posisi, tukar titik/koma, tukar panel simbol 1/2, getaran, papan klip, dan auto-sinkronisasi).
           </p>
         </div>
       </div>
@@ -540,31 +540,35 @@
       <div class="prompt-list">
         <article class="prompt-item">
           <div class="prompt-header">
-            <h3 class="prompt-title">Variasi 1 — Tambah Banyak Kalimat &amp; Pintasan Sekaligus (Umum)</h3>
+            <h3 class="prompt-title">Variasi 1 — Tambah Banyak Kalimat, Pintasan &amp; Folder (Umum)</h3>
             <button class="copy-btn" type="button" data-copy-target="prompt-1">Salin Instruksi</button>
           </div>
-          <p class="prompt-note">Cocok saat Anda punya daftar kalimat panjang, alamat, atau ucapan sehari-hari untuk dimasukkan ke kamus.</p>
+          <p class="prompt-note">Format wajib seragam dengan 6 field pasti pada setiap entri dan dukungan folder/subfolder.</p>
           <pre id="prompt-1" class="prompt-box" title="Klik untuk menyalin">Bantu edit file JSON kamus KetikKu (ketikku_dictionary.json).
-Format wajib:
+Format wajib (setiap entri memiliki 6 field seragam tanpa field opsional):
 {
   "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
+  "folders": ["Gmail", "Nomor", "Kerja", "Kerja/CS"],
   "entries": [
     {
       "id": "&lt;id_unik&gt;",
       "word": "&lt;kalimat_atau_frasa&gt;",
       "shortcut": "&lt;pintasan_singkat_atau_kosong&gt;",
-      "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;
+      "folder": "&lt;path_folder_atau_kosong&gt;",
+      "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
+      "deleted": false
     }
   ]
 }
 Aturan:
-1. Jangan sertakan field "language".
-2. Pertahankan semua entri &amp; "id" lama yang sudah ada.
-3. Untuk setiap data baru, buat "id" unik (mis. "ai_001"), "shortcut" huruf kecil tanpa spasi (atau ""), dan "updatedAtMillis" saat ini dalam milidetik.
-4. Kembalikan satu blok kode JSON valid siap simpan ke ketikku_dictionary.json.
+1. Jangan sertakan field "language" atau field tambahan lain.
+2. Setiap objek di "entries" wajib berisi keenam field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
+3. Gunakan "" jika tidak ada shortcut atau tidak masuk folder, dan pakai "/" untuk subfolder (mis. "Kerja/CS").
+4. Cantumkan seluruh path folder &amp; subfolder di array "folders".
+5. Pertahankan entri &amp; "id" lama, lalu kembalikan 1 blok kode JSON valid.
 
-Daftar kalimat &amp; pintasan yang ingin ditambahkan:
-- [tulis daftar kalimat dan pintasannya di sini]</pre>
+Daftar kalimat, pintasan &amp; folder yang ingin ditambahkan:
+- [tulis daftar data atau folder di sini]</pre>
         </article>
 
         <article class="prompt-item">
@@ -572,13 +576,14 @@ Daftar kalimat &amp; pintasan yang ingin ditambahkan:
             <h3 class="prompt-title">Variasi 2 — Template Chat Kerja, Bisnis &amp; Customer Service</h3>
             <button class="copy-btn" type="button" data-copy-target="prompt-2">Salin Instruksi</button>
           </div>
-          <p class="prompt-note">Meminta AI merapikan kalimat balasan pelanggan serta membuatkan pintasan 2–4 huruf yang konsisten dan mudah diingat.</p>
-          <pre id="prompt-2" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan file ketikku_dictionary.json. Tolong tambahkan daftar template balasan kerja/CS di bawah ke dalam array "entries" tanpa menghapus entri lama.
+          <p class="prompt-note">Meminta AI merapikan template balasan pelanggan ke dalam folder/subfolder seperti Kerja/CS dan Kerja/Order.</p>
+          <pre id="prompt-2" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan file ketikku_dictionary.json. Tolong tambahkan daftar template balasan kerja/CS di bawah ke dalam array "entries" dan kelola foldernya tanpa menghapus entri lama.
 Ketentuan format JSON:
-- Gunakan struktur: { "updatedAtMillis": &lt;epoch_ms&gt;, "entries": [ { "id": "...", "word": "...", "shortcut": "...", "updatedAtMillis": &lt;epoch_ms&gt; } ] }
-- Dilarang menambahkan field "language" atau "schemaVersion".
-- Buatkan "shortcut" singkat 2-4 huruf kecil tanpa spasi yang mudah diingat (mis. "slm", "inv", "rek", "kfm") dan hindari bentrok bila tidak diminta.
-- Jika ada beberapa variasi balasan untuk topik sama, boleh memakai shortcut yang sama agar muncul bersamaan di saran keyboard.
+- Root wajib: { "updatedAtMillis": &lt;epoch_ms&gt;, "folders": [...], "entries": [...] }
+- Setiap entri wajib punya TEPAT 6 field ini (tanpa field opsional/tambahan dan tanpa "language"):
+  { "id": "...", "word": "...", "shortcut": "...", "folder": "...", "updatedAtMillis": &lt;epoch_ms&gt;, "deleted": false }
+- Masukkan template ke folder terstruktur misalnya "Kerja/CS", "Kerja/Order", atau "" jika umum, lalu daftarkan folder tersebut di array "folders".
+- Buatkan "shortcut" singkat 2-4 huruf kecil tanpa spasi (mis. "slm", "inv", "rek", "kfm").
 - Berikan output hanya berupa 1 blok JSON valid siap pakai.
 
 Topik/kalimat balasan yang saya butuhkan:
@@ -590,17 +595,19 @@ Topik/kalimat balasan yang saya butuhkan:
             <h3 class="prompt-title">Variasi 3 — Ekstrak Otomatis dari Dokumen / Catatan / Materi</h3>
             <button class="copy-btn" type="button" data-copy-target="prompt-3">Salin Instruksi</button>
           </div>
-          <p class="prompt-note">Cukup tempelkan dokumen/catatan Anda bersama file JSON kamus, dan biarkan AI memilih kalimat atau istilah yang sering dipakai.</p>
+          <p class="prompt-note">Tempelkan dokumen/catatan Anda bersama file JSON kamus agar AI memilih frasa penting dan menaruhnya di folder khusus.</p>
           <pre id="prompt-3" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan dokumen/catatan dan file ketikku_dictionary.json.
 Tugas Anda:
 1. Ekstrak maksimal 25 kalimat, istilah penting, nomor/kode referensi, atau template frasa yang paling sering dipakai dari dokumen tersebut.
-2. Tambahkan hasilnya ke dalam array "entries" pada ketikku_dictionary.json tanpa mengubah entri yang sudah ada.
-3. Setiap entri baru wajib memiliki:
-   - "id": unik (mis. "doc_001", "doc_002")
+2. Tambahkan hasilnya ke "entries" pada ketikku_dictionary.json ke dalam folder yang relevan (mis. "Materi" atau "Materi/Istilah") tanpa mengubah entri lama.
+3. Setiap entri wajib memiliki keenam field seragam:
+   - "id": unik (mis. "doc_001")
    - "word": teks bersih siap tempel
-   - "shortcut": singkatan huruf kecil 2-5 karakter (atau "" jika lebih cocok lewat saran awalan kata)
+   - "shortcut": huruf kecil 2-5 karakter atau ""
+   - "folder": path folder/subfolder atau ""
    - "updatedAtMillis": timestamp milidetik terbaru
-4. Jangan sertakan field "language" dan pastikan hasil akhirnya JSON valid.</pre>
+   - "deleted": false
+4. Daftarkan folder yang dipakai di array "folders", jangan sertakan field "language", dan kembalikan JSON valid.</pre>
         </article>
 
         <article class="prompt-item">
@@ -608,13 +615,39 @@ Tugas Anda:
             <h3 class="prompt-title">Variasi 4 — Rapikan, Gabung &amp; Hapus Duplikat Kamus JSON</h3>
             <button class="copy-btn" type="button" data-copy-target="prompt-4">Salin Instruksi</button>
           </div>
-          <p class="prompt-note">Berguna jika kamus sudah menumpuk banyak entri dan ingin dibersihkan dari duplikat atau format lama.</p>
+          <p class="prompt-note">Membersihkan duplikat, menyeragamkan ke 6 field baku, dan menyinkronkan array folder secara rapi.</p>
           <pre id="prompt-4" class="prompt-box" title="Klik untuk menyalin">Tolong rapikan file ketikku_dictionary.json berikut dengan aturan:
-1. Hapus entri duplikat yang isi "word"-nya persis sama (pertahankan yang "updatedAtMillis"-nya paling baru dan pertahankan "id" aslinya).
-2. Hapus field "language" dan "schemaVersion" jika masih ada agar file lebih ringan.
-3. Pastikan semua "shortcut" berupa huruf kecil tanpa spasi berlebih.
-4. Perbarui "updatedAtMillis" tingkat atas ke timestamp milidetik terbaru.
-5. Kembalikan 1 blok JSON valid yang siap diunggah kembali ke folder KetikKu di Google Drive.</pre>
+1. Hapus entri duplikat yang isi "word"-nya persis sama (pertahankan yang "updatedAtMillis"-nya paling baru beserta "id" dan "folder"-nya).
+2. Hapus field "language" dan "schemaVersion" jika masih ada.
+3. Seragamkan setiap entri agar selalu memiliki 6 field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
+4. Sinkronkan array "folders" tingkat atas agar berisi "Gmail", "Nomor" (jika ada), serta seluruh path folder dan induk subfolder yang dipakai oleh entri aktif.
+5. Perbarui "updatedAtMillis" tingkat atas dan kembalikan 1 blok JSON valid.</pre>
+        </article>
+
+        <article class="prompt-item">
+          <div class="prompt-header">
+            <h3 class="prompt-title">Variasi 5 — Kelompokkan &amp; Folderisasi Banyak Kamus ke Folder / Subfolder</h3>
+            <button class="copy-btn" type="button" data-copy-target="prompt-5">Salin Instruksi</button>
+          </div>
+          <p class="prompt-note">Khusus untuk menyusun ulang atau menggabungkan ratusan kata, email, nomor, kode, atau banyak kategori ke struktur Folder &amp; Subfolder rapi.</p>
+          <pre id="prompt-5" class="prompt-box" title="Klik untuk menyalin">Tolong kelompokkan dan atur seluruh isi file ketikku_dictionary.json (serta daftar tambahan di bawah) ke dalam struktur Folder &amp; Subfolder yang terorganisir rapi.
+Aturan pemfolderan:
+1. Pertahankan/pisahkan alamat @gmail.com ke folder "Gmail" dan nomor telepon/rekening ke folder "Nomor".
+2. Kelompokkan entri lain ke folder/subfolder bertema jelas memakai "/" (contoh: "Kerja/CS", "Kerja/Penawaran", "Pribadi/Alamat", "Belajar/Istilah").
+3. Urutkan array "folders" dengan "Gmail" dan "Nomor" paling atas (jika ada), lalu folder/subfolder terbaru di atas entri tanpa folder.
+4. Wajib pakai format seragam 6 field di setiap entri tanpa field opsional dan tanpa "language":
+   {
+     "id": "&lt;pertahankan_id_lama_atau_buat_unik&gt;",
+     "word": "&lt;teks_kamus&gt;",
+     "shortcut": "&lt;pintasan_huruf_kecil_atau_kosong&gt;",
+     "folder": "&lt;path_folder_atau_kosong&gt;",
+     "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
+     "deleted": false
+   }
+5. Kembalikan hanya 1 blok kode JSON valid siap unggah ke Google Drive folder KetikKu.
+
+Kategori folder atau daftar kamus tambahan yang ingin difolderkan:
+- [tulis pembagian kategori/folder atau tempel beberapa daftar kamus di sini]</pre>
         </article>
       </div>
     </section>

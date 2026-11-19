@@ -4,12 +4,14 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.view.ContextThemeWrapper
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -20,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
@@ -98,22 +101,37 @@ class ExampleRobolectricTest {
                 id = "local_1",
                 word = "KetikKu Offline",
                 shortcut = "kko",
+                folder = "Kerja/CS",
                 updatedAtMillis = 999L
             )
         )
-        val dictJson = repo.encodeDictionaryBackupJson(entries, updatedAtMillis = 999L)
+        val dictJson = repo.encodeDictionaryBackupJson(
+            entries = entries,
+            updatedAtMillis = 999L,
+            folders = listOf("Gmail", "Nomor", "Kerja/CS")
+        )
         assertFalse(dictJson.contains("\"language\""))
         assertFalse(dictJson.contains("\"schemaVersion\""))
-        assertFalse(dictJson.contains("\"deleted\""))
+        val dictObj = org.json.JSONObject(dictJson)
+        assertTrue(dictObj.has("folders"))
+        val firstEntryJson = dictObj.getJSONArray("entries").getJSONObject(0)
+        assertEquals(
+            setOf("id", "word", "shortcut", "folder", "updatedAtMillis", "deleted"),
+            firstEntryJson.keys().asSequence().toSet()
+        )
+        assertEquals("Kerja/CS", firstEntryJson.getString("folder"))
+        assertEquals(false, firstEntryJson.getBoolean("deleted"))
         val decodedDict = repo.decodeDictionaryBackupJson(dictJson)
         assertEquals(1, decodedDict?.entries?.size)
         assertEquals("KetikKu Offline", decodedDict?.entries?.first()?.word)
+        assertEquals("Kerja/CS", decodedDict?.entries?.first()?.folder)
+        assertTrue(decodedDict?.folders?.contains("Kerja/CS") == true)
 
         // Tolerant decode for AI-edited JSON missing id / updatedAtMillis / language
         val aiEditedJson = """
             {
               "entries": [
-                { "word": "Mohon tunggu sebentar", "shortcut": "mts" },
+                { "word": "Mohon tunggu sebentar", "shortcut": "mts", "folder": "Kerja" },
                 { "word": "Terima kasih banyak", "shortcut": "" }
               ]
             }
@@ -122,6 +140,7 @@ class ExampleRobolectricTest {
         assertNotNull(decodedAi)
         assertEquals(2, decodedAi?.entries?.size)
         assertTrue(decodedAi?.entries?.all { it.id.startsWith("ai_") && it.updatedAtMillis > 0L } == true)
+        assertEquals("Kerja", decodedAi?.entries?.first()?.folder)
 
         val fullJson = repo.encodeFullBackupJson(original, entries, exportedAtMillis = 123456L)
         assertFalse(fullJson.contains("\"language\""))
@@ -434,7 +453,7 @@ class ExampleRobolectricTest {
                 DictionaryScreen(
                     settings = KeyboardSettings(),
                     dictionary = entries,
-                    onUpsertEntry = { word, shortcut, _, existingId ->
+                    onUpsertEntry = { word, shortcut, _, existingId, _ ->
                         savedWord = word
                         savedShortcut = shortcut
                         savedExistingId = existingId
@@ -520,13 +539,15 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithTag("toggle_haptic").fetchSemanticsNodes().isEmpty())
 
         assertTrue(composeRule.onAllNodesWithTag("open_playground_button").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithTag("open_drive_sync_sheet_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("open_website_button").assertIsDisplayed()
         composeRule.onNodeWithTag("enable_ime_button").assertIsDisplayed()
         composeRule.onNodeWithTag("select_ime_button").assertIsDisplayed()
         composeRule.onNodeWithTag("settings_typing_field").assertIsDisplayed()
         composeRule.onNodeWithTag("settings_typing_field").performTextInput("Uji pilih teks")
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("open_dictionary_menu_button"))
         composeRule.onNodeWithTag("open_dictionary_menu_button").assertIsDisplayed()
-        composeRule.onNodeWithTag("open_drive_sync_sheet_button").assertIsDisplayed()
     }
 
     @Test
@@ -919,8 +940,17 @@ class ExampleRobolectricTest {
         repo.addClipboardText("penggunapanjang2026@gmail.com")
 
         val dictAfter = repo.getCurrentDictionary()
+        val gmailEntry = dictAfter.firstOrNull { !it.deleted && it.word == "penggunapanjang2026@gmail.com" }
+        val nomorEntry = dictAfter.firstOrNull { !it.deleted && it.word == "081234567890" }
+        assertNotNull(gmailEntry)
+        assertNotNull(nomorEntry)
+        assertEquals(SettingsRepository.FOLDER_GMAIL, gmailEntry?.folder)
+        assertEquals(SettingsRepository.FOLDER_NOMOR, nomorEntry?.folder)
         assertEquals(1, dictAfter.count { !it.deleted && it.word == "penggunapanjang2026@gmail.com" })
         assertEquals(1, dictAfter.count { !it.deleted && it.word == "081234567890" })
+        val foldersAfter = repo.getCurrentFolders()
+        assertTrue(foldersAfter.contains(SettingsRepository.FOLDER_GMAIL))
+        assertTrue(foldersAfter.contains(SettingsRepository.FOLDER_NOMOR))
     }
 
     @Test
@@ -1474,7 +1504,7 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("copy_ai_dictionary_prompt_button").performScrollTo()
+        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("copy_ai_dictionary_prompt_button"))
         composeRule.onNodeWithTag("ai_dictionary_prompt_card").assertIsDisplayed()
         val promptCardBounds = composeRule.onNodeWithTag("ai_dictionary_prompt_card").fetchSemanticsNode().boundsInRoot
         val maxCompactPx = 130f * context.resources.displayMetrics.density
@@ -1489,6 +1519,228 @@ class ExampleRobolectricTest {
         assertTrue(copiedText.contains("ketikku_dictionary.json"))
         assertTrue(copiedText.contains("Jangan sertakan field \"language\""))
     }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp")
+    fun settingsScreen_ordersDriveFirstWebsiteSecondAndPersonalizationTogglesWork() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = SettingsRepository(context)
+        val vm = MainViewModel(repo)
+
+        composeRule.setContent {
+            KetikKuTheme(darkTheme = false) {
+                val settingsState by vm.settings.collectAsState()
+                SettingsScreen(
+                    viewModel = vm,
+                    settings = settingsState,
+                    dictionary = emptyList(),
+                    imeStatus = ImeActivationStatus.ACTIVE_DEFAULT,
+                    onOpenDictionary = {},
+                    onOpenDriveSyncSheet = {}
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        val driveBounds = composeRule.onNodeWithTag("open_drive_sync_sheet_button").fetchSemanticsNode().boundsInRoot
+        val websiteBounds = composeRule.onNodeWithTag("open_website_button").fetchSemanticsNode().boundsInRoot
+        val enableBounds = composeRule.onNodeWithTag("enable_ime_button").fetchSemanticsNode().boundsInRoot
+        assertTrue("Google Drive sync must be #1 at top", driveBounds.bottom <= websiteBounds.top + 1f)
+        assertTrue("Website must be #2 above IME status", websiteBounds.bottom <= enableBounds.top + 1f)
+
+        composeRule.onNodeWithTag("toggle_swap_period_comma").performScrollTo().performClick()
+        composeRule.onNodeWithTag("toggle_swap_symbol_panels").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        val updated = repo.getCurrentSettings()
+        assertTrue(updated.swapPeriodCommaEnabled)
+        assertTrue(updated.swapSymbolPanelsEnabled)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp")
+    fun dictionaryScreen_simpleFileManagerSortsFoldersCreatesSubfoldersSelectsMovesAndDeletes() {
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "e_root", word = "Salam hangat", shortcut = "sh", folder = "", updatedAtMillis = 10L),
+            PersonalDictionaryEntry(id = "e_gmail", word = "adminsuperpanjang@gmail.com", shortcut = "", folder = "Gmail", updatedAtMillis = 11L),
+            PersonalDictionaryEntry(id = "e_nomor", word = "081234567890", shortcut = "", folder = "Nomor", updatedAtMillis = 12L),
+            PersonalDictionaryEntry(id = "e_sub", word = "Mohon ditunggu sebentar", shortcut = "mds", folder = "Kerja/CS", updatedAtMillis = 13L)
+        )
+        val folders = listOf("Kerja", "Kerja/CS", "Gmail", "Nomor")
+        var movedEntries = emptySet<String>()
+        var movedFolders = emptySet<String>()
+        var movedTarget = ""
+
+        composeRule.setContent {
+            KetikKuTheme(darkTheme = false) {
+                DictionaryScreen(
+                    settings = KeyboardSettings(),
+                    dictionary = entries,
+                    folders = folders,
+                    onUpsertEntry = { _, _, _, _, _ -> },
+                    onDeleteEntry = {},
+                    onMoveItems = { eIds, fPaths, target ->
+                        movedEntries = eIds
+                        movedFolders = fPaths
+                        movedTarget = target
+                    }
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        val gmailBounds = composeRule.onNodeWithTag("folder_item_Gmail").fetchSemanticsNode().boundsInRoot
+        val nomorBounds = composeRule.onNodeWithTag("folder_item_Nomor").fetchSemanticsNode().boundsInRoot
+        val kerjaBounds = composeRule.onNodeWithTag("folder_item_Kerja").fetchSemanticsNode().boundsInRoot
+        val rootEntryBounds = composeRule.onNodeWithTag("dictionary_item_e_root").fetchSemanticsNode().boundsInRoot
+
+        assertTrue("Gmail must be above Nomor", gmailBounds.bottom <= nomorBounds.top + 1f)
+        assertTrue("Nomor must be above custom folders", nomorBounds.bottom <= kerjaBounds.top + 1f)
+        assertTrue("Custom folders must be above unfoldered entries", kerjaBounds.bottom <= rootEntryBounds.top + 1f)
+
+        // Open Kerja -> shows breadcrumb & Kerja/CS subfolder
+        composeRule.onNodeWithTag("folder_item_Kerja").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("folder_breadcrumb_bar").assertIsDisplayed()
+        composeRule.onNodeWithTag("folder_item_Kerja_CS").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("dictionary_item_e_sub").assertIsDisplayed()
+
+        // Navigate back to Utama
+        composeRule.onNodeWithTag("breadcrumb_root").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("folder_item_Gmail").assertIsDisplayed()
+
+        // Multi-select mode -> Pilih Semua (4 dipilih) -> deselect Gmail -> Pindahkan to Gmail
+        composeRule.onNodeWithTag("toggle_selection_mode_button").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("selection_action_bar").assertIsDisplayed()
+        composeRule.onNodeWithTag("select_all_items_button").performClick()
+        composeRule.waitForIdle()
+        assertTrue(composeRule.onAllNodesWithText("4 dipilih").fetchSemanticsNodes().isNotEmpty())
+        composeRule.onNodeWithTag("folder_item_Gmail").performClick()
+        composeRule.waitForIdle()
+        assertTrue(composeRule.onAllNodesWithText("3 dipilih").fetchSemanticsNodes().isNotEmpty())
+
+        composeRule.onNodeWithTag("move_selected_button").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("move_target_Gmail").performClick()
+        composeRule.onNodeWithTag("confirm_move_button").performClick()
+        composeRule.waitForIdle()
+
+        assertTrue(movedEntries.contains("e_root"))
+        assertTrue(movedFolders.contains("Kerja"))
+        assertEquals("Gmail", movedTarget)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp")
+    fun keyboardView_personalizationSwapsPeriodCommaAndSymbolPanels() {
+        var value = TextFieldValue("")
+        val settings = KeyboardSettings(
+            swapPeriodCommaEnabled = true,
+            swapSymbolPanelsEnabled = true
+        )
+        val controller = KeyboardController(
+            TextFieldImeTarget(
+                getValue = { value },
+                setValue = { value = it }
+            )
+        )
+
+        composeRule.setContent {
+            KetikKuTheme {
+                KetikKuKeyboardView(
+                    controller = controller,
+                    settings = settings,
+                    personalEntries = emptyList(),
+                    clipboardItems = emptyList(),
+                    onPasteClipboard = {},
+                    onCopySelectionToClipboard = {}
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        // Period & comma swapped: primary key is ',', long-press popup is '.'
+        assertTrue(composeRule.onAllNodesWithTag("key_.").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithTag("key_,").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        assertEquals(",", value.text)
+
+        composeRule.onNodeWithTag("key_,").performTouchInput { down(center) }
+        composeRule.mainClock.advanceTimeBy(600L)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("key_longpress_popup").assertIsDisplayed()
+        composeRule.onNodeWithTag("key_,").performTouchInput { up() }
+        composeRule.waitForIdle()
+        assertEquals(",.", value.text)
+
+        // Symbol panels swapped: Ω opens Panel 2 first (1/2) and toggle goes to Panel 1 (2/2)
+        composeRule.onNodeWithTag("key_symbols").performClick()
+        composeRule.waitForIdle()
+        assertTrue(composeRule.onAllNodesWithText("1/2").fetchSemanticsNodes().isNotEmpty())
+        composeRule.onNodeWithTag("key_×").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        assertEquals(",.×", value.text)
+
+        composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
+        composeRule.waitForIdle()
+        assertTrue(composeRule.onAllNodesWithText("2/2").fetchSemanticsNodes().isNotEmpty())
+        composeRule.onNodeWithTag("key_@").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        assertEquals(",.×@", value.text)
+    }
+
+    @Test
+    fun inputConnectionImeTarget_codeEditorBackspaceDispatchesKeycodeDelWithoutNoOp() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dummyView = android.view.View(context)
+        val sentKeyEvents = mutableListOf<android.view.KeyEvent>()
+        var committedTexts = mutableListOf<String>()
+        var fakeSelectedText: String? = null
+        var fakeCommitSuccess = false
+
+        val webCodeEditorIc = object : android.view.inputmethod.BaseInputConnection(dummyView, false) {
+            override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence = ""
+            override fun getSelectedText(flags: Int): CharSequence? = fakeSelectedText
+            override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean = false
+            override fun deleteSurroundingTextInCodePoints(beforeLength: Int, afterLength: Int): Boolean = false
+            override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
+                committedTexts.add(text?.toString().orEmpty())
+                return fakeCommitSuccess
+            }
+            override fun sendKeyEvent(event: android.view.KeyEvent?): Boolean {
+                if (event != null) sentKeyEvents.add(event)
+                return true
+            }
+        }
+
+        val target = com.example.ime.KetikKuImeService.InputConnectionImeTarget(
+            icProvider = { webCodeEditorIc },
+            onOpenSettings = {}
+        )
+        target.onEditorStarted(isRawOrWebCodeEditor = true)
+        // Stale non-zero selection range from editor startup, while live getSelectedText is empty
+        target.onSelectionUpdated(0, 5)
+
+        target.deleteSingleCodePointBeforeCursor()
+        assertTrue("Stale selection must not commitText(\"\", 1)", committedTexts.isEmpty())
+        assertEquals(2, sentKeyEvents.size)
+        assertEquals(android.view.KeyEvent.ACTION_DOWN, sentKeyEvents[0].action)
+        assertEquals(android.view.KeyEvent.KEYCODE_DEL, sentKeyEvents[0].keyCode)
+        assertEquals(android.view.KeyEvent.ACTION_UP, sentKeyEvents[1].action)
+        assertEquals(android.view.KeyEvent.KEYCODE_DEL, sentKeyEvents[1].keyCode)
+
+        // When actual selection exists and commitText("", 1) returns false, falls back to KEYCODE_DEL
+        sentKeyEvents.clear()
+        fakeSelectedText = "selectedCode"
+        target.deleteBeforeCursor(1)
+        assertEquals(listOf(""), committedTexts)
+        assertEquals(2, sentKeyEvents.size)
+        assertEquals(android.view.KeyEvent.KEYCODE_DEL, sentKeyEvents[0].keyCode)
+    }
+
 }
 
 

@@ -69,12 +69,15 @@ class SettingsRepository(
         val HAPTIC_ENABLED = booleanPreferencesKey("haptic_enabled")
         val CLIPBOARD_HISTORY = booleanPreferencesKey("clipboard_history")
         val SERIF_MIRING_ENABLED = booleanPreferencesKey("serif_miring_enabled")
+        val SWAP_PERIOD_COMMA = booleanPreferencesKey("swap_period_comma")
+        val SWAP_SYMBOL_PANELS = booleanPreferencesKey("swap_symbol_panels")
         val AUTO_SYNC_DRIVE = booleanPreferencesKey("auto_sync_drive")
         val DRIVE_FOLDER_NAME = stringPreferencesKey("drive_folder_name")
         val DRIVE_SHORTCUT_FOLDER_ID = stringPreferencesKey("drive_shortcut_folder_id")
         val SETTINGS_UPDATED_AT = longPreferencesKey("settings_updated_at")
 
         val DICTIONARY_JSON = stringPreferencesKey("dictionary_json")
+        val FOLDERS_JSON = stringPreferencesKey("dictionary_folders_json")
         val PERSONALITY_JSON = stringPreferencesKey("suggestion_personality_json")
         val CLIPBOARD_REVISION = longPreferencesKey("clipboard_revision")
         val DISMISSED_CLIPBOARD_ID = stringPreferencesKey("dismissed_clipboard_id")
@@ -88,6 +91,9 @@ class SettingsRepository(
         val PENDING_CHANGES = booleanPreferencesKey("pending_changes")
     }
 
+    private val stringListType = Types.newParameterizedType(List::class.java, String::class.java)
+    private val stringListAdapter = moshi.adapter<List<String>>(stringListType)
+
     val settingsFlow: Flow<KeyboardSettings> = dataStore.data
         .map { prefs ->
             KeyboardSettings(
@@ -98,6 +104,8 @@ class SettingsRepository(
                 hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: true,
                 clipboardHistoryEnabled = prefs[Keys.CLIPBOARD_HISTORY] ?: true,
                 serifMiringEnabled = prefs[Keys.SERIF_MIRING_ENABLED] ?: false,
+                swapPeriodCommaEnabled = prefs[Keys.SWAP_PERIOD_COMMA] ?: false,
+                swapSymbolPanelsEnabled = prefs[Keys.SWAP_SYMBOL_PANELS] ?: false,
                 autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: true,
                 driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
                 driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
@@ -114,8 +122,21 @@ class SettingsRepository(
                 defaultDictionaryEntries()
             } else {
                 runCatching { dictListAdapter.fromJson(raw) }.getOrNull() ?: defaultDictionaryEntries()
+            }.map { entry ->
+                val normalizedFolder = normalizeFolderPath(entry.folder)
+                if (normalizedFolder == entry.folder) entry else entry.copy(folder = normalizedFolder)
             }
             java.util.Collections.unmodifiableList(list)
+        }
+
+    val foldersFlow: Flow<List<String>> = dataStore.data
+        .map { prefs -> prefs[Keys.FOLDERS_JSON] to prefs[Keys.DICTIONARY_JSON] }
+        .distinctUntilChanged()
+        .map { (rawFolders, rawDict) ->
+            val explicit = parseFolderList(rawFolders)
+            val entries = parseDictionaryList(rawDict)
+            val normalized = normalizeOrderedFolders(explicit, entries)
+            java.util.Collections.unmodifiableList(normalized)
         }
 
     val clipboardFlow: Flow<List<ClipboardItem>> = dataStore.data
@@ -164,6 +185,25 @@ class SettingsRepository(
 
     suspend fun getCurrentDictionary(): List<PersonalDictionaryEntry> = dictionaryFlow.first()
 
+    suspend fun getCurrentFolders(): List<String> = foldersFlow.first()
+
+    private fun parseDictionaryList(raw: String?): List<PersonalDictionaryEntry> {
+        val list = if (raw.isNullOrBlank()) {
+            defaultDictionaryEntries()
+        } else {
+            runCatching { dictListAdapter.fromJson(raw) }.getOrNull() ?: defaultDictionaryEntries()
+        }
+        return list.map { entry ->
+            val norm = normalizeFolderPath(entry.folder)
+            if (norm == entry.folder) entry else entry.copy(folder = norm)
+        }
+    }
+
+    private fun parseFolderList(raw: String?): List<String> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return runCatching { stringListAdapter.fromJson(raw) }.getOrNull().orEmpty()
+    }
+
     suspend fun updateSettings(
         markPendingSync: Boolean = true,
         transform: (KeyboardSettings) -> KeyboardSettings
@@ -179,6 +219,8 @@ class SettingsRepository(
                 hapticEnabled = prefs[Keys.HAPTIC_ENABLED] ?: true,
                 clipboardHistoryEnabled = prefs[Keys.CLIPBOARD_HISTORY] ?: true,
                 serifMiringEnabled = prefs[Keys.SERIF_MIRING_ENABLED] ?: false,
+                swapPeriodCommaEnabled = prefs[Keys.SWAP_PERIOD_COMMA] ?: false,
+                swapSymbolPanelsEnabled = prefs[Keys.SWAP_SYMBOL_PANELS] ?: false,
                 autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: true,
                 driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
                 driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
@@ -207,26 +249,35 @@ class SettingsRepository(
         word: String,
         shortcut: String,
         language: String,
-        existingId: String? = null
+        existingId: String? = null,
+        folder: String = ""
     ) {
         val trimmedWord = word.trim()
         if (trimmedWord.isEmpty()) return
-        val trimmedShortcut = shortcut.trim().lowercase()
+        val trimmedShortcut = shortcut.trim().lowercase(Locale.ROOT)
+        val normalizedFolder = normalizeFolderPath(folder)
         val now = System.currentTimeMillis()
         dataStore.edit { prefs ->
-            val current = prefs[Keys.DICTIONARY_JSON]?.let {
-                runCatching { dictListAdapter.fromJson(it) }.getOrNull()
-            } ?: defaultDictionaryEntries()
+            val current = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
             val id = existingId ?: UUID.randomUUID().toString().take(12)
             val updatedList = current.filterNot { it.id == id } + PersonalDictionaryEntry(
                 id = id,
                 word = trimmedWord,
                 shortcut = trimmedShortcut,
+                folder = normalizedFolder,
                 language = language,
                 updatedAtMillis = now,
                 deleted = false
             )
             prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(updatedList)
+            if (normalizedFolder.isNotEmpty()) {
+                val updatedFolders = prependFoldersToStorage(
+                    existingFolders = parseFolderList(prefs[Keys.FOLDERS_JSON]),
+                    newFolderPaths = listOf(normalizedFolder),
+                    entries = updatedList
+                )
+                prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(updatedFolders)
+            }
             prefs[Keys.PENDING_CHANGES] = true
         }
     }
@@ -234,9 +285,7 @@ class SettingsRepository(
     suspend fun deleteDictionaryEntry(entryId: String) {
         val now = System.currentTimeMillis()
         dataStore.edit { prefs ->
-            val current = prefs[Keys.DICTIONARY_JSON]?.let {
-                runCatching { dictListAdapter.fromJson(it) }.getOrNull()
-            } ?: defaultDictionaryEntries()
+            val current = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
             val updatedList = current.map { entry ->
                 if (entry.id == entryId) entry.copy(deleted = true, updatedAtMillis = now) else entry
             }
@@ -245,14 +294,177 @@ class SettingsRepository(
         }
     }
 
-    suspend fun mergeRemoteDictionary(remoteEntries: List<PersonalDictionaryEntry>): List<PersonalDictionaryEntry> {
+    suspend fun createFolder(folderPath: String) {
+        val normalized = normalizeFolderPath(folderPath)
+        if (normalized.isEmpty()) return
+        dataStore.edit { prefs ->
+            val currentEntries = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
+            val currentFolders = parseFolderList(prefs[Keys.FOLDERS_JSON])
+            val updated = prependFoldersToStorage(
+                existingFolders = currentFolders,
+                newFolderPaths = listOf(normalized),
+                entries = currentEntries
+            )
+            prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(updated)
+            prefs[Keys.PENDING_CHANGES] = true
+        }
+    }
+
+    suspend fun renameFolder(oldPath: String, newNameOrPath: String) {
+        val normOld = normalizeFolderPath(oldPath)
+        if (normOld.isEmpty()) return
+        val parent = normOld.substringBeforeLast('/', missingDelimiterValue = "")
+        val cleanedLeaf = newNameOrPath.replace('/', ' ').replace('\\', ' ').trim()
+        if (cleanedLeaf.isEmpty()) return
+        val normNew = normalizeFolderPath(
+            if (parent.isEmpty()) cleanedLeaf else "$parent/$cleanedLeaf"
+        )
+        if (normNew.isEmpty() || normNew == normOld) return
+
+        val now = System.currentTimeMillis()
+        dataStore.edit { prefs ->
+            val currentEntries = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
+            val updatedEntries = currentEntries.map { entry ->
+                val rewritten = rewriteFolderPrefix(entry.folder, normOld, normNew)
+                if (rewritten != entry.folder) {
+                    entry.copy(folder = rewritten, updatedAtMillis = now)
+                } else {
+                    entry
+                }
+            }
+            val currentFolders = normalizeOrderedFolders(
+                explicitFolders = parseFolderList(prefs[Keys.FOLDERS_JSON]),
+                entries = currentEntries
+            )
+            val rewrittenFolders = currentFolders.map { path ->
+                rewriteFolderPrefix(path, normOld, normNew)
+            }
+            val finalFolders = normalizeOrderedFolders(rewrittenFolders, updatedEntries)
+            prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(updatedEntries)
+            prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(finalFolders)
+            prefs[Keys.PENDING_CHANGES] = true
+        }
+    }
+
+    suspend fun moveEntriesAndFolders(
+        entryIds: Set<String>,
+        folderPaths: Set<String>,
+        targetFolderPath: String
+    ) {
+        val normTarget = normalizeFolderPath(targetFolderPath)
+        val normSources = folderPaths.map(::normalizeFolderPath).filter { it.isNotEmpty() }
+        if (entryIds.isEmpty() && normSources.isEmpty()) return
+
+        val now = System.currentTimeMillis()
+        dataStore.edit { prefs ->
+            val currentEntries = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
+            val currentFolders = normalizeOrderedFolders(
+                explicitFolders = parseFolderList(prefs[Keys.FOLDERS_JSON]),
+                entries = currentEntries
+            )
+
+            // Build top-level folder move mapping (skip moving a folder into itself or its descendant)
+            val topMoves = normSources
+                .filter { src ->
+                    normTarget != src && !normTarget.startsWith("$src/")
+                }
+                .map { src ->
+                    val leaf = src.substringAfterLast('/')
+                    val dest = normalizeFolderPath(if (normTarget.isEmpty()) leaf else "$normTarget/$leaf")
+                    src to dest
+                }
+                .filter { (src, dest) -> dest.isNotEmpty() && src != dest }
+
+            val updatedEntries = currentEntries.map { entry ->
+                var nextFolder = entry.folder
+                var changed = false
+                if (entry.id in entryIds && entry.folder != normTarget) {
+                    nextFolder = normTarget
+                    changed = true
+                }
+                for ((src, dest) in topMoves) {
+                    val shifted = rewriteFolderPrefix(nextFolder, src, dest)
+                    if (shifted != nextFolder) {
+                        nextFolder = shifted
+                        changed = true
+                    }
+                }
+                if (changed) entry.copy(folder = nextFolder, updatedAtMillis = now) else entry
+            }
+
+            val updatedFoldersRaw = currentFolders.map { folderPath ->
+                var next = folderPath
+                for ((src, dest) in topMoves) {
+                    val shifted = rewriteFolderPrefix(next, src, dest)
+                    if (shifted != next) {
+                        next = shifted
+                    }
+                }
+                next
+            }
+            val addedFolders = buildList {
+                if (normTarget.isNotEmpty()) add(normTarget)
+                topMoves.forEach { (_, dest) -> add(dest) }
+            }
+            val finalFolders = prependFoldersToStorage(
+                existingFolders = updatedFoldersRaw,
+                newFolderPaths = addedFolders,
+                entries = updatedEntries
+            )
+
+            prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(updatedEntries)
+            prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(finalFolders)
+            prefs[Keys.PENDING_CHANGES] = true
+        }
+    }
+
+    suspend fun deleteEntriesAndFolders(
+        entryIds: Set<String>,
+        folderPaths: Set<String>
+    ) {
+        val normFolders = folderPaths.map(::normalizeFolderPath).filter { it.isNotEmpty() }
+        if (entryIds.isEmpty() && normFolders.isEmpty()) return
+        val now = System.currentTimeMillis()
+        dataStore.edit { prefs ->
+            val currentEntries = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
+            val updatedEntries = currentEntries.map { entry ->
+                val inDeletedFolder = !entry.deleted && normFolders.any { f ->
+                    isSameOrDescendantFolder(entry.folder, f)
+                }
+                if (entry.id in entryIds || inDeletedFolder) {
+                    entry.copy(deleted = true, updatedAtMillis = now)
+                } else {
+                    entry
+                }
+            }
+            val currentFolders = parseFolderList(prefs[Keys.FOLDERS_JSON])
+            val remainingFolders = currentFolders.filterNot { path ->
+                val np = normalizeFolderPath(path)
+                normFolders.any { del -> isSameOrDescendantFolder(np, del) }
+            }
+            val finalFolders = normalizeOrderedFolders(remainingFolders, updatedEntries)
+            prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(updatedEntries)
+            prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(finalFolders)
+            prefs[Keys.PENDING_CHANGES] = true
+        }
+    }
+
+    suspend fun mergeRemoteDictionary(
+        remoteEntries: List<PersonalDictionaryEntry>,
+        remoteFolders: List<String> = emptyList()
+    ): List<PersonalDictionaryEntry> {
         var mergedResult = emptyList<PersonalDictionaryEntry>()
         dataStore.edit { prefs ->
-            val local = prefs[Keys.DICTIONARY_JSON]?.let {
-                runCatching { dictListAdapter.fromJson(it) }.getOrNull()
-            } ?: defaultDictionaryEntries()
+            val local = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
             mergedResult = mergeDictionaryLists(local, remoteEntries)
+            val localFolders = parseFolderList(prefs[Keys.FOLDERS_JSON])
+            val mergedFolders = prependFoldersToStorage(
+                existingFolders = localFolders,
+                newFolderPaths = remoteFolders,
+                entries = mergedResult
+            )
             prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(mergedResult)
+            prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(mergedFolders)
         }
         return mergedResult
     }
@@ -296,7 +508,7 @@ class SettingsRepository(
             val now = System.currentTimeMillis()
             val saved = clipboardStore.saveClipboardText(text, now) ?: return@runCatching
             val newSignature = saved.dismissSignature()
-            val autoEntries = extractAutoSavableEntries(text)
+            val autoEntries = extractAutoSavableCategorizedEntries(text)
             dataStore.edit { prefs ->
                 prefs[Keys.CLIPBOARD_REVISION] = (prefs[Keys.CLIPBOARD_REVISION] ?: 0L) + 1L
                 val dismissedSig = prefs[Keys.DISMISSED_CLIPBOARD_SIGNATURE]
@@ -308,22 +520,27 @@ class SettingsRepository(
                 }
 
                 if (autoEntries.isNotEmpty()) {
-                    val currentDict = prefs[Keys.DICTIONARY_JSON]?.let {
-                        runCatching { dictListAdapter.fromJson(it) }.getOrNull()
-                    } ?: defaultDictionaryEntries()
+                    val currentDict = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
                     val existingActiveWords = currentDict
                         .filter { !it.deleted }
-                        .map { it.word.trim().lowercase(java.util.Locale.ROOT) }
+                        .map { it.word.trim().lowercase(Locale.ROOT) }
                         .toMutableSet()
                     val addedEntries = mutableListOf<PersonalDictionaryEntry>()
+                    val newAutoFolders = linkedSetOf<String>()
                     for (candidate in autoEntries) {
-                        val key = candidate.trim().lowercase(java.util.Locale.ROOT)
+                        val cleanWord = candidate.word.trim()
+                        val key = cleanWord.lowercase(Locale.ROOT)
                         if (key.isNotEmpty() && existingActiveWords.add(key)) {
+                            val targetFolder = normalizeFolderPath(candidate.folder)
+                            if (targetFolder.isNotEmpty()) {
+                                newAutoFolders.add(targetFolder)
+                            }
                             addedEntries.add(
                                 PersonalDictionaryEntry(
                                     id = "auto_${UUID.randomUUID().toString().take(8)}",
-                                    word = candidate.trim(),
+                                    word = cleanWord,
                                     shortcut = "",
+                                    folder = targetFolder,
                                     language = KeyboardLanguage.INDONESIAN.code,
                                     updatedAtMillis = now,
                                     deleted = false
@@ -332,7 +549,14 @@ class SettingsRepository(
                         }
                     }
                     if (addedEntries.isNotEmpty()) {
-                        prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(currentDict + addedEntries)
+                        val combinedDict = currentDict + addedEntries
+                        prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(combinedDict)
+                        val updatedFolders = prependFoldersToStorage(
+                            existingFolders = parseFolderList(prefs[Keys.FOLDERS_JSON]),
+                            newFolderPaths = newAutoFolders.toList(),
+                            entries = combinedDict
+                        )
+                        prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(updatedFolders)
                         prefs[Keys.PENDING_CHANGES] = true
                     }
                 }
@@ -428,6 +652,8 @@ class SettingsRepository(
             put("hapticEnabled", settings.hapticEnabled)
             put("clipboardHistoryEnabled", settings.clipboardHistoryEnabled)
             put("serifMiringEnabled", settings.serifMiringEnabled)
+            put("swapPeriodCommaEnabled", settings.swapPeriodCommaEnabled)
+            put("swapSymbolPanelsEnabled", settings.swapSymbolPanelsEnabled)
             put("autoSyncDriveEnabled", settings.autoSyncDriveEnabled)
             put("driveFolderName", settings.driveFolderName.ifBlank { "KetikKu" })
             if (settings.driveShortcutFolderId.isNotBlank()) {
@@ -448,7 +674,12 @@ class SettingsRepository(
             if (trimmed.isEmpty()) return@runCatching null
             val root = JSONObject(trimmed)
             val sObj = root.optJSONObject("settings")
-                ?: if (root.has("floatingModeEnabled") || root.has("hapticEnabled") || root.has("driveFolderName")) {
+                ?: if (root.has("floatingModeEnabled") ||
+                    root.has("hapticEnabled") ||
+                    root.has("driveFolderName") ||
+                    root.has("swapPeriodCommaEnabled") ||
+                    root.has("swapSymbolPanelsEnabled")
+                ) {
                     root
                 } else {
                     return@runCatching null
@@ -465,6 +696,8 @@ class SettingsRepository(
                 clipboardHistoryEnabled = sObj.optBoolean("clipboardHistoryEnabled", true),
                 arialItalicEnabled = sObj.optBoolean("arialItalicEnabled", false),
                 serifMiringEnabled = sObj.optBoolean("serifMiringEnabled", false),
+                swapPeriodCommaEnabled = sObj.optBoolean("swapPeriodCommaEnabled", false),
+                swapSymbolPanelsEnabled = sObj.optBoolean("swapSymbolPanelsEnabled", false),
                 autoSyncDriveEnabled = sObj.optBoolean("autoSyncDriveEnabled", true),
                 driveFolderName = sObj.optString("driveFolderName", "KetikKu").ifBlank { "KetikKu" },
                 driveShortcutFolderId = sObj.optString("driveShortcutFolderId", ""),
@@ -480,22 +713,30 @@ class SettingsRepository(
         return runCatching { settingsEnvelopeAdapter.fromJson(json) }.getOrNull()
     }
 
-    fun encodeDictionaryBackupJson(entries: List<PersonalDictionaryEntry>, updatedAtMillis: Long): String {
+    fun encodeDictionaryBackupJson(
+        entries: List<PersonalDictionaryEntry>,
+        updatedAtMillis: Long,
+        folders: List<String> = emptyList()
+    ): String {
+        val effectiveFolders = normalizeOrderedFolders(folders, entries)
+        val foldersArr = JSONArray().apply {
+            effectiveFolders.forEach { put(it) }
+        }
         val array = JSONArray().apply {
             entries.forEach { entry ->
                 put(JSONObject().apply {
                     put("id", entry.id)
                     put("word", entry.word)
                     put("shortcut", entry.shortcut)
+                    put("folder", normalizeFolderPath(entry.folder))
                     put("updatedAtMillis", entry.updatedAtMillis)
-                    if (entry.deleted) {
-                        put("deleted", true)
-                    }
+                    put("deleted", entry.deleted)
                 })
             }
         }
         return JSONObject().apply {
             put("updatedAtMillis", updatedAtMillis)
+            put("folders", foldersArr)
             put("entries", array)
         }.toString(2)
     }
@@ -508,9 +749,18 @@ class SettingsRepository(
             val parsed = JSONTokener(trimmed).nextValue()
             val rootUpdatedAt: Long
             val arr: JSONArray
+            val rawFolders = mutableListOf<String>()
             when (parsed) {
                 is JSONObject -> {
                     rootUpdatedAt = parsed.optLong("updatedAtMillis", 0L)
+                    val foldersJson = parsed.optJSONArray("folders")
+                    if (foldersJson != null) {
+                        for (i in 0 until foldersJson.length()) {
+                            val rawFolder = foldersJson.optString(i, "").trim()
+                            val norm = normalizeFolderPath(rawFolder)
+                            if (norm.isNotEmpty()) rawFolders.add(norm)
+                        }
+                    }
                     arr = parsed.optJSONArray("entries")
                         ?: parsed.optJSONArray("dictionary")
                         ?: return@runCatching null
@@ -529,6 +779,7 @@ class SettingsRepository(
                     val word = obj.optString("word", "").trim()
                     if (word.isEmpty()) continue
                     val shortcut = obj.optString("shortcut", "").trim().lowercase(Locale.ROOT)
+                    val folder = normalizeFolderPath(obj.optString("folder", ""))
                     var id = obj.optString("id", "").trim().ifEmpty {
                         stableEntryId(word, shortcut)
                     }
@@ -544,15 +795,18 @@ class SettingsRepository(
                             id = id,
                             word = word,
                             shortcut = shortcut,
+                            folder = folder,
                             updatedAtMillis = entryTs,
                             deleted = deleted
                         )
                     )
                 }
             }
+            val normalizedFolders = normalizeOrderedFolders(rawFolders, entries)
             DictionaryBackupEnvelope(
                 schemaVersion = 1,
                 updatedAtMillis = rootUpdatedAt,
+                folders = normalizedFolders,
                 entries = entries
             )
         }.getOrNull()?.let { return it }
@@ -563,15 +817,17 @@ class SettingsRepository(
     fun encodeFullBackupJson(
         settings: KeyboardSettings,
         entries: List<PersonalDictionaryEntry>,
-        exportedAtMillis: Long = System.currentTimeMillis()
+        exportedAtMillis: Long = System.currentTimeMillis(),
+        folders: List<String> = emptyList()
     ): String {
         val settingsObj = JSONObject(encodeSettingsBackupJson(settings)).getJSONObject("settings")
-        val dictArr = JSONObject(encodeDictionaryBackupJson(entries, exportedAtMillis)).getJSONArray("entries")
+        val dictRoot = JSONObject(encodeDictionaryBackupJson(entries, exportedAtMillis, folders))
         return JSONObject().apply {
             put("appName", "KetikKu")
             put("exportedAtMillis", exportedAtMillis)
             put("settings", settingsObj)
-            put("dictionary", dictArr)
+            put("folders", dictRoot.getJSONArray("folders"))
+            put("dictionary", dictRoot.getJSONArray("entries"))
         }.toString(2)
     }
 
@@ -589,7 +845,7 @@ class SettingsRepository(
         if (full != null && full.appName.isNotBlank()) {
             val now = System.currentTimeMillis()
             applyRemoteSettings(full.settings.copy(updatedAtMillis = maxOf(full.settings.updatedAtMillis, now)))
-            val merged = mergeRemoteDictionary(full.dictionary)
+            val merged = mergeRemoteDictionary(full.dictionary, full.folders)
             updateSyncState(
                 lastSyncedAtMillis = now,
                 message = "Dipulihkan dari berkas JSON lokal",
@@ -612,7 +868,7 @@ class SettingsRepository(
 
         val dictOnly = decodeDictionaryBackupJson(rawJson)
         if (dictOnly != null) {
-            val merged = mergeRemoteDictionary(dictOnly.entries)
+            val merged = mergeRemoteDictionary(dictOnly.entries, dictOnly.folders)
             return Result.success("${merged.count { !it.deleted }} kata kamus berhasil digabungkan dari JSON lokal.")
         }
 
@@ -630,14 +886,119 @@ class SettingsRepository(
         prefs[Keys.HAPTIC_ENABLED] = s.hapticEnabled
         prefs[Keys.CLIPBOARD_HISTORY] = s.clipboardHistoryEnabled
         prefs[Keys.SERIF_MIRING_ENABLED] = s.serifMiringEnabled
+        prefs[Keys.SWAP_PERIOD_COMMA] = s.swapPeriodCommaEnabled
+        prefs[Keys.SWAP_SYMBOL_PANELS] = s.swapSymbolPanelsEnabled
         prefs[Keys.AUTO_SYNC_DRIVE] = s.autoSyncDriveEnabled
         prefs[Keys.DRIVE_FOLDER_NAME] = s.driveFolderName.ifBlank { "KetikKu" }
         prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] = s.driveShortcutFolderId
         prefs[Keys.SETTINGS_UPDATED_AT] = s.updatedAtMillis
     }
 
+    data class AutoSavableCandidate(
+        val word: String,
+        val folder: String
+    )
+
     companion object {
         private const val PERSONALITY_MAX_ENTRIES = 600
+        const val FOLDER_GMAIL = "Gmail"
+        const val FOLDER_NOMOR = "Nomor"
+
+        fun normalizeFolderPath(raw: String?): String {
+            if (raw.isNullOrBlank()) return ""
+            val segments = raw.replace('\\', '/')
+                .split('/')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && it != "." && it != ".." }
+            if (segments.isEmpty()) return ""
+            val adjusted = segments.toMutableList()
+            when {
+                adjusted[0].equals(FOLDER_GMAIL, ignoreCase = true) -> adjusted[0] = FOLDER_GMAIL
+                adjusted[0].equals(FOLDER_NOMOR, ignoreCase = true) -> adjusted[0] = FOLDER_NOMOR
+            }
+            return adjusted.joinToString("/")
+        }
+
+        fun expandFolderAncestors(path: String): List<String> {
+            val normalized = normalizeFolderPath(path)
+            if (normalized.isEmpty()) return emptyList()
+            val parts = normalized.split('/')
+            return buildList(parts.size) {
+                for (i in 1..parts.size) {
+                    add(parts.subList(0, i).joinToString("/"))
+                }
+            }
+        }
+
+        fun isSameOrDescendantFolder(path: String, parent: String): Boolean {
+            val normPath = normalizeFolderPath(path)
+            val normParent = normalizeFolderPath(parent)
+            if (normParent.isEmpty()) return false
+            return normPath == normParent || normPath.startsWith("$normParent/")
+        }
+
+        fun rewriteFolderPrefix(path: String, oldPrefix: String, newPrefix: String): String {
+            val normPath = normalizeFolderPath(path)
+            val normOld = normalizeFolderPath(oldPrefix)
+            val normNew = normalizeFolderPath(newPrefix)
+            if (normOld.isEmpty() || normNew.isEmpty()) return normPath
+            return when {
+                normPath == normOld -> normNew
+                normPath.startsWith("$normOld/") -> "$normNew/${normPath.removePrefix("$normOld/")}"
+                else -> normPath
+            }
+        }
+
+        /**
+         * Preserves ordered folder list:
+         * - Root auto-folders pinned at top in exact order: "Gmail", then "Nomor" (if present).
+         * - All other custom folders preserve existing order (newest-first on creation).
+         * - Ancestors for active entry folders are automatically ensured.
+         */
+        fun normalizeOrderedFolders(
+            explicitFolders: List<String>,
+            entries: List<PersonalDictionaryEntry>
+        ): List<String> {
+            val orderedAll = linkedSetOf<String>()
+            explicitFolders.forEach { raw ->
+                expandFolderAncestors(raw).forEach { orderedAll.add(it) }
+            }
+            entries.forEach { entry ->
+                if (!entry.deleted && entry.folder.isNotBlank()) {
+                    expandFolderAncestors(entry.folder).forEach { orderedAll.add(it) }
+                }
+            }
+
+            val result = ArrayList<String>(orderedAll.size)
+            if (orderedAll.contains(FOLDER_GMAIL)) result.add(FOLDER_GMAIL)
+            if (orderedAll.contains(FOLDER_NOMOR)) result.add(FOLDER_NOMOR)
+            orderedAll.forEach { path ->
+                if (path != FOLDER_GMAIL && path != FOLDER_NOMOR) {
+                    result.add(path)
+                }
+            }
+            return result
+        }
+
+        fun prependFoldersToStorage(
+            existingFolders: List<String>,
+            newFolderPaths: List<String>,
+            entries: List<PersonalDictionaryEntry>
+        ): List<String> {
+            val existingNorm = existingFolders.map(::normalizeFolderPath).filter { it.isNotEmpty() }
+            val existingSet = existingNorm.toHashSet()
+            val addedInOrder = linkedSetOf<String>()
+            newFolderPaths.asReversed().forEach { raw ->
+                expandFolderAncestors(raw).forEach { ancestor ->
+                    if (!existingSet.contains(ancestor)) {
+                        addedInOrder.add(ancestor)
+                    }
+                }
+            }
+            // Newly created custom folders go before existing custom folders (Gmail & Nomor stay pinned first via normalizeOrderedFolders)
+            val combined = addedInOrder.toList() + existingNorm
+            return normalizeOrderedFolders(combined, entries)
+        }
 
         fun mergeDictionaryLists(
             local: List<PersonalDictionaryEntry>,
@@ -661,6 +1022,7 @@ class SettingsRepository(
                 id = "preset_ttd",
                 word = "Terima kasih, salam hangat",
                 shortcut = "ttd",
+                folder = "",
                 language = KeyboardLanguage.INDONESIAN.code,
                 updatedAtMillis = 1L
             ),
@@ -668,6 +1030,7 @@ class SettingsRepository(
                 id = "preset_omw",
                 word = "Sedang dalam perjalanan",
                 shortcut = "omw",
+                folder = "",
                 language = KeyboardLanguage.INDONESIAN.code,
                 updatedAtMillis = 1L
             ),
@@ -675,6 +1038,7 @@ class SettingsRepository(
                 id = "preset_asap",
                 word = "As soon as possible",
                 shortcut = "asap",
+                folder = "",
                 language = KeyboardLanguage.ENGLISH.code,
                 updatedAtMillis = 1L
             )
@@ -689,16 +1053,15 @@ class SettingsRepository(
         )
 
         /**
-         * Mengekstrak kandidat yang otomatis disimpan ke Kamus Pribadi dari teks yang disalin:
-         * 1. Alamat email berakhiran @gmail.com dengan panjang minimal 20 karakter.
-         * 2. Nomor (angka telepon/rekening/identitas) dengan minimal 11 digit/karakter angka.
-         * Diproses tanpa menyalin ulang teks panjang di memori.
+         * Mengekstrak kandidat yang otomatis disimpan ke Kamus Pribadi (beserta folder otomatisnya):
+         * 1. Alamat email berakhiran @gmail.com (>= 20 karakter) -> folder "Gmail".
+         * 2. Nomor (angka telepon/rekening/identitas, >= 11 digit) -> folder "Nomor".
          */
-        fun extractAutoSavableEntries(rawText: String): List<String> {
+        fun extractAutoSavableCategorizedEntries(rawText: String): List<AutoSavableCandidate> {
             val (start, end) = TextChunker.trimmedBounds(rawText)
             if (start >= end) return emptyList()
 
-            val results = linkedSetOf<String>()
+            val results = linkedMapOf<String, AutoSavableCandidate>()
             val emailRanges = mutableListOf<IntRange>()
 
             GMAIL_REGEX.findAll(rawText, start).forEach { match ->
@@ -706,7 +1069,7 @@ class SettingsRepository(
                 emailRanges.add(match.range)
                 val email = match.value.trim()
                 if (email.length >= 20) {
-                    results.add(email)
+                    results.putIfAbsent(email.lowercase(Locale.ROOT), AutoSavableCandidate(email, FOLDER_GMAIL))
                 }
             }
 
@@ -719,10 +1082,13 @@ class SettingsRepository(
                 val rawNumber = match.value.trim()
                 val digitCount = rawNumber.count { it.isDigit() }
                 if (digitCount >= 11 && rawNumber.length >= 11) {
-                    results.add(rawNumber)
+                    results.putIfAbsent(rawNumber.lowercase(Locale.ROOT), AutoSavableCandidate(rawNumber, FOLDER_NOMOR))
                 }
             }
-            return results.toList()
+            return results.values.toList()
         }
+
+        fun extractAutoSavableEntries(rawText: String): List<String> =
+            extractAutoSavableCategorizedEntries(rawText).map { it.word }
     }
 }

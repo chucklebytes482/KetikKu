@@ -130,6 +130,7 @@ private fun KetikKuMainScaffold(
 
     val settings by mainViewModel.settings.collectAsStateWithLifecycle()
     val dictionary by mainViewModel.dictionary.collectAsStateWithLifecycle()
+    val folders by mainViewModel.folders.collectAsStateWithLifecycle()
     val clipboard by mainViewModel.clipboard.collectAsStateWithLifecycle()
     val dismissedClipboardId by mainViewModel.dismissedClipboardId.collectAsStateWithLifecycle()
     val syncLocalState by mainViewModel.syncLocalState.collectAsStateWithLifecycle()
@@ -237,6 +238,7 @@ private fun KetikKuMainScaffold(
                 onOpenDriveSyncSheet = { showDriveSyncSheet = true },
                 settings = settings,
                 dictionary = dictionary,
+                folders = folders,
                 clipboard = clipboard,
                 dismissedClipboardId = dismissedClipboardId,
                 syncLocalState = syncLocalState,
@@ -305,6 +307,7 @@ private fun KetikKuNavHost(
     onOpenDriveSyncSheet: () -> Unit,
     settings: com.example.model.KeyboardSettings,
     dictionary: List<com.example.model.PersonalDictionaryEntry>,
+    folders: List<String>,
     clipboard: List<com.example.model.ClipboardItem>,
     dismissedClipboardId: String?,
     syncLocalState: com.example.model.SyncLocalState,
@@ -335,16 +338,30 @@ private fun KetikKuNavHost(
             DictionaryScreen(
                 settings = settings,
                 dictionary = dictionary,
-                onUpsertEntry = { word, shortcut, language, existingId ->
+                folders = folders,
+                onUpsertEntry = { word, shortcut, language, existingId, folder ->
                     mainViewModel.upsertDictionaryEntry(
                         word = word,
                         shortcut = shortcut,
                         language = language,
-                        existingId = existingId
+                        existingId = existingId,
+                        folder = folder
                     )
                 },
                 onDeleteEntry = { entryId ->
                     mainViewModel.deleteDictionaryEntry(entryId)
+                },
+                onCreateFolder = { path ->
+                    mainViewModel.createDictionaryFolder(path)
+                },
+                onRenameFolder = { oldPath, newName ->
+                    mainViewModel.renameDictionaryFolder(oldPath, newName)
+                },
+                onMoveItems = { entryIds, folderPaths, targetFolder ->
+                    mainViewModel.moveDictionaryItems(entryIds, folderPaths, targetFolder)
+                },
+                onDeleteItems = { entryIds, folderPaths ->
+                    mainViewModel.deleteDictionaryItems(entryIds, folderPaths)
                 }
             )
         }

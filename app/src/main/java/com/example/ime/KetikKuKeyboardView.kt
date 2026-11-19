@@ -1706,13 +1706,15 @@ private fun QwertyKeyboardGrid(
             )
         }
 
-        // Row 4: Ω | Ctrl | Spacebar (80%, trimmed left) | , (long-press .) | Enter
+        // Row 4: Ω | Ctrl | Spacebar (80%, trimmed left) | . or , (swappable) | Enter
         BottomNavigationRow(
             leftModeLabel = "Ω",
             leftModeContentDesc = "Simbol",
             onLeftModeTap = {
                 onFeedback()
-                controller.setPage(KeyboardPage.SYMBOLS_1)
+                controller.setPage(
+                    if (settings.swapSymbolPanelsEnabled) KeyboardPage.SYMBOLS_2 else KeyboardPage.SYMBOLS_1
+                )
             },
             keyHeight = keyHeight,
             controller = controller,
@@ -1773,8 +1775,10 @@ private fun SymbolsKeyboardGrid(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                val isPanel2 = controller.currentPage == KeyboardPage.SYMBOLS_2
-                val activeRows = if (isPanel2) SYMBOLS_2_ROWS else SYMBOLS_1_ROWS
+                val isPageTwoSelected = controller.currentPage == KeyboardPage.SYMBOLS_2
+                val activeRows = if (isPageTwoSelected) SYMBOLS_2_ROWS else SYMBOLS_1_ROWS
+                val showingSecondInOrder = if (settings.swapSymbolPanelsEnabled) !isPageTwoSelected else isPageTwoSelected
+                val nextPage = if (isPageTwoSelected) KeyboardPage.SYMBOLS_1 else KeyboardPage.SYMBOLS_2
                 activeRows.forEachIndexed { rowIndex, rowSymbols ->
                     Row(
                         modifier = Modifier.fillMaxWidth().then(
@@ -1791,21 +1795,21 @@ private fun SymbolsKeyboardGrid(
                                 height = keyHeight,
                                 palette = palette,
                                 bordered = true,
-                                highlighted = isPanel2,
-                                contentDescription = if (isPanel2) "Panel Simbol 1" else "Panel Simbol 2",
+                                highlighted = showingSecondInOrder,
+                                contentDescription = if (showingSecondInOrder) "Panel Simbol 1" else "Panel Simbol 2",
                                 pointerTracker = pointerTracker,
                                 slotId = "symbols_page_toggle",
                                 onTap = {
                                     onFeedback()
-                                    controller.setPage(if (isPanel2) KeyboardPage.SYMBOLS_1 else KeyboardPage.SYMBOLS_2)
+                                    controller.setPage(nextPage)
                                 },
                                 modifier = Modifier
                                     .weight(1.45f)
                                     .testTag("key_symbols_page_toggle")
                             ) {
                                 Text(
-                                    text = if (isPanel2) "2/2" else "1/2",
-                                    color = if (isPanel2) palette.accentBg else palette.keyText,
+                                    text = if (showingSecondInOrder) "2/2" else "1/2",
+                                    color = if (showingSecondInOrder) palette.accentBg else palette.keyText,
                                     fontSize = if (isFloating) 10.sp else 11.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -1827,7 +1831,7 @@ private fun SymbolsKeyboardGrid(
                                 fontStyle = keyFontStyle,
                                 fontSize = symFontSize,
                                 pointerTracker = pointerTracker,
-                                slotId = "sym_${if (isPanel2) 2 else 1}_$sym",
+                                slotId = "sym_${if (isPageTwoSelected) 2 else 1}_$sym",
                                 onTap = {
                                     onFeedback()
                                     controller.onCharacterTap(
@@ -2085,10 +2089,12 @@ private fun BottomNavigationRow(
             modifier = Modifier.weight(3.84f)
         )
 
-        // Combined period (tap) / comma (long-press) key with "," hint in top-right corner
+        // Combined period / comma key (swappable via settings.swapPeriodCommaEnabled)
+        val primaryPunct = if (settings.swapPeriodCommaEnabled) "," else "."
+        val secondaryPunct = if (settings.swapPeriodCommaEnabled) "." else ","
         CharKey(
-            label = ".",
-            hint = ",",
+            label = primaryPunct,
+            hint = secondaryPunct,
             height = keyHeight,
             palette = palette,
             bordered = true,
@@ -2101,10 +2107,10 @@ private fun BottomNavigationRow(
             slotId = "bottom_period",
             onTap = {
                 onFeedback()
-                controller.onCharacterTap(".", settings, personalEntries)
+                controller.onCharacterTap(primaryPunct, settings, personalEntries)
             },
             onLongPressStart = { coords, downOffset ->
-                onKeyPopupStart(".", coords, downOffset, listOf(","))
+                onKeyPopupStart(primaryPunct, coords, downOffset, listOf(secondaryPunct))
             },
             onLongPressDrag = onKeyPopupDrag,
             onLongPressRelease = onKeyPopupRelease,

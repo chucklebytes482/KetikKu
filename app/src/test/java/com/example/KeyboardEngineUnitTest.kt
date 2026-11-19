@@ -593,5 +593,34 @@ class KeyboardEngineUnitTest {
         controller.onCharacterTap("r", settings, emptyList())
         assertEquals("perjalanan", controller.suggestions.first())
     }
+
+    @Test
+    fun expandedSuggestionDictionary_isTripledWithOnlyMin8CharAlphabeticWordsAndFoldersStayActive() {
+        val idWords = DictionaryEngine.SMALL_DICT_INDONESIAN
+        val enWords = DictionaryEngine.SMALL_DICT_ENGLISH
+        val total = idWords.size + enWords.size
+        assertTrue(
+            "Expected expanded built-in dictionary >= 2550 words (3x of ~850), was $total (id=${idWords.size}, en=${enWords.size})",
+            total >= 2550
+        )
+        assertTrue("All Indonesian words must be >= 8 alphabetic chars", idWords.all { it.length >= 8 && it.all(Char::isLetter) })
+        assertTrue("All English words must be >= 8 alphabetic chars", enWords.all { it.length >= 8 && it.all(Char::isLetter) })
+
+        val folderedEntries = listOf(
+            PersonalDictionaryEntry(id = "f1", word = "CS siap membantu kakak!", shortcut = "csok", folder = "Kerja/CS", updatedAtMillis = 10L),
+            PersonalDictionaryEntry(id = "f2", word = "csresmi2026@gmail.com", shortcut = "", folder = "Gmail", updatedAtMillis = 11L),
+            PersonalDictionaryEntry(id = "f3", word = "081234567890", shortcut = "", folder = "Nomor", updatedAtMillis = 12L)
+        )
+        assertEquals(
+            "CS siap membantu kakak!",
+            DictionaryEngine.getSuggestions("csok", "", folderedEntries).primaryAutoCorrect
+        )
+        assertTrue(
+            DictionaryEngine.getSuggestions("csres", "", folderedEntries).suggestions.contains("csresmi2026@gmail.com")
+        )
+        assertTrue(
+            DictionaryEngine.getSuggestions("0812", "", folderedEntries).suggestions.contains("081234567890")
+        )
+    }
 }
 
