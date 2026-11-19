@@ -56,23 +56,39 @@ jobs:
           fi
 
           if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
-            printf '%s' "$RELEASE_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/upload.jks"
-            EFFECTIVE_KEY_PASSWORD="${KEY_PASSWORD:-$STORE_PASSWORD}"
-            SRC_ALIAS="${KEY_ALIAS:-}"
+            if ! printf '%s' "$RELEASE_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/upload.jks"; then
+              echo "::error::RELEASE_KEYSTORE_BASE64 is not valid base64. Re-copy the entire base64 string without missing or extra characters."
+              exit 1
+            fi
+            JKS_SIZE=$(wc -c < "$RUNNER_TEMP/upload.jks")
+            echo "Decoded release keystore size: ${JKS_SIZE} bytes"
+
+            CLEAN_STORE_PASSWORD=$(printf '%s' "$STORE_PASSWORD" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            CLEAN_KEY_PASSWORD=$(printf '%s' "${KEY_PASSWORD:-$CLEAN_STORE_PASSWORD}" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            SRC_ALIAS=$(printf '%s' "${KEY_ALIAS:-}" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+            if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storepass "$CLEAN_STORE_PASSWORD" >/dev/null 2>&1; then
+              echo "::error::Failed to open keystore (size=${JKS_SIZE} bytes). Either STORE_PASSWORD is wrong/swapped with KEY_PASSWORD, or RELEASE_KEYSTORE_BASE64 is incomplete/from a different .jks file."
+              exit 1
+            fi
+
             if [ -z "$SRC_ALIAS" ]; then
-              SRC_ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storepass "$STORE_PASSWORD" 2>/dev/null | awk -F',' '/PrivateKeyEntry/{print $1; exit}' | xargs)
+              SRC_ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storepass "$CLEAN_STORE_PASSWORD" 2>/dev/null | awk -F',' '/PrivateKeyEntry/{print $1; exit}' | xargs)
             fi
             if [ -n "$SRC_ALIAS" ] && [ "$SRC_ALIAS" != "upload" ]; then
-              keytool -changealias \
+              if ! keytool -changealias \
                 -keystore "$RUNNER_TEMP/upload.jks" \
                 -alias "$SRC_ALIAS" \
                 -destalias upload \
-                -storepass "$STORE_PASSWORD" \
-                -keypass "$EFFECTIVE_KEY_PASSWORD"
+                -storepass "$CLEAN_STORE_PASSWORD" \
+                -keypass "$CLEAN_KEY_PASSWORD"; then
+                echo "::error::Keystore opened, but failed to access alias '$SRC_ALIAS' with KEY_PASSWORD. Check KEY_ALIAS and KEY_PASSWORD secrets."
+                exit 1
+              fi
             fi
             echo "KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
-            echo "STORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
-            echo "KEY_PASSWORD=$EFFECTIVE_KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "STORE_PASSWORD=$CLEAN_STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=$CLEAN_KEY_PASSWORD" >> "$GITHUB_ENV"
           else
             PASS="ketikku-ci-release"
             keytool -genkeypair -v \
