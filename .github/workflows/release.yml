@@ -102,11 +102,28 @@ jobs:
             echo "KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
           fi
 
+      - name: Verify & Prepare Firebase google-services.json
+        shell: bash
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | tr -d '[:space:]' | base64 -d > app/google-services.json
+          fi
+          if [ ! -f app/google-services.json ]; then
+            echo "::error::app/google-services.json not found in repository. Push app/google-services.json to GitHub or add GOOGLE_SERVICES_JSON_BASE64 secret."
+            exit 1
+          fi
+          if ! grep -Eq '"client_type"[[:space:]]*:[[:space:]]*3' app/google-services.json; then
+            echo "::error::app/google-services.json is missing OAuth Web client (client_type: 3) required for default_web_client_id."
+            exit 1
+          fi
+
       - name: Run Unit & Robolectric Tests
-        run: gradle :app:testDebugUnitTest --no-daemon
+        run: gradle :app:testDebugUnitTest --no-daemon --no-build-cache
 
       - name: Build R8 Minified arm64-v8a APK
-        run: gradle :app:assembleRelease --no-daemon
+        run: gradle :app:assembleRelease --no-daemon --no-build-cache
 
       - name: Verify APK Signature & Package Release Artifacts
         shell: bash
