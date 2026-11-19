@@ -263,7 +263,7 @@ fun DriveBackupSheetContent(
     }
 
     val statusHeadline = when (val st = syncActionState) {
-        is SyncActionState.Syncing -> "Menyinkronkan kamus..."
+        is SyncActionState.Syncing -> "Menyinkronkan kamus & pengaturan..."
         is SyncActionState.Done -> st.message
         is SyncActionState.Error -> st.message
         else -> if (syncLocalState.lastSyncedAtMillis > 0L) {

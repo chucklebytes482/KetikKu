@@ -44,6 +44,7 @@ import com.example.ui.theme.KetikKuTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -84,10 +85,13 @@ class ExampleRobolectricTest {
             updatedAtMillis = 1794843619202L
         )
         val json = repo.encodeSettingsBackupJson(original)
+        assertFalse(json.contains("\"language\""))
+        assertFalse(json.contains("\"schemaVersion\""))
         val decoded = repo.decodeSettingsBackupJson(json)
         assertNotNull(decoded)
         assertEquals(original.heightPreset, decoded?.settings?.heightPreset)
         assertEquals(original.updatedAtMillis, decoded?.updatedAtMillis)
+        assertEquals(original.floatingModeEnabled, decoded?.settings?.floatingModeEnabled)
 
         val entries = listOf(
             PersonalDictionaryEntry(
@@ -97,7 +101,30 @@ class ExampleRobolectricTest {
                 updatedAtMillis = 999L
             )
         )
+        val dictJson = repo.encodeDictionaryBackupJson(entries, updatedAtMillis = 999L)
+        assertFalse(dictJson.contains("\"language\""))
+        assertFalse(dictJson.contains("\"schemaVersion\""))
+        assertFalse(dictJson.contains("\"deleted\""))
+        val decodedDict = repo.decodeDictionaryBackupJson(dictJson)
+        assertEquals(1, decodedDict?.entries?.size)
+        assertEquals("KetikKu Offline", decodedDict?.entries?.first()?.word)
+
+        // Tolerant decode for AI-edited JSON missing id / updatedAtMillis / language
+        val aiEditedJson = """
+            {
+              "entries": [
+                { "word": "Mohon tunggu sebentar", "shortcut": "mts" },
+                { "word": "Terima kasih banyak", "shortcut": "" }
+              ]
+            }
+        """.trimIndent()
+        val decodedAi = repo.decodeDictionaryBackupJson(aiEditedJson)
+        assertNotNull(decodedAi)
+        assertEquals(2, decodedAi?.entries?.size)
+        assertTrue(decodedAi?.entries?.all { it.id.startsWith("ai_") && it.updatedAtMillis > 0L } == true)
+
         val fullJson = repo.encodeFullBackupJson(original, entries, exportedAtMillis = 123456L)
+        assertFalse(fullJson.contains("\"language\""))
         val decodedFull = repo.decodeFullBackupJson(fullJson)
         assertNotNull(decodedFull)
         assertEquals("KetikKu", decodedFull?.appName)
@@ -255,8 +282,8 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertEquals("3,", value.text)
 
-        // Long-press 'a', 's', 'd' inserts '@', '%', '&'
-        listOf("a" to "@", "s" to "%", "d" to "&").forEach { (keyChar, sym) ->
+        // Long-press 'a', 's', 'd', 'f' inserts '@', '#', '$', '_' (Gboard Row 2 standard)
+        listOf("a" to "@", "s" to "#", "d" to "$", "f" to "_").forEach { (keyChar, sym) ->
             composeRule.onNodeWithTag("key_$keyChar").performTouchInput { down(center) }
             composeRule.mainClock.advanceTimeBy(600L)
             composeRule.waitForIdle()
@@ -265,7 +292,7 @@ class ExampleRobolectricTest {
             composeRule.onNodeWithTag("key_$keyChar").performTouchInput { up() }
             composeRule.waitForIdle()
         }
-        assertEquals("3,@%&", value.text)
+        assertEquals("3,@#\$_", value.text)
     }
 
     @Test
@@ -767,7 +794,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun googleDriveClient_syncsDictionaryOnlyWithoutSettings() = runTest {
+    fun googleDriveClient_syncsDictionaryAndSettingsTwoWayFilesWithoutLanguageField() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SettingsRepository(context)
         val seenUploadPayloads = mutableListOf<String>()
@@ -783,6 +810,14 @@ class ExampleRobolectricTest {
             ),
             updatedAtMillis = 5000L
         )
+        val remoteSettingsJson = repo.encodeSettingsBackupJson(
+            KeyboardSettings(
+                floatingModeEnabled = true,
+                hapticEnabled = false,
+                serifMiringEnabled = true,
+                updatedAtMillis = 5000L
+            )
+        )
 
         val mockHttp = okhttp3.OkHttpClient.Builder()
             .addInterceptor { chain ->
@@ -793,17 +828,21 @@ class ExampleRobolectricTest {
                         200 to """{"files":[{"id":"folder_1","name":"KetikKu","mimeType":"application/vnd.google-apps.folder"}]}"""
                     }
                     req.method == "GET" && url.contains("in+parents") -> {
-                        200 to """{"files":[{"id":"dict_file_1","name":"ketikku_dictionary.json","mimeType":"application/json"}]}"""
+                        200 to """{"files":[{"id":"dict_file_1","name":"ketikku_dictionary.json","mimeType":"application/json"},{"id":"settings_file_1","name":"ketikku_settings.json","mimeType":"application/json"}]}"""
                     }
                     req.method == "GET" && url.contains("/dict_file_1?alt=media") -> {
                         200 to remoteDictJson
+                    }
+                    req.method == "GET" && url.contains("/settings_file_1?alt=media") -> {
+                        200 to remoteSettingsJson
                     }
                     req.method == "PATCH" || req.method == "POST" -> {
                         val buffer = okio.Buffer()
                         req.body?.writeTo(buffer)
                         val bodyText = buffer.readUtf8()
                         seenUploadPayloads.add(bodyText)
-                        200 to """{"id":"dict_file_1"}"""
+                        val id = if (bodyText.contains("ketikku_settings.json")) "settings_file_1" else "dict_file_1"
+                        200 to """{"id":"$id"}"""
                     }
                     else -> 404 to "{}"
                 }
@@ -820,7 +859,7 @@ class ExampleRobolectricTest {
         val client = com.example.data.GoogleDriveClient(mockHttp)
         val localSettings = KeyboardSettings(
             heightPreset = KeyboardHeightPreset.NORMAL.name,
-            serifMiringEnabled = true,
+            serifMiringEnabled = false,
             updatedAtMillis = 999L
         )
         repo.upsertDictionaryEntry("Halo Lokal", "hl", KeyboardLanguage.INDONESIAN.code, existingId = "local_2")
@@ -835,13 +874,33 @@ class ExampleRobolectricTest {
             settingsRepository = repo
         ).getOrThrow()
 
-        assertEquals(localSettings, outcome.syncedSettings)
-        assertEquals("", outcome.settingsFileId)
+        // Remote settings (updatedAtMillis=5000L) win over older local settings (999L)
+        assertTrue(outcome.syncedSettings.floatingModeEnabled)
+        assertFalse(outcome.syncedSettings.hapticEnabled)
+        assertTrue(outcome.syncedSettings.serifMiringEnabled)
+        assertEquals("settings_file_1", outcome.settingsFileId)
         assertEquals("dict_file_1", outcome.dictionaryFileId)
         assertTrue(outcome.syncedDictionary.any { it.id == "remote_1" && it.word == "Salam Drive" })
         assertTrue(outcome.syncedDictionary.any { it.id == "local_2" && it.word == "Halo Lokal" })
-        assertTrue(seenUploadPayloads.all { !it.contains("ketikku_settings.json") })
         assertTrue(seenUploadPayloads.any { it.contains("ketikku_dictionary.json") })
+        assertTrue(seenUploadPayloads.none { it.contains("\"language\"") })
+
+        // Now local settings change newer than remote -> uploads ketikku_settings.json
+        val newerLocalSettings = outcome.syncedSettings.copy(
+            hapticEnabled = true,
+            updatedAtMillis = 9000L
+        )
+        seenUploadPayloads.clear()
+        val outcome2 = client.syncTwoWay(
+            accessToken = "fake-token",
+            folderName = "KetikKu",
+            shortcutFolderIdOverride = "",
+            localSettings = newerLocalSettings,
+            localDictionary = outcome.syncedDictionary,
+            settingsRepository = repo
+        ).getOrThrow()
+        assertEquals(com.example.data.SyncDirection.UPLOADED, outcome2.direction)
+        assertTrue(seenUploadPayloads.any { it.contains("ketikku_settings.json") })
     }
 
     @Test
@@ -1042,59 +1101,69 @@ class ExampleRobolectricTest {
         val spaceRatio = spaceBounds.width / totalRowWidth
         assertTrue("Expected spacebar ratio ~0.39, got $spaceRatio", spaceRatio in 0.35f..0.43f)
 
-        // Open Symbol Panel 1 ('Ω'): Row 1 has digits 1..0, Row 2 brackets/currency, Row 3 has 1/2 toggle + 7 keys + Backspace
+        // Open Symbol Panel 1 ('Ω'): Gboard standard 1234567890 / @#$_&-+()/ / *"':;!?
         composeRule.onNodeWithTag("key_symbols").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("symbols_panel").assertIsDisplayed()
         val p1Row1 = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
-        val p1Row2 = listOf("[", "]", "\\", "|", "<", ">", "Rp", "$", "€")
-        val p1Row3 = listOf("😂", "😍", "👍", "🙏", "!", "?", "@")
+        val p1Row2 = listOf("@", "#", "$", "_", "&", "-", "+", "(", ")", "/")
+        val p1Row3 = listOf("*", "\"", "'", ":", ";", "!", "?")
         assertEquals(10, p1Row1.size)
-        assertEquals(9, p1Row2.size)
+        assertEquals(10, p1Row2.size)
         assertEquals(7, p1Row3.size)
-        (p1Row1 + p1Row2 + p1Row3).forEach { sym ->
+        val panel1All = p1Row1 + p1Row2 + p1Row3
+        assertEquals(27, panel1All.distinct().size)
+        panel1All.forEach { sym ->
             composeRule.onNodeWithTag("key_$sym").assertIsDisplayed()
         }
         composeRule.onNodeWithTag("key_symbols_page_toggle").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("1/2").fetchSemanticsNodes().isNotEmpty())
         composeRule.onNodeWithTag("key_backspace").assertIsDisplayed()
 
-        // Verify Panel 1 geometry (row1 above row2 above row3; row2 horizontally inset vs row1)
+        // Verify Panel 1 geometry (row1 above row2 above row3; row2 10 keys aligned cleanly with row1)
         val r1First = composeRule.onNodeWithTag("key_1").fetchSemanticsNode().boundsInRoot
         val r1Last = composeRule.onNodeWithTag("key_0").fetchSemanticsNode().boundsInRoot
-        val r2First = composeRule.onNodeWithTag("key_[").fetchSemanticsNode().boundsInRoot
-        val r3First = composeRule.onNodeWithTag("key_😂").fetchSemanticsNode().boundsInRoot
-        val r3Last = composeRule.onNodeWithTag("key_@").fetchSemanticsNode().boundsInRoot
+        val r2First = composeRule.onNodeWithTag("key_@").fetchSemanticsNode().boundsInRoot
+        val r3First = composeRule.onNodeWithTag("key_*").fetchSemanticsNode().boundsInRoot
+        val r3Last = composeRule.onNodeWithTag("key_?").fetchSemanticsNode().boundsInRoot
         assertTrue(r1First.right < r1Last.left)
-        assertTrue(r2First.left > r1First.left + 2f)
+        assertTrue(abs(r2First.left - r1First.left) < 2f)
         assertTrue(r1First.bottom <= r2First.top + 1f)
         assertTrue(r2First.bottom <= r3First.top + 1f)
         assertTrue(r3First.right < r3Last.left)
 
-        // Tap '1' and 'Rp' in Panel 1
+        // Tap '1' and '@' in Panel 1
         composeRule.onNodeWithTag("key_1").performClick()
-        composeRule.onNodeWithTag("key_Rp").performClick()
+        composeRule.onNodeWithTag("key_@").performClick()
         composeRule.waitForIdle()
-        assertEquals("1Rp", value.text)
+        assertEquals("1@", value.text)
 
-        // Switch to Symbol Panel 2 via Row 3 toggle (replaces old redundant Row 3 ABC button)
+        // Switch to Symbol Panel 2 via Row 3 toggle and verify zero overlap with Panel 1 or bottom row ('.', ',')
         composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("2/2").fetchSemanticsNodes().isNotEmpty())
-        val p2Row1 = listOf("←", "→", "↑", "↓", "✓", "✗", "×", "÷", "=", "#")
-        val p2Row2 = listOf("(", ")", "{", "}", "~", "`", "^", "%", "&")
-        val p2Row3 = listOf("-", "_", "+", "*", "/", ":", ";")
+        val p2Row1 = listOf("←", "→", "↑", "↓", "✓", "✗", "Rp", "%", "^", "•")
+        val p2Row2 = listOf("`", "~", "|", "<", ">", "{", "}", "[", "]", "\\")
+        val p2Row3 = listOf("×", "÷", "=", "😂", "😍", "👍", "🙏")
         assertEquals(10, p2Row1.size)
-        assertEquals(9, p2Row2.size)
+        assertEquals(10, p2Row2.size)
         assertEquals(7, p2Row3.size)
-        (p2Row1 + p2Row2 + p2Row3).forEach { sym ->
+        val panel2All = p2Row1 + p2Row2 + p2Row3
+        assertEquals(27, panel2All.distinct().size)
+        assertTrue(
+            "Panel 2 symbols must not duplicate Panel 1 or bottom punctuation",
+            panel2All.none { it in panel1All || it == "." || it == "," }
+        )
+        panel2All.forEach { sym ->
             composeRule.onNodeWithTag("key_$sym").assertIsDisplayed()
         }
         composeRule.onNodeWithTag("key_←").performClick()
+        composeRule.onNodeWithTag("key_×").performClick()
+        composeRule.onNodeWithTag("key_÷").performClick()
         composeRule.onNodeWithTag("key_{").performClick()
-        composeRule.onNodeWithTag("key_+").performClick()
+        composeRule.onNodeWithTag("key_Rp").performClick()
         composeRule.waitForIdle()
-        assertEquals("1Rp←{+", value.text)
+        assertEquals("1@←×÷{Rp", value.text)
 
         // Toggle back to Panel 1 ('2/2' -> '1/2'), then bottom-left 'ABC' returns to QWERTY
         composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
@@ -1383,6 +1452,42 @@ class ExampleRobolectricTest {
         repo.addClipboardText("Teks berbeda 456")
         assertNull(repo.dismissedClipboardIdFlow.first())
         assertNull(repo.dismissedClipboardSignatureFlow.first())
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp")
+    fun settingsScreen_aiDictionaryPromptCardCopiesInstructionsToClipboard() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = SettingsRepository(context)
+        val mainViewModel = com.example.ui.MainViewModel(repo)
+
+        composeRule.setContent {
+            KetikKuTheme(darkTheme = false) {
+                com.example.ui.screens.SettingsScreen(
+                    viewModel = mainViewModel,
+                    settings = KeyboardSettings(),
+                    dictionary = emptyList(),
+                    imeStatus = com.example.ui.ImeActivationStatus.ACTIVE_DEFAULT,
+                    onOpenDictionary = {}
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("copy_ai_dictionary_prompt_button").performScrollTo()
+        composeRule.onNodeWithTag("ai_dictionary_prompt_card").assertIsDisplayed()
+        val promptCardBounds = composeRule.onNodeWithTag("ai_dictionary_prompt_card").fetchSemanticsNode().boundsInRoot
+        val maxCompactPx = 130f * context.resources.displayMetrics.density
+        assertTrue("AI prompt box should be short and scrollable", promptCardBounds.height <= maxCompactPx)
+        composeRule.onNodeWithTag("copy_ai_dictionary_prompt_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("copy_ai_dictionary_prompt_button").performClick()
+        composeRule.waitForIdle()
+
+        assertTrue(composeRule.onAllNodesWithText("Instruksi Tersalin!").fetchSemanticsNodes().isNotEmpty())
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val copiedText = cm.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
+        assertTrue(copiedText.contains("ketikku_dictionary.json"))
+        assertTrue(copiedText.contains("Jangan sertakan field \"language\""))
     }
 }
 
