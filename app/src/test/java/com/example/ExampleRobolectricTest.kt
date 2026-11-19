@@ -195,6 +195,17 @@ class ExampleRobolectricTest {
         assertTrue(clipToolbarBounds.right <= floatToolbarBounds.left + 1f)
         assertTrue(floatToolbarBounds.right <= settingsToolbarBounds.left + 1f)
 
+        val personalSample = listOf(
+            PersonalDictionaryEntry(id = "s1", word = "Halo pagi", shortcut = "hp", updatedAtMillis = 1L),
+            PersonalDictionaryEntry(id = "s2", word = "Terima kasih", shortcut = "tk", updatedAtMillis = 2L),
+            PersonalDictionaryEntry(id = "s3", word = "Mohon tunggu", shortcut = "mt", updatedAtMillis = 3L)
+        )
+        // Without personal entries, top suggestion chips remain empty
+        assertEquals(0, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
+
+        // When personal entries exist, refreshing populates 3 equal-width suggestion slots
+        controller.refreshState(settings, personalSample)
+        composeRule.waitForIdle()
         val chipNodes = composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes()
         assertEquals(3, chipNodes.size)
         val chipWidths = chipNodes.map { it.boundsInRoot.width }
@@ -202,6 +213,14 @@ class ExampleRobolectricTest {
             "All 3 suggestion slots should have equal width: $chipWidths",
             abs(chipWidths[0] - chipWidths[1]) < 2f && abs(chipWidths[1] - chipWidths[2]) < 2f
         )
+
+        // Verify corner long-press hint text ('1' on 'q', ',' on '.') is enlarged by +20% (10.8.sp)
+        val qHintResults = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        composeRule.onAllNodesWithText("1", useUnmergedTree = true).fetchSemanticsNodes()
+            .first()
+            .config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult]
+            .action?.invoke(qHintResults)
+        assertEquals(10.8f, qHintResults.first().layoutInput.style.fontSize.value, 0.05f)
         // Verify no Emoji, GIF, One-Handed, Theme, Language Switch, or top-bar chevron toggle controls exist
         assertTrue(composeRule.onAllNodesWithTag("ime_toolbar_toggle").fetchSemanticsNodes().isEmpty())
         assertTrue(
@@ -466,6 +485,8 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithTag("dict_filter_all").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Bahasa Indonesia").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("delete_dictionary_d1").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("delete_dictionary_d2").fetchSemanticsNodes().isEmpty())
 
         composeRule.onNodeWithTag("dictionary_search_input").performTextInput("omw")
         composeRule.waitForIdle()
@@ -473,11 +494,12 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithTag("dictionary_item_d1").fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithTag("dictionary_item_d2").assertIsDisplayed()
 
-        // Tap item to open Edit Kata & Pintasan dialog
+        // Tap item to open Edit Kata & Pintasan dialog (no folder field or language selector)
         composeRule.onNodeWithTag("dictionary_item_d2").performClick()
         composeRule.waitForIdle()
 
         assertTrue(composeRule.onAllNodesWithText("Bahasa Kamus").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("dictionary_folder_input").fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithTag("dictionary_word_input").performTextClearance()
         composeRule.onNodeWithTag("dictionary_word_input").performTextInput("Otw sekarang")
         composeRule.onNodeWithTag("dictionary_shortcut_input").performTextClearance()
@@ -784,8 +806,8 @@ class ExampleRobolectricTest {
             abs(containerBoundsBefore.width - expectedWidthPx) < 4f
         )
 
-        // Strictly 3 equal-width suggestion slots and NO resize handle
-        assertEquals(3, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
+        // With empty personalEntries, zero suggestion chips appear and NO resize handle exists
+        assertEquals(0, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
         assertTrue(
             composeRule.onAllNodesWithContentDescription("Ubah ukuran", substring = true, ignoreCase = true)
                 .fetchSemanticsNodes().isEmpty()
@@ -996,11 +1018,11 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("dismiss_recent_clipboard_button").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("penggunapanjang2026@gmail.com").fetchSemanticsNodes().isNotEmpty())
 
-        // Tapping X dismisses the recently copied banner and restores regular suggestion chips
+        // Tapping X dismisses the recently copied banner; suggestion strip stays empty when personalEntries is empty
         composeRule.onNodeWithTag("dismiss_recent_clipboard_button").performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithTag("recent_clipboard_suggestion_chip").fetchSemanticsNodes().isEmpty())
-        assertEquals(3, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
 
         // Even if clip listener emits the SAME text with a brand-new ID, it stays hidden from suggestion bar
         clipboardState = listOf(
@@ -1131,18 +1153,18 @@ class ExampleRobolectricTest {
         val spaceRatio = spaceBounds.width / totalRowWidth
         assertTrue("Expected spacebar ratio ~0.39, got $spaceRatio", spaceRatio in 0.35f..0.43f)
 
-        // Open Symbol Panel 1 ('Ω'): Gboard standard 1234567890 / @#$_&-+()/ / *"':;!?
+        // Open Symbol Panel 1 ('Ω'): 10 / 9 / 7 layout matching QWERTY
         composeRule.onNodeWithTag("key_symbols").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("symbols_panel").assertIsDisplayed()
         val p1Row1 = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
-        val p1Row2 = listOf("@", "#", "$", "_", "&", "-", "+", "(", ")", "/")
-        val p1Row3 = listOf("*", "\"", "'", ":", ";", "!", "?")
+        val p1Row2 = listOf("@", "#", "$", "_", "&", "-", "+", "×", "÷")
+        val p1Row3 = listOf("=", "%", "/", "←", "→", "↑", "↓")
         assertEquals(10, p1Row1.size)
-        assertEquals(10, p1Row2.size)
+        assertEquals(9, p1Row2.size)
         assertEquals(7, p1Row3.size)
         val panel1All = p1Row1 + p1Row2 + p1Row3
-        assertEquals(27, panel1All.distinct().size)
+        assertEquals(26, panel1All.distinct().size)
         panel1All.forEach { sym ->
             composeRule.onNodeWithTag("key_$sym").assertIsDisplayed()
         }
@@ -1150,14 +1172,16 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithText("1/2").fetchSemanticsNodes().isNotEmpty())
         composeRule.onNodeWithTag("key_backspace").assertIsDisplayed()
 
-        // Verify Panel 1 geometry (row1 above row2 above row3; row2 10 keys aligned cleanly with row1)
+        // Verify Panel 1 geometry matches QWERTY (row 1: 10 cols, row 2: 9 centered keys inset from row 1, row 3: 7 keys)
         val r1First = composeRule.onNodeWithTag("key_1").fetchSemanticsNode().boundsInRoot
         val r1Last = composeRule.onNodeWithTag("key_0").fetchSemanticsNode().boundsInRoot
         val r2First = composeRule.onNodeWithTag("key_@").fetchSemanticsNode().boundsInRoot
-        val r3First = composeRule.onNodeWithTag("key_*").fetchSemanticsNode().boundsInRoot
-        val r3Last = composeRule.onNodeWithTag("key_?").fetchSemanticsNode().boundsInRoot
+        val r2Last = composeRule.onNodeWithTag("key_÷").fetchSemanticsNode().boundsInRoot
+        val r3First = composeRule.onNodeWithTag("key_=").fetchSemanticsNode().boundsInRoot
+        val r3Last = composeRule.onNodeWithTag("key_↓").fetchSemanticsNode().boundsInRoot
         assertTrue(r1First.right < r1Last.left)
-        assertTrue(abs(r2First.left - r1First.left) < 2f)
+        assertTrue(r2First.left > r1First.left + 1f)
+        assertTrue(r2Last.right < r1Last.right - 1f)
         assertTrue(r1First.bottom <= r2First.top + 1f)
         assertTrue(r2First.bottom <= r3First.top + 1f)
         assertTrue(r3First.right < r3Last.left)
@@ -1168,32 +1192,36 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertEquals("1@", value.text)
 
-        // Switch to Symbol Panel 2 via Row 3 toggle and verify zero overlap with Panel 1 or bottom row ('.', ',')
+        // Switch to Symbol Panel 2 via Row 3 toggle and verify 10/9/7 geometry + zero overlap with Panel 1, '.' / ',', or QWERTY long-press shortcuts
         composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("2/2").fetchSemanticsNodes().isNotEmpty())
-        val p2Row1 = listOf("←", "→", "↑", "↓", "✓", "✗", "Rp", "%", "^", "•")
-        val p2Row2 = listOf("`", "~", "|", "<", ">", "{", "}", "[", "]", "\\")
-        val p2Row3 = listOf("×", "÷", "=", "😂", "😍", "👍", "🙏")
+        val qwertyShortcuts = setOf(
+            "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
+            "@", "#", "$", "_", "&", "-", "+", "(", ")", "/",
+            "*", "\"", "'", ":", ";", "!", "?", ".", ","
+        )
+        val p2Row1 = listOf("✓", "✗", "Rp", "€", "£", "^", "•", "`", "~", "|")
+        val p2Row2 = listOf("<", ">", "{", "}", "[", "]", "\\", "°", "±")
+        val p2Row3 = listOf("≠", "©", "®", "😂", "😍", "👍", "🙏")
         assertEquals(10, p2Row1.size)
-        assertEquals(10, p2Row2.size)
+        assertEquals(9, p2Row2.size)
         assertEquals(7, p2Row3.size)
         val panel2All = p2Row1 + p2Row2 + p2Row3
-        assertEquals(27, panel2All.distinct().size)
+        assertEquals(26, panel2All.distinct().size)
         assertTrue(
-            "Panel 2 symbols must not duplicate Panel 1 or bottom punctuation",
-            panel2All.none { it in panel1All || it == "." || it == "," }
+            "Panel 2 symbols must not duplicate Panel 1, bottom punctuation, or QWERTY long-press shortcuts",
+            panel2All.none { it in panel1All || it in qwertyShortcuts }
         )
         panel2All.forEach { sym ->
             composeRule.onNodeWithTag("key_$sym").assertIsDisplayed()
         }
-        composeRule.onNodeWithTag("key_←").performClick()
-        composeRule.onNodeWithTag("key_×").performClick()
-        composeRule.onNodeWithTag("key_÷").performClick()
-        composeRule.onNodeWithTag("key_{").performClick()
+        composeRule.onNodeWithTag("key_✓").performClick()
         composeRule.onNodeWithTag("key_Rp").performClick()
+        composeRule.onNodeWithTag("key_{").performClick()
+        composeRule.onNodeWithTag("key_≠").performClick()
         composeRule.waitForIdle()
-        assertEquals("1@←×÷{Rp", value.text)
+        assertEquals("1@✓Rp{≠", value.text)
 
         // Toggle back to Panel 1 ('2/2' -> '1/2'), then bottom-left 'ABC' returns to QWERTY
         composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
@@ -1235,7 +1263,7 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         // Long copied text must NEVER be shown inside top suggestion bar
         assertTrue(composeRule.onAllNodesWithTag("recent_clipboard_suggestion_chip").fetchSemanticsNodes().isEmpty())
-        assertEquals(3, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
+        assertEquals(0, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
 
         // Open clipboard grid -> shows preview + character count badge
         composeRule.onNodeWithTag("ime_clipboard_button").performClick()
@@ -1522,7 +1550,7 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun settingsScreen_ordersDriveFirstWebsiteSecondAndPersonalizationTogglesWork() = runTest {
+    fun settingsScreen_ordersDriveFirstWebsiteSecondAndOmitsPersonalizationSection() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SettingsRepository(context)
         val vm = MainViewModel(repo)
@@ -1548,13 +1576,11 @@ class ExampleRobolectricTest {
         assertTrue("Google Drive sync must be #1 at top", driveBounds.bottom <= websiteBounds.top + 1f)
         assertTrue("Website must be #2 above IME status", websiteBounds.bottom <= enableBounds.top + 1f)
 
-        composeRule.onNodeWithTag("toggle_swap_period_comma").performScrollTo().performClick()
-        composeRule.onNodeWithTag("toggle_swap_symbol_panels").performScrollTo().performClick()
-        composeRule.waitForIdle()
-
-        val updated = repo.getCurrentSettings()
-        assertTrue(updated.swapPeriodCommaEnabled)
-        assertTrue(updated.swapSymbolPanelsEnabled)
+        // Personalization card and swap switches must NOT exist in Settings
+        assertTrue(composeRule.onAllNodesWithTag("personalization_card").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("toggle_swap_period_comma").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("toggle_swap_symbol_panels").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Personalisasi Keyboard").fetchSemanticsNodes().isEmpty())
     }
 
     @Test
@@ -1635,7 +1661,7 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun keyboardView_personalizationSwapsPeriodCommaAndSymbolPanels() {
+    fun keyboardView_keepsStandardLayoutEvenIfLegacySwapFlagsAreTrue() {
         var value = TextFieldValue("")
         val settings = KeyboardSettings(
             swapPeriodCommaEnabled = true,
@@ -1662,34 +1688,34 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        // Period & comma swapped: primary key is ',', long-press popup is '.'
-        assertTrue(composeRule.onAllNodesWithTag("key_.").fetchSemanticsNodes().isEmpty())
-        composeRule.onNodeWithTag("key_,").assertIsDisplayed().performClick()
+        // Bottom punctuation remains '.' tap / ',' long-press
+        assertTrue(composeRule.onAllNodesWithTag("key_,").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithTag("key_.").assertIsDisplayed().performClick()
         composeRule.waitForIdle()
-        assertEquals(",", value.text)
+        assertEquals(".", value.text)
 
-        composeRule.onNodeWithTag("key_,").performTouchInput { down(center) }
+        composeRule.onNodeWithTag("key_.").performTouchInput { down(center) }
         composeRule.mainClock.advanceTimeBy(600L)
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("key_longpress_popup").assertIsDisplayed()
-        composeRule.onNodeWithTag("key_,").performTouchInput { up() }
+        composeRule.onNodeWithTag("key_.").performTouchInput { up() }
         composeRule.waitForIdle()
-        assertEquals(",.", value.text)
+        assertEquals(".,", value.text)
 
-        // Symbol panels swapped: Ω opens Panel 2 first (1/2) and toggle goes to Panel 1 (2/2)
+        // Ω always opens Panel 1 first ('1/2'), toggle opens Panel 2 ('2/2')
         composeRule.onNodeWithTag("key_symbols").performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("1/2").fetchSemanticsNodes().isNotEmpty())
         composeRule.onNodeWithTag("key_×").assertIsDisplayed().performClick()
         composeRule.waitForIdle()
-        assertEquals(",.×", value.text)
+        assertEquals(".,×", value.text)
 
         composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("2/2").fetchSemanticsNodes().isNotEmpty())
-        composeRule.onNodeWithTag("key_@").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("key_✓").assertIsDisplayed().performClick()
         composeRule.waitForIdle()
-        assertEquals(",.×@", value.text)
+        assertEquals(".,×✓", value.text)
     }
 
     @Test

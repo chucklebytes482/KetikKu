@@ -36,14 +36,14 @@ class KeyboardEngineUnitTest {
         )
         assertEquals("Hormat kami, Budi", shortcutResult.primaryAutoCorrect)
 
+        // Built-in suggestion dictionary is removed: unknown words return empty suggestions
         val unknownResult = DictionaryEngine.getSuggestions(
             currentWord = "tidk",
             previousWord = "saya",
             personalEntries = entries
         )
         assertNull(unknownResult.primaryAutoCorrect)
-        assertTrue(unknownResult.suggestions.contains("tidk"))
-        assertTrue(unknownResult.suggestions.size <= 3)
+        assertTrue(unknownResult.suggestions.isEmpty())
 
         val multiEntries = entries + listOf(
             PersonalDictionaryEntry(id = "2", word = "Halo semuanya", shortcut = "hs", updatedAtMillis = 101L),
@@ -61,7 +61,9 @@ class KeyboardEngineUnitTest {
             previousWord = "",
             personalEntries = multiEntries
         )
-        assertEquals(3, prefixResult.suggestions.size)
+        assertEquals(2, prefixResult.suggestions.size)
+        assertTrue(prefixResult.suggestions.contains("Halo semuanya"))
+        assertTrue(prefixResult.suggestions.contains("Hari ini cerah"))
     }
 
     @Test
@@ -413,44 +415,33 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
-    fun smallSuggestionDictionary_containsOnlyMin8CharWordsAndAllowsAnyLengthPersonalEntries() {
-        assertTrue(DictionaryEngine.SMALL_DICT_INDONESIAN.isNotEmpty())
-        assertTrue(DictionaryEngine.SMALL_DICT_ENGLISH.isNotEmpty())
-        assertTrue(
-            "All Indonesian built-in suggestion words must be >= 8 chars",
-            DictionaryEngine.SMALL_DICT_INDONESIAN.all { it.length >= 8 }
-        )
-        assertTrue(
-            "All English built-in suggestion words must be >= 8 chars",
-            DictionaryEngine.SMALL_DICT_ENGLISH.all { it.length >= 8 }
-        )
+    fun dictionaryEngine_usesOnlyPersonalDictionaryWithoutBuiltInSuggestions() {
+        // When personalEntries is empty, both idle & prefix typing must yield zero suggestions
+        val idleEmpty = DictionaryEngine.getSuggestions("", "", emptyList())
+        assertTrue(idleEmpty.suggestions.isEmpty())
+        assertTrue(DictionaryEngine.getSuggestions("sek", "", emptyList()).suggestions.isEmpty())
+        assertTrue(DictionaryEngine.getSuggestions("tomo", "", emptyList()).suggestions.isEmpty())
 
-        // Idle defaults also obey >= 8 chars
-        val idle = DictionaryEngine.getSuggestions("", "", emptyList())
-        assertEquals(3, idle.suggestions.size)
-        assertTrue(idle.suggestions.all { it.length >= 8 })
+        // Non-personal personality history words must NOT be suggested
+        val nonPersonalPersonality = mapOf(
+            "sekarang" to WordPersonalityStat(word = "sekarang", usageCount = 99, lastUsedMillis = 1000L)
+        )
+        assertTrue(DictionaryEngine.getSuggestions("", "", emptyList(), nonPersonalPersonality, 1000L).suggestions.isEmpty())
+        assertTrue(DictionaryEngine.getSuggestions("sek", "", emptyList(), nonPersonalPersonality, 1000L).suggestions.isEmpty())
 
-        // Indonesian & English prefix suggestions work even when personalEntries is empty
+        // Personal dictionary entries (short or long) remain suggested by shortcut and prefix
         val personal = mutableListOf<PersonalDictionaryEntry>()
-        val idSugg = DictionaryEngine.getSuggestions("sek", "", personal)
-        assertTrue(idSugg.suggestions.contains("sekarang"))
-
-        val enSugg = DictionaryEngine.getSuggestions("tomo", "", personal)
-        assertTrue(enSugg.suggestions.contains("tomorrow"))
-
-        // Personal dictionary entries have no length restriction (short words/shortcuts work)
-        assertTrue(personal.isEmpty())
         assertNull(DictionaryEngine.findShortcutMatch("sekarang", personal))
         personal.add(
             PersonalDictionaryEntry(id = "p1", word = "Oke", shortcut = "ok", updatedAtMillis = 10L)
         )
         val prioritized = DictionaryEngine.getSuggestions("ok", "", personal)
         assertEquals("Oke", prioritized.primaryAutoCorrect)
-        assertEquals("Oke", prioritized.suggestions.first())
+        assertEquals(listOf("Oke"), prioritized.suggestions)
     }
 
     @Test
-    fun dictionaryEngine_bucketLookupHandlesRapidPrefixTypingAcrossBothDictionaries() {
+    fun dictionaryEngine_bucketLookupHandlesRapidPrefixTypingAcrossPersonalDictionary() {
         val personal = listOf(
             PersonalDictionaryEntry(id = "p1", word = "KetikKu Cepat", shortcut = "kc", updatedAtMillis = 1L),
             PersonalDictionaryEntry(id = "p2", word = "Kantor Pusat", shortcut = "kp", updatedAtMillis = 2L)
@@ -458,15 +449,16 @@ class KeyboardEngineUnitTest {
         // Mixed-case & rapid progressive prefix lookups hit matching first-char buckets reliably
         assertEquals("KetikKu Cepat", DictionaryEngine.getSuggestions("KC", "", personal).primaryAutoCorrect)
         assertTrue(DictionaryEngine.getSuggestions("Ka", "", personal).suggestions.contains("Kantor Pusat"))
-        assertTrue(DictionaryEngine.getSuggestions("info", "", personal).suggestions.contains("informasi"))
-        assertTrue(DictionaryEngine.getSuggestions("Info", "", personal).suggestions.contains("Informasi"))
-        assertTrue(DictionaryEngine.getSuggestions("sche", "", personal).suggestions.contains("schedule"))
-        assertTrue(DictionaryEngine.getSuggestions("xzq", "", personal).suggestions.contains("xzq"))
+        assertTrue(DictionaryEngine.getSuggestions("ka", "", personal).suggestions.contains("Kantor Pusat"))
+        // Built-in words like "informasi" / "schedule" and unknown tokens "xzq" must NOT appear
+        assertTrue(DictionaryEngine.getSuggestions("info", "", personal).suggestions.isEmpty())
+        assertTrue(DictionaryEngine.getSuggestions("sche", "", personal).suggestions.isEmpty())
+        assertTrue(DictionaryEngine.getSuggestions("xzq", "", personal).suggestions.isEmpty())
     }
 
     @Test
     fun dictionaryEngine_threeSuggestionsAndMutableListReplacementStayConsistent() {
-        assertEquals(3, DictionaryEngine.getSuggestions("", "", emptyList()).suggestions.size)
+        assertTrue(DictionaryEngine.getSuggestions("", "", emptyList()).suggestions.isEmpty())
         val personal = mutableListOf(
             PersonalDictionaryEntry(id = "p", word = "Selesai proyek", shortcut = "sel", updatedAtMillis = 1L)
         )
@@ -572,40 +564,43 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
-    fun textSuggestionPersonality_boostsFrequentlySelectedWordsOnPrefixTyping() {
+    fun textSuggestionPersonality_boostsFrequentlySelectedPersonalEntriesOnly() {
         var tf = TextFieldValue("")
         val settings = KeyboardSettings()
+        val personal = listOf(
+            PersonalDictionaryEntry(id = "1", word = "perhatian", shortcut = "", updatedAtMillis = 10L),
+            PersonalDictionaryEntry(id = "2", word = "pertanyaan", shortcut = "", updatedAtMillis = 10L),
+            PersonalDictionaryEntry(id = "3", word = "perjalanan", shortcut = "", updatedAtMillis = 10L)
+        )
         val controller = KeyboardController(
             TextFieldImeTarget(
                 getValue = { tf },
                 setValue = { tf = it }
             )
         )
-        // Repeatedly tap "perjalanan" for prefix "per" so personality ranks it #1
+
+        // Initially no personal entries are suggested if personalEntries is empty
+        "per".forEach { controller.onCharacterTap(it.toString(), settings, emptyList()) }
+        assertTrue(controller.suggestions.isEmpty())
+
+        tf = TextFieldValue("")
+        controller.invalidateLocalWordCache()
+
+        // Repeatedly tap "perjalanan" for prefix "per" so personality ranks it #1 among personalEntries
         repeat(3) {
-            controller.onCharacterTap("p", settings, emptyList())
-            controller.onCharacterTap("e", settings, emptyList())
-            controller.onCharacterTap("r", settings, emptyList())
-            controller.onSuggestionTap("perjalanan", settings, emptyList())
+            controller.onCharacterTap("p", settings, personal)
+            controller.onCharacterTap("e", settings, personal)
+            controller.onCharacterTap("r", settings, personal)
+            controller.onSuggestionTap("perjalanan", settings, personal)
         }
-        controller.onCharacterTap("p", settings, emptyList())
-        controller.onCharacterTap("e", settings, emptyList())
-        controller.onCharacterTap("r", settings, emptyList())
+        controller.onCharacterTap("p", settings, personal)
+        controller.onCharacterTap("e", settings, personal)
+        controller.onCharacterTap("r", settings, personal)
         assertEquals("perjalanan", controller.suggestions.first())
     }
 
     @Test
-    fun expandedSuggestionDictionary_isTripledWithOnlyMin8CharAlphabeticWordsAndFoldersStayActive() {
-        val idWords = DictionaryEngine.SMALL_DICT_INDONESIAN
-        val enWords = DictionaryEngine.SMALL_DICT_ENGLISH
-        val total = idWords.size + enWords.size
-        assertTrue(
-            "Expected expanded built-in dictionary >= 2550 words (3x of ~850), was $total (id=${idWords.size}, en=${enWords.size})",
-            total >= 2550
-        )
-        assertTrue("All Indonesian words must be >= 8 alphabetic chars", idWords.all { it.length >= 8 && it.all(Char::isLetter) })
-        assertTrue("All English words must be >= 8 alphabetic chars", enWords.all { it.length >= 8 && it.all(Char::isLetter) })
-
+    fun folderedPersonalDictionaryEntries_remainActiveForShortcutsAndPrefixSuggestions() {
         val folderedEntries = listOf(
             PersonalDictionaryEntry(id = "f1", word = "CS siap membantu kakak!", shortcut = "csok", folder = "Kerja/CS", updatedAtMillis = 10L),
             PersonalDictionaryEntry(id = "f2", word = "csresmi2026@gmail.com", shortcut = "", folder = "Gmail", updatedAtMillis = 11L),
@@ -621,6 +616,11 @@ class KeyboardEngineUnitTest {
         assertTrue(
             DictionaryEngine.getSuggestions("0812", "", folderedEntries).suggestions.contains("081234567890")
         )
+        // Deleted personal entries are excluded
+        val deletedOnly = listOf(
+            PersonalDictionaryEntry(id = "d1", word = "terhapus", shortcut = "th", deleted = true, updatedAtMillis = 20L)
+        )
+        assertTrue(DictionaryEngine.getSuggestions("th", "", deletedOnly).suggestions.isEmpty())
     }
 }
 

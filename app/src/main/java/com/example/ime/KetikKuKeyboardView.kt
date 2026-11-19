@@ -1479,19 +1479,18 @@ private val QWERTY_ROW_1 = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "
 private val QWERTY_ROW_2 = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
 private val QWERTY_ROW_3 = listOf("z", "x", "c", "v", "b", "n", "m")
 
-// Same geometry as QWERTY: 10 / 10 / (1.45 + 7 + 1.45) slots.
-// Panel 1: standar Google Keyboard (1234567890, @#$_&-+()/, *"':;!?).
+// Same geometry as QWERTY: 10 / 9 / (1.45 + 7 + 1.45) slots.
 private val SYMBOLS_1_ROWS = listOf(
     listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
-    listOf("@", "#", "$", "_", "&", "-", "+", "(", ")", "/"),
-    listOf("*", "\"", "'", ":", ";", "!", "?")
+    listOf("@", "#", "$", "_", "&", "-", "+", "×", "÷"),
+    listOf("=", "%", "/", "←", "→", "↑", "↓")
 )
 
-// Panel 2: simbol unik tanpa duplikat dari keyboard utama & Panel 1 (panah/status/Rp/markdown/kode + baris 3 ×÷=😂😍👍🙏).
+// Panel 2: simbol standar unik tanpa duplikat dari pintasan tekan lama QWERTY, baris bawah (.,), maupun Panel 1 (10 / 9 / 7).
 private val SYMBOLS_2_ROWS = listOf(
-    listOf("←", "→", "↑", "↓", "✓", "✗", "Rp", "%", "^", "•"),
-    listOf("`", "~", "|", "<", ">", "{", "}", "[", "]", "\\"),
-    listOf("×", "÷", "=", "😂", "😍", "👍", "🙏")
+    listOf("✓", "✗", "Rp", "€", "£", "^", "•", "`", "~", "|"),
+    listOf("<", ">", "{", "}", "[", "]", "\\", "°", "±"),
+    listOf("≠", "©", "®", "😂", "😍", "👍", "🙏")
 )
 
 private val NUMPAD_ROWS = listOf(
@@ -1524,7 +1523,7 @@ private fun QwertyKeyboardGrid(
     val rowGap = if (isFloating) 2.5.dp else 4.dp
     val row2PadH = if (isFloating) 9.dp else 14.dp
     val keyFontSize = if (isFloating) 15.sp else 18.sp
-    val hintFontSize = if (isFloating) 7.sp else 9.sp
+    val hintFontSize = if (isFloating) 8.4.sp else 10.8.sp
     val pointerTracker = rememberKeyPointersTracker()
 
     Column(
@@ -1712,9 +1711,7 @@ private fun QwertyKeyboardGrid(
             leftModeContentDesc = "Simbol",
             onLeftModeTap = {
                 onFeedback()
-                controller.setPage(
-                    if (settings.swapSymbolPanelsEnabled) KeyboardPage.SYMBOLS_2 else KeyboardPage.SYMBOLS_1
-                )
+                controller.setPage(KeyboardPage.SYMBOLS_1)
             },
             keyHeight = keyHeight,
             controller = controller,
@@ -1777,7 +1774,7 @@ private fun SymbolsKeyboardGrid(
             ) {
                 val isPageTwoSelected = controller.currentPage == KeyboardPage.SYMBOLS_2
                 val activeRows = if (isPageTwoSelected) SYMBOLS_2_ROWS else SYMBOLS_1_ROWS
-                val showingSecondInOrder = if (settings.swapSymbolPanelsEnabled) !isPageTwoSelected else isPageTwoSelected
+                val showingSecondInOrder = isPageTwoSelected
                 val nextPage = if (isPageTwoSelected) KeyboardPage.SYMBOLS_1 else KeyboardPage.SYMBOLS_2
                 activeRows.forEachIndexed { rowIndex, rowSymbols ->
                     Row(
@@ -2019,7 +2016,7 @@ private fun BottomNavigationRow(
 ) {
     val rowGap = if (isFloating) 2.5.dp else 4.dp
     val keyFontSize = if (isFloating) 15.sp else 18.sp
-    val hintFontSize = if (isFloating) 7.sp else 9.sp
+    val hintFontSize = if (isFloating) 8.4.sp else 10.8.sp
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -2089,12 +2086,10 @@ private fun BottomNavigationRow(
             modifier = Modifier.weight(3.84f)
         )
 
-        // Combined period / comma key (swappable via settings.swapPeriodCommaEnabled)
-        val primaryPunct = if (settings.swapPeriodCommaEnabled) "," else "."
-        val secondaryPunct = if (settings.swapPeriodCommaEnabled) "." else ","
+        // Combined period / comma key
         CharKey(
-            label = primaryPunct,
-            hint = secondaryPunct,
+            label = ".",
+            hint = ",",
             height = keyHeight,
             palette = palette,
             bordered = true,
@@ -2107,10 +2102,10 @@ private fun BottomNavigationRow(
             slotId = "bottom_period",
             onTap = {
                 onFeedback()
-                controller.onCharacterTap(primaryPunct, settings, personalEntries)
+                controller.onCharacterTap(".", settings, personalEntries)
             },
             onLongPressStart = { coords, downOffset ->
-                onKeyPopupStart(primaryPunct, coords, downOffset, listOf(secondaryPunct))
+                onKeyPopupStart(".", coords, downOffset, listOf(","))
             },
             onLongPressDrag = onKeyPopupDrag,
             onLongPressRelease = onKeyPopupRelease,
@@ -2287,7 +2282,7 @@ private fun CharKey(
     fontFamily: FontFamily = PlusJakartaSansFamily,
     fontStyle: FontStyle = FontStyle.Normal,
     fontSize: TextUnit = 18.sp,
-    hintFontSize: TextUnit = 9.sp,
+    hintFontSize: TextUnit = 10.8.sp,
     hasLongPress: Boolean = false,
     onTap: () -> Unit,
     onLongPressStart: (LayoutCoordinates?, Offset) -> Unit = { _, _ -> },

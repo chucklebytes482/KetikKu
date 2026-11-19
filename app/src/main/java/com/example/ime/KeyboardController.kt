@@ -278,7 +278,7 @@ class KeyboardController(
         private set
     var clipboardStatusMessage by mutableStateOf<String?>(null)
         private set
-    var suggestions by mutableStateOf<List<String>>(listOf("Sekarang", "Bagaimana", "Informasi"))
+    var suggestions by mutableStateOf<List<String>>(emptyList())
         private set
     var primaryAutoCorrect by mutableStateOf<String?>(null)
         private set
@@ -801,9 +801,7 @@ class KeyboardController(
         val isPersonalWord = personalEntries.any {
             !it.deleted && it.word.trim().equals(clean, ignoreCase = true)
         }
-        val isLongWord = clean.length >= DictionaryEngine.MIN_BUILTIN_WORD_LENGTH &&
-            clean.all { it.isLetter() }
-        if (!forceRecord && !isPersonalWord && !isLongWord) return
+        if (!forceRecord && !isPersonalWord) return
 
         val now = System.currentTimeMillis()
         val existing = personalityStats[lower]
