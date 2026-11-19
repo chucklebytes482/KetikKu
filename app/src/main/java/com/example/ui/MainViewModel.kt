@@ -16,6 +16,7 @@ import com.example.model.ClipboardItem
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
+import com.example.model.WordPersonalityStat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +46,12 @@ class MainViewModel(
     val dismissedClipboardId: StateFlow<String?> = settingsRepository.dismissedClipboardIdFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), null)
 
+    val dismissedClipboardSignature: StateFlow<String?> = settingsRepository.dismissedClipboardSignatureFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), null)
+
+    val personality: StateFlow<Map<String, WordPersonalityStat>> = settingsRepository.personalityFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyMap())
+
     val syncLocalState: StateFlow<SyncLocalState> = settingsRepository.syncLocalStateFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), SyncLocalState())
 
@@ -65,7 +72,21 @@ class MainViewModel(
             setValue = { updated -> playgroundText = updated },
             onOpenAppSettings = { onNavigateToSettings() }
         )
-    )
+    ).apply {
+        onRecordWordUsage = { word ->
+            viewModelScope.launch {
+                settingsRepository.recordWordUsage(word)
+            }
+        }
+    }
+
+    init {
+        viewModelScope.launch {
+            settingsRepository.personalityFlow.collect { stats ->
+                playgroundController.updatePersonality(stats, settings.value, dictionary.value)
+            }
+        }
+    }
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query

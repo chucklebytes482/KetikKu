@@ -10,6 +10,7 @@ import com.example.ime.ShiftState
 import com.example.ime.TextFieldImeTarget
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
+import com.example.model.WordPersonalityStat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -412,30 +413,40 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
-    fun smallSuggestionDictionary_has70PercentIndonesian30PercentEnglishAndDoesNotModifyPersonalDict() {
-        val idCount = DictionaryEngine.SMALL_DICT_INDONESIAN.size
-        val enCount = DictionaryEngine.SMALL_DICT_ENGLISH.size
-        assertEquals(420, idCount)
-        assertEquals(180, enCount)
-        assertEquals(600, (DictionaryEngine.SMALL_DICT_INDONESIAN + DictionaryEngine.SMALL_DICT_ENGLISH).distinct().size)
+    fun smallSuggestionDictionary_containsOnlyMin8CharWordsAndAllowsAnyLengthPersonalEntries() {
+        assertTrue(DictionaryEngine.SMALL_DICT_INDONESIAN.isNotEmpty())
+        assertTrue(DictionaryEngine.SMALL_DICT_ENGLISH.isNotEmpty())
+        assertTrue(
+            "All Indonesian built-in suggestion words must be >= 8 chars",
+            DictionaryEngine.SMALL_DICT_INDONESIAN.all { it.length >= 8 }
+        )
+        assertTrue(
+            "All English built-in suggestion words must be >= 8 chars",
+            DictionaryEngine.SMALL_DICT_ENGLISH.all { it.length >= 8 }
+        )
 
-        // Indonesian & English prefix suggestions work even when personalEntries is completely empty
+        // Idle defaults also obey >= 8 chars
+        val idle = DictionaryEngine.getSuggestions("", "", emptyList())
+        assertEquals(3, idle.suggestions.size)
+        assertTrue(idle.suggestions.all { it.length >= 8 })
+
+        // Indonesian & English prefix suggestions work even when personalEntries is empty
         val personal = mutableListOf<PersonalDictionaryEntry>()
         val idSugg = DictionaryEngine.getSuggestions("sek", "", personal)
         assertTrue(idSugg.suggestions.contains("sekarang"))
 
-        val enSugg = DictionaryEngine.getSuggestions("plea", "", personal)
-        assertTrue(enSugg.suggestions.contains("please"))
+        val enSugg = DictionaryEngine.getSuggestions("tomo", "", personal)
+        assertTrue(enSugg.suggestions.contains("tomorrow"))
 
-        // Personal entries stay untouched and personal shortcuts still take top priority
+        // Personal dictionary entries have no length restriction (short words/shortcuts work)
         assertTrue(personal.isEmpty())
-        assertNull(DictionaryEngine.findShortcutMatch("saya", personal))
+        assertNull(DictionaryEngine.findShortcutMatch("sekarang", personal))
         personal.add(
-            PersonalDictionaryEntry(id = "p1", word = "Selesai proyek", shortcut = "sel", updatedAtMillis = 10L)
+            PersonalDictionaryEntry(id = "p1", word = "Oke", shortcut = "ok", updatedAtMillis = 10L)
         )
-        val prioritized = DictionaryEngine.getSuggestions("sel", "", personal)
-        assertEquals("Selesai proyek", prioritized.primaryAutoCorrect)
-        assertEquals("Selesai proyek", prioritized.suggestions.first())
+        val prioritized = DictionaryEngine.getSuggestions("ok", "", personal)
+        assertEquals("Oke", prioritized.primaryAutoCorrect)
+        assertEquals("Oke", prioritized.suggestions.first())
     }
 
     @Test
@@ -447,9 +458,9 @@ class KeyboardEngineUnitTest {
         // Mixed-case & rapid progressive prefix lookups hit matching first-char buckets reliably
         assertEquals("KetikKu Cepat", DictionaryEngine.getSuggestions("KC", "", personal).primaryAutoCorrect)
         assertTrue(DictionaryEngine.getSuggestions("Ka", "", personal).suggestions.contains("Kantor Pusat"))
-        assertTrue(DictionaryEngine.getSuggestions("ban", "", personal).suggestions.contains("banyak"))
-        assertTrue(DictionaryEngine.getSuggestions("Ban", "", personal).suggestions.contains("Banyak"))
-        assertTrue(DictionaryEngine.getSuggestions("th", "", personal).suggestions.contains("thank"))
+        assertTrue(DictionaryEngine.getSuggestions("info", "", personal).suggestions.contains("informasi"))
+        assertTrue(DictionaryEngine.getSuggestions("Info", "", personal).suggestions.contains("Informasi"))
+        assertTrue(DictionaryEngine.getSuggestions("sche", "", personal).suggestions.contains("schedule"))
         assertTrue(DictionaryEngine.getSuggestions("xzq", "", personal).suggestions.contains("xzq"))
     }
 
@@ -502,6 +513,85 @@ class KeyboardEngineUnitTest {
             )
         )
         assertEquals("Rapat Mingguan", DictionaryEngine.getSuggestions("rm", "", snapshot2).primaryAutoCorrect)
+    }
+
+    @Test
+    fun multiShortcut_shows3MatchesByPersonalityAndSpacebarPreservesTypedText() {
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "1", word = "Selamat pagi", shortcut = "sl", updatedAtMillis = 10L),
+            PersonalDictionaryEntry(id = "2", word = "Selamat siang", shortcut = "sl", updatedAtMillis = 20L),
+            PersonalDictionaryEntry(id = "3", word = "Selamat malam", shortcut = "sl", updatedAtMillis = 30L),
+            PersonalDictionaryEntry(id = "4", word = "Salam hangat", shortcut = "sl", updatedAtMillis = 5L)
+        )
+        val now = 1_000_000L
+        val personality = mapOf(
+            "salam hangat" to WordPersonalityStat(word = "Salam hangat", usageCount = 5, lastUsedMillis = now),
+            "selamat pagi" to WordPersonalityStat(word = "Selamat pagi", usageCount = 3, lastUsedMillis = now - 1000L),
+            "selamat malam" to WordPersonalityStat(word = "Selamat malam", usageCount = 1, lastUsedMillis = now - 2000L)
+        )
+
+        val result = DictionaryEngine.getSuggestions(
+            currentWord = "sl",
+            previousWord = "",
+            personalEntries = entries,
+            personality = personality,
+            nowMillis = now
+        )
+        // More than 1 shortcut match -> no forced auto-correct, top 3 ordered by personality score
+        assertNull(result.primaryAutoCorrect)
+        assertEquals(listOf("Salam hangat", "Selamat pagi", "Selamat malam"), result.suggestions)
+
+        // Spacebar in KeyboardController preserves typed "sl " when >1 personal entries share the shortcut
+        var tf = TextFieldValue("")
+        val settings = KeyboardSettings()
+        val controller = KeyboardController(
+            TextFieldImeTarget(
+                getValue = { tf },
+                setValue = { tf = it }
+            )
+        )
+        controller.updatePersonality(personality, settings, entries)
+        controller.onCharacterTap("s", settings, entries)
+        controller.onCharacterTap("l", settings, entries)
+        assertEquals(listOf("Salam hangat", "Selamat pagi", "Selamat malam"), controller.suggestions)
+
+        controller.onSpaceTap(settings, entries)
+        assertEquals("sl ", tf.text)
+
+        // Selecting a suggestion replaces typed shortcut AND boosts its personality for future typing
+        tf = TextFieldValue("")
+        controller.invalidateLocalWordCache()
+        repeat(4) {
+            controller.onCharacterTap("s", settings, entries)
+            controller.onCharacterTap("l", settings, entries)
+            controller.onSuggestionTap("Selamat malam", settings, entries)
+        }
+        controller.onCharacterTap("s", settings, entries)
+        controller.onCharacterTap("l", settings, entries)
+        assertEquals("Selamat malam", controller.suggestions.first())
+    }
+
+    @Test
+    fun textSuggestionPersonality_boostsFrequentlySelectedWordsOnPrefixTyping() {
+        var tf = TextFieldValue("")
+        val settings = KeyboardSettings()
+        val controller = KeyboardController(
+            TextFieldImeTarget(
+                getValue = { tf },
+                setValue = { tf = it }
+            )
+        )
+        // Repeatedly tap "perjalanan" for prefix "per" so personality ranks it #1
+        repeat(3) {
+            controller.onCharacterTap("p", settings, emptyList())
+            controller.onCharacterTap("e", settings, emptyList())
+            controller.onCharacterTap("r", settings, emptyList())
+            controller.onSuggestionTap("perjalanan", settings, emptyList())
+        }
+        controller.onCharacterTap("p", settings, emptyList())
+        controller.onCharacterTap("e", settings, emptyList())
+        controller.onCharacterTap("r", settings, emptyList())
+        assertEquals("perjalanan", controller.suggestions.first())
     }
 }
 

@@ -172,6 +172,7 @@ interface ClipboardBackingStore {
     fun saveClipboardText(rawText: String, nowMillis: Long): ClipboardItem?
     fun getPreviews(limit: Int = 25): List<ClipboardItem>
     fun getFullText(id: String): String?
+    fun getContentHash(id: String): String?
     fun getLatestFullText(): String?
     fun isLatestSame(rawText: String): Boolean
     fun clearAll()
@@ -197,7 +198,8 @@ class InMemoryClipboardBackingStore : ClipboardBackingStore {
             id = UUID.randomUUID().toString().take(10),
             preview = preview,
             charCount = charCount,
-            timestampMillis = nowMillis
+            timestampMillis = nowMillis,
+            contentHash = hash
         )
         synchronized(lock) {
             entries.removeAll { it.hash == hash && it.item.charCount == charCount }
@@ -215,6 +217,10 @@ class InMemoryClipboardBackingStore : ClipboardBackingStore {
 
     override fun getFullText(id: String): String? = synchronized(lock) {
         entries.firstOrNull { it.item.id == id }?.fullText
+    }
+
+    override fun getContentHash(id: String): String? = synchronized(lock) {
+        entries.firstOrNull { it.item.id == id }?.let { "${it.item.charCount}:${it.hash}" }
     }
 
     override fun getLatestFullText(): String? = synchronized(lock) {
@@ -357,7 +363,8 @@ class ClipboardDatabaseHelper(context: Context) :
             id = newId,
             preview = preview,
             charCount = charCount,
-            timestampMillis = nowMillis
+            timestampMillis = nowMillis,
+            contentHash = hash
         )
     }
 
@@ -365,7 +372,7 @@ class ClipboardDatabaseHelper(context: Context) :
         val db = readableDatabase
         val result = ArrayList<ClipboardItem>(limit.coerceAtMost(HISTORY_LIMIT))
         db.rawQuery(
-            "SELECT $COL_ID, $COL_PREVIEW, $COL_CHAR_COUNT, $COL_TIMESTAMP FROM $TABLE_ITEMS ORDER BY $COL_TIMESTAMP DESC LIMIT ?",
+            "SELECT $COL_ID, $COL_PREVIEW, $COL_CHAR_COUNT, $COL_TIMESTAMP, $COL_HASH FROM $TABLE_ITEMS ORDER BY $COL_TIMESTAMP DESC LIMIT ?",
             arrayOf(limit.toString())
         ).use { cursor ->
             while (cursor.moveToNext()) {
@@ -374,12 +381,28 @@ class ClipboardDatabaseHelper(context: Context) :
                         id = cursor.getString(0),
                         preview = cursor.getString(1),
                         charCount = cursor.getInt(2),
-                        timestampMillis = cursor.getLong(3)
+                        timestampMillis = cursor.getLong(3),
+                        contentHash = cursor.getString(4)
                     )
                 )
             }
         }
         return result
+    }
+
+    override fun getContentHash(id: String): String? {
+        if (id.isBlank()) return null
+        val db = readableDatabase
+        return db.rawQuery(
+            "SELECT $COL_CHAR_COUNT, $COL_HASH FROM $TABLE_ITEMS WHERE $COL_ID = ? LIMIT 1",
+            arrayOf(id)
+        ).use { cursor ->
+            if (cursor.moveToFirst()) {
+                "${cursor.getInt(0)}:${cursor.getString(1)}"
+            } else {
+                null
+            }
+        }
     }
 
     override fun getFullText(id: String): String? {

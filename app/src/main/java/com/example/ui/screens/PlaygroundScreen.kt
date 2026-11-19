@@ -79,6 +79,7 @@ fun PlaygroundScreen(
     dictionary: List<PersonalDictionaryEntry>,
     clipboardItems: List<ClipboardItem>,
     dismissedClipboardId: String? = null,
+    dismissedClipboardSignature: String? = null,
     imeStatus: ImeActivationStatus,
     modifier: Modifier = Modifier
 ) {
@@ -211,6 +212,7 @@ fun PlaygroundScreen(
                 personalEntries = dictionary,
                 clipboardItems = clipboardItems,
                 dismissedClipboardId = dismissedClipboardId,
+                dismissedClipboardSignature = dismissedClipboardSignature,
                 onPasteClipboard = onPasteClipboard,
                 onPasteClipboardItem = onPasteClipboardItem,
                 onRequestCtrlPaste = onRequestCtrlPaste,
@@ -257,6 +259,7 @@ fun PlaygroundScreen(
                 personalEntries = dictionary,
                 clipboardItems = clipboardItems,
                 dismissedClipboardId = dismissedClipboardId,
+                dismissedClipboardSignature = dismissedClipboardSignature,
                 onPasteClipboard = onPasteClipboard,
                 onPasteClipboardItem = onPasteClipboardItem,
                 onRequestCtrlPaste = onRequestCtrlPaste,
