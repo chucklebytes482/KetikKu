@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KetikKu — Panduan Penggunaan, Pintasan Ctrl &amp; Instruksi AI Kamus JSON</title>
+  <meta name="description" content="Panduan lengkap penggunaan keyboard Android KetikKu, daftar pintasan Ctrl, sinkronisasi 2 file Google Drive, dan variasi instruksi AI untuk mengedit ketikku_dictionary.json." />
+  <style>
+    :root {
+      --bg: #f4f7f8;
+      --surface: #ffffff;
+      --surface-soft: #eef4f6;
+      --border: #d5e1e6;
+      --text: #132229;
+      --muted: #4b616b;
+      --primary: #0f5f70;
+      --primary-dark: #0a4653;
+      --primary-soft: #dff1f5;
+      --accent: #187a58;
+      --code-bg: #102027;
+      --code-text: #e6f2f5;
+      --radius: 18px;
+      --shadow: 0 8px 24px rgba(15, 52, 64, 0.06);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0c1418;
+        --surface: #131f25;
+        --surface-soft: #1a2a32;
+        --border: #273c46;
+        --text: #e7f0f3;
+        --muted: #9eb4be;
+        --primary: #4dc0d4;
+        --primary-dark: #74d4e4;
+        --primary-soft: #163742;
+        --accent: #4dd09e;
+        --code-bg: #091115;
+        --code-text: #d9edf2;
+        --shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 20px 16px 56px;
+    }
+
+    header.hero {
+      background: linear-gradient(135deg, #0d4f5e 0%, #147484 100%);
+      color: #ffffff;
+      border-radius: 24px;
+      padding: 28px 24px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.16);
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+    }
+
+    header.hero h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.65rem, 3vw, 2.3rem);
+      line-height: 1.2;
+    }
+
+    header.hero p {
+      margin: 0 0 18px;
+      color: rgba(255, 255, 255, 0.9);
+      max-width: 680px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-white {
+      background: #ffffff;
+      color: #0d4f5e;
+    }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.28);
+    }
+
+    nav.toc {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    nav.toc a {
+      text-decoration: none;
+      color: var(--primary);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+
+    nav.toc a:hover {
+      background: var(--primary-soft);
+    }
+
+    section.card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    section.card h2 {
+      margin: 0 0 6px;
+      font-size: 1.3rem;
+      color: var(--primary);
+    }
+
+    .section-desc {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14.5px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .subcard {
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+
+    .subcard h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    .subcard ul,
+    .subcard ol {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .subcard li + li {
+      margin-top: 6px;
+    }
+
+    kbd {
+      display: inline-block;
+      padding: 2px 7px;
+      font-size: 12.5px;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      color: var(--text);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--surface-soft);
+      font-weight: 700;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: var(--muted);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .prompt-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .prompt-item {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      background: var(--surface-soft);
+    }
+
+    .prompt-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .prompt-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .prompt-note {
+      margin: 0 0 10px;
+      font-size: 13.5px;
+      color: var(--muted);
+    }
+
+    .copy-btn {
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .copy-btn.copied {
+      background: var(--accent);
+    }
+
+    pre.prompt-box {
+      margin: 0;
+      padding: 12px 14px;
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12.5px;
+      line-height: 1.5;
+      max-height: 170px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      cursor: pointer;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .pill {
+      font-size: 12.5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 28px;
+    }
+
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+      <div class="badge">Keyboard Android • Kotlin &amp; Jetpack Compose</div>
+      <h1>KetikKu — Panduan Resmi &amp; Prompt AI</h1>
+      <p>
+        Keyboard cepat dan ringan dengan tombol <strong>Ctrl</strong> penuh, papan klip pintar,
+        kamus pribadi berbasis <em>personality</em>, serta sinkronisasi 2 file Google Drive yang mudah diedit dengan AI.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-white" href="https://github.com/chucklebytes482/KetikKu/releases/latest" target="_blank" rel="noopener">
+          Unduh APK Rilis Terbaru
+        </a>
+        <a class="btn btn-ghost" href="#instruksi-ai">Salin Variasi Instruksi AI</a>
+        <a class="btn btn-ghost" href="keyboard-audit-2026-11-18.html">Laporan Audit Teknis</a>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="Navigasi Halaman">
+      <a href="#cara-penggunaan">1. Cara Penggunaan</a>
+      <a href="#pintasan-ctrl">2. Pintasan Ctrl</a>
+      <a href="#panel-simbol">3. Panel Simbol &amp; Gestur</a>
+      <a href="#sinkronisasi-drive">4. Sinkronisasi 2 File Drive</a>
+      <a href="#instruksi-ai">5. Variasi Instruksi AI</a>
+    </nav>
+
+    <section id="cara-penggunaan" class="card">
+      <h2>1. Cara Penggunaan Aplikasi KetikKu</h2>
+      <p class="section-desc">
+        Ikuti langkah singkat berikut untuk mengaktifkan KetikKu dan memaksimalkan fitur pengetikannya sehari-hari.
+      </p>
+
+      <div class="grid-2">
+        <div class="subcard">
+          <h3>Aktivasi Awal Keyboard</h3>
+          <ol>
+            <li>Buka aplikasi <strong>KetikKu</strong> lalu masuk ke tab <strong>Setelan</strong>.</li>
+            <li>Tekan tombol <strong>1. Aktifkan</strong> dan nyalakan <strong>KetikKu</strong> di setelan Bahasa &amp; Masukan Android.</li>
+            <li>Kembali ke KetikKu dan tekan <strong>2. Pilih</strong>, lalu pilih <strong>KetikKu</strong> sebagai keyboard utama.</li>
+            <li>Gunakan kolom <strong>Coba ketik di sini</strong> untuk langsung menguji pengetikan.</li>
+          </ol>
+        </div>
+
+        <div class="subcard">
+          <h3>Kamus Pribadi &amp; Saran Personality</h3>
+          <ul>
+            <li>Buka menu <strong>Kamus Pribadi</strong> untuk menambah kata/kalimat lengkap beserta <strong>pintasan</strong> singkat (contoh: <kbd>ttd</kbd> → <em>Terima kasih, salam hangat</em>).</li>
+            <li>Saat mengetik pintasan tunggal lalu menekan <kbd>Spasi</kbd>, kata otomatis berubah ke isi pintasan.</li>
+            <li>Jika ada <strong>lebih dari 1 entri</strong> memakai pintasan yang sama, KetikKu menampilkan hingga <strong>3 pilihan</strong> di bilah saran sesuai frekuensi pemakaian (<em>personality</em>), dan <kbd>Spasi</kbd> menjaga ketikan asli.</li>
+            <li>Kosakata saran bawaan difokuskan pada kata panjang (≥ 8 huruf) agar bilah saran bersih dan akurat.</li>
+          </ul>
+        </div>
+
+        <div class="subcard">
+          <h3>Bilah Saran &amp; Papan Klip Pintar</h3>
+          <ul>
+            <li>Teks yang baru disalin muncul sebagai tombol cepat di bilah atas keyboard; ketuk untuk menempelkan langsung.</li>
+            <li>Tekan tombol <strong>X</strong> untuk menyembunyikan teks tersebut dari bilah saran tanpa menghapusnya dari <strong>Papan Klip</strong>.</li>
+            <li>Alamat <code>@gmail.com</code> (≥ 20 karakter) dan nomor telepon/rekening (≥ 11 digit) yang disalin otomatis tersimpan ke Kamus Pribadi.</li>
+          </ul>
+        </div>
+
+        <div class="subcard">
+          <h3>Mode Floating &amp; Baris Bawah</h3>
+          <ul>
+            <li>Aktifkan <strong>Mode Melayang (Floating)</strong> dari ikon bilah alat atas dan geser pegangan untuk memindahkan posisi keyboard.</li>
+            <li>Ketuk <kbd>.</kbd> untuk titik, atau <strong>tekan tahan</strong> <kbd>.</kbd> untuk memilih koma <kbd>,</kbd>.</li>
+            <li>Tekan tahan huruf (seperti <kbd>q</kbd>–<kbd>p</kbd>, <kbd>a</kbd>–<kbd>l</kbd>, <kbd>z</kbd>–<kbd>m</kbd>) untuk menyisipkan angka dan simbol cepat ala Google Keyboard.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="pintasan-ctrl" class="card">
+      <h2>2. Pintasan Tombol Ctrl</h2>
+      <p class="section-desc">
+        KetikKu menyediakan tombol <kbd>Ctrl</kbd> langsung di baris bawah keyboard agar pengeditan teks secepat keyboard fisik.
+      </p>
+
+      <div class="pill-row" style="margin-bottom: 14px;">
+        <span class="pill">1× Ketuk Ctrl = Aktif 1× (Armed)</span>
+        <span class="pill">2× Ketuk Cepat Ctrl = Terkunci (Locked)</span>
+        <span class="pill">Ketuk 1× lagi saat Terkunci = Mati</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Kombinasi</th>
+              <th>Fungsi</th>
+              <th>Keterangan</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>Ctrl</kbd> + <kbd>A</kbd></td>
+              <td>Pilih Semua (<em>Select All</em>)</td>
+              <td>Menyorot seluruh teks pada kolom aktif.</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl</kbd> + <kbd>C</kbd></td>
+              <td>Salin (<em>Copy</em>)</td>
+              <td>Menyalin teks terpilih sekaligus mencatatnya ke Papan Klip KetikKu.</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl</kbd> + <kbd>X</kbd></td>
+              <td>Potong (<em>Cut</em>)</td>
+              <td>Memindahkan teks terpilih ke papan klip.</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl</kbd> + <kbd>V</kbd></td>
+              <td>Tempel (<em>Paste</em>)</td>
+              <td>Menempelkan salinan terbaru (mendukung teks panjang secara aman).</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td>
+              <td>Urungkan (<em>Undo</em>)</td>
+              <td>Mengembalikan perubahan pengetikan terakhir.</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl</kbd> + <kbd>Y</kbd></td>
+              <td>Ulangi (<em>Redo</em>)</td>
+              <td>Mengulang kembali langkah yang baru di-undo.</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl</kbd> + <kbd>B</kbd> / <kbd>I</kbd> / <kbd>U</kbd> / <kbd>F</kbd></td>
+              <td>Pintasan Aplikasi Langsung</td>
+              <td>Mengirim event tombol <code>Ctrl+Huruf</code> langsung ke editor, browser, atau terminal yang mendukung.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="panel-simbol" class="card">
+      <h2>3. Panel Simbol 2 Halaman &amp; Gestur Cepat</h2>
+      <p class="section-desc">
+        Ketuk tombol <kbd>Ω</kbd> untuk membuka simbol standar, lalu ketuk <kbd>1/2</kbd> di baris ke-3 untuk berpindah ke Panel 2 tanpa simbol ganda.
+      </p>
+      <div class="grid-2">
+        <div class="subcard">
+          <h3>Panel 1 Simbol (Standar Google Keyboard)</h3>
+          <ul>
+            <li><strong>Baris 1:</strong> <code>1 2 3 4 5 6 7 8 9 0</code></li>
+            <li><strong>Baris 2:</strong> <code>@ # $ _ &amp; - + ( ) /</code></li>
+            <li><strong>Baris 3:</strong> <code>* " ' : ; ! ?</code></li>
+          </ul>
+        </div>
+        <div class="subcard">
+          <h3>Panel 2 Simbol (Unik: Panah, Matematika &amp; Kode)</h3>
+          <ul>
+            <li><strong>Baris 1:</strong> <code>← → ↑ ↓ ✓ ✗ Rp % ^ •</code></li>
+            <li><strong>Baris 2:</strong> <code>` ~ | &lt; &gt; { } [ ] \</code></li>
+            <li><strong>Baris 3:</strong> <code>× ÷ = 😂 😍 👍 🙏</code></li>
+          </ul>
+        </div>
+      </div>
+      <div class="pill-row">
+        <span class="pill">Geser Spasi Kiri/Kanan = Geser Kursor</span>
+        <span class="pill">Tahan Spasi = Ganti Keyboard Sistem</span>
+        <span class="pill">Tahan Hapus = Hapus Terus-Menerus</span>
+      </div>
+    </section>
+
+    <section id="sinkronisasi-drive" class="card">
+      <h2>4. Sinkronisasi 2 File Google Drive</h2>
+      <p class="section-desc">
+        Buka <strong>Auto-Sinkronisasi Google Drive</strong> di Setelan untuk mencadangkan dan menyinkronkan data secara dua arah ke folder <code>KetikKu</code> di Google Drive.
+      </p>
+      <div class="grid-2">
+        <div class="subcard">
+          <h3>1. <code>ketikku_dictionary.json</code></h3>
+          <p style="margin:0 0 8px;font-size:14px;">
+            Menyimpan seluruh entri kamus pribadi dalam format ringkas tanpa field <code>"language"</code> agar mudah dibaca manusia maupun diedit oleh AI.
+          </p>
+        </div>
+        <div class="subcard">
+          <h3>2. <code>ketikku_settings.json</code></h3>
+          <p style="margin:0 0 8px;font-size:14px;">
+            Menyimpan pengaturan keyboard (mode melayang, posisi, getaran, papan klip, dan auto-sinkronisasi) sehingga tetap sama di perangkat lain.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="instruksi-ai" class="card">
+      <h2>5. Variasi Instruksi AI untuk Edit Kamus JSON</h2>
+      <p class="section-desc">
+        Pilih variasi instruksi di bawah, klik tombol <strong>Salin Instruksi</strong> (atau klik langsung kotak kodenya), lalu kirim bersama file <code>ketikku_dictionary.json</code> dari Google Drive ke AI pilihan Anda.
+      </p>
+
+      <div class="prompt-list">
+        <article class="prompt-item">
+          <div class="prompt-header">
+            <h3 class="prompt-title">Variasi 1 — Tambah Banyak Kalimat &amp; Pintasan Sekaligus (Umum)</h3>
+            <button class="copy-btn" type="button" data-copy-target="prompt-1">Salin Instruksi</button>
+          </div>
+          <p class="prompt-note">Cocok saat Anda punya daftar kalimat panjang, alamat, atau ucapan sehari-hari untuk dimasukkan ke kamus.</p>
+          <pre id="prompt-1" class="prompt-box" title="Klik untuk menyalin">Bantu edit file JSON kamus KetikKu (ketikku_dictionary.json).
+Format wajib:
+{
+  "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
+  "entries": [
+    {
+      "id": "&lt;id_unik&gt;",
+      "word": "&lt;kalimat_atau_frasa&gt;",
+      "shortcut": "&lt;pintasan_singkat_atau_kosong&gt;",
+      "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;
+    }
+  ]
+}
+Aturan:
+1. Jangan sertakan field "language".
+2. Pertahankan semua entri &amp; "id" lama yang sudah ada.
+3. Untuk setiap data baru, buat "id" unik (mis. "ai_001"), "shortcut" huruf kecil tanpa spasi (atau ""), dan "updatedAtMillis" saat ini dalam milidetik.
+4. Kembalikan satu blok kode JSON valid siap simpan ke ketikku_dictionary.json.
+
+Daftar kalimat &amp; pintasan yang ingin ditambahkan:
+- [tulis daftar kalimat dan pintasannya di sini]</pre>
+        </article>
+
+        <article class="prompt-item">
+          <div class="prompt-header">
+            <h3 class="prompt-title">Variasi 2 — Template Chat Kerja, Bisnis &amp; Customer Service</h3>
+            <button class="copy-btn" type="button" data-copy-target="prompt-2">Salin Instruksi</button>
+          </div>
+          <p class="prompt-note">Meminta AI merapikan kalimat balasan pelanggan serta membuatkan pintasan 2–4 huruf yang konsisten dan mudah diingat.</p>
+          <pre id="prompt-2" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan file ketikku_dictionary.json. Tolong tambahkan daftar template balasan kerja/CS di bawah ke dalam array "entries" tanpa menghapus entri lama.
+Ketentuan format JSON:
+- Gunakan struktur: { "updatedAtMillis": &lt;epoch_ms&gt;, "entries": [ { "id": "...", "word": "...", "shortcut": "...", "updatedAtMillis": &lt;epoch_ms&gt; } ] }
+- Dilarang menambahkan field "language" atau "schemaVersion".
+- Buatkan "shortcut" singkat 2-4 huruf kecil tanpa spasi yang mudah diingat (mis. "slm", "inv", "rek", "kfm") dan hindari bentrok bila tidak diminta.
+- Jika ada beberapa variasi balasan untuk topik sama, boleh memakai shortcut yang sama agar muncul bersamaan di saran keyboard.
+- Berikan output hanya berupa 1 blok JSON valid siap pakai.
+
+Topik/kalimat balasan yang saya butuhkan:
+- [tulis daftar balasan, info rekening, alamat, atau SOP di sini]</pre>
+        </article>
+
+        <article class="prompt-item">
+          <div class="prompt-header">
+            <h3 class="prompt-title">Variasi 3 — Ekstrak Otomatis dari Dokumen / Catatan / Materi</h3>
+            <button class="copy-btn" type="button" data-copy-target="prompt-3">Salin Instruksi</button>
+          </div>
+          <p class="prompt-note">Cukup tempelkan dokumen/catatan Anda bersama file JSON kamus, dan biarkan AI memilih kalimat atau istilah yang sering dipakai.</p>
+          <pre id="prompt-3" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan dokumen/catatan dan file ketikku_dictionary.json.
+Tugas Anda:
+1. Ekstrak maksimal 25 kalimat, istilah penting, nomor/kode referensi, atau template frasa yang paling sering dipakai dari dokumen tersebut.
+2. Tambahkan hasilnya ke dalam array "entries" pada ketikku_dictionary.json tanpa mengubah entri yang sudah ada.
+3. Setiap entri baru wajib memiliki:
+   - "id": unik (mis. "doc_001", "doc_002")
+   - "word": teks bersih siap tempel
+   - "shortcut": singkatan huruf kecil 2-5 karakter (atau "" jika lebih cocok lewat saran awalan kata)
+   - "updatedAtMillis": timestamp milidetik terbaru
+4. Jangan sertakan field "language" dan pastikan hasil akhirnya JSON valid.</pre>
+        </article>
+
+        <article class="prompt-item">
+          <div class="prompt-header">
+            <h3 class="prompt-title">Variasi 4 — Rapikan, Gabung &amp; Hapus Duplikat Kamus JSON</h3>
+            <button class="copy-btn" type="button" data-copy-target="prompt-4">Salin Instruksi</button>
+          </div>
+          <p class="prompt-note">Berguna jika kamus sudah menumpuk banyak entri dan ingin dibersihkan dari duplikat atau format lama.</p>
+          <pre id="prompt-4" class="prompt-box" title="Klik untuk menyalin">Tolong rapikan file ketikku_dictionary.json berikut dengan aturan:
+1. Hapus entri duplikat yang isi "word"-nya persis sama (pertahankan yang "updatedAtMillis"-nya paling baru dan pertahankan "id" aslinya).
+2. Hapus field "language" dan "schemaVersion" jika masih ada agar file lebih ringan.
+3. Pastikan semua "shortcut" berupa huruf kecil tanpa spasi berlebih.
+4. Perbarui "updatedAtMillis" tingkat atas ke timestamp milidetik terbaru.
+5. Kembalikan 1 blok JSON valid yang siap diunggah kembali ke folder KetikKu di Google Drive.</pre>
+        </article>
+      </div>
+    </section>
+
+    <footer>
+      <p>
+        KetikKu Open Repository •
+        <a href="https://github.com/chucklebytes482/KetikKu" target="_blank" rel="noopener">GitHub Repository</a> •
+        <a href="https://github.com/chucklebytes482/KetikKu/releases" target="_blank" rel="noopener">Daftar Rilis APK</a>
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      function copyText(text, btn) {
+        if (!text) return;
+        var markCopied = function () {
+          if (!btn) return;
+          var original = btn.dataset.originalLabel || btn.textContent;
+          btn.dataset.originalLabel = original;
+          btn.textContent = "Tersalin!";
+          btn.classList.add("copied");
+          setTimeout(function () {
+            btn.textContent = original;
+            btn.classList.remove("copied");
+          }, 2200);
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(markCopied).catch(function () {
+            fallbackCopy(text, markCopied);
+          });
+        } else {
+          fallbackCopy(text, markCopied);
+        }
+      }
+
+      function fallbackCopy(text, onDone) {
+        var area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        try {
+          document.execCommand("copy");
+          onDone();
+        } finally {
+          document.body.removeChild(area);
+        }
+      }
+
+      var buttons = document.querySelectorAll("[data-copy-target]");
+      buttons.forEach(function (btn) {
+        var targetId = btn.getAttribute("data-copy-target");
+        var box = document.getElementById(targetId);
+        if (!box) return;
+        btn.addEventListener("click", function () {
+          copyText(box.textContent, btn);
+        });
+        box.addEventListener("click", function () {
+          copyText(box.textContent, btn);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
