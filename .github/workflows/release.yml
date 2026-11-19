@@ -143,10 +143,10 @@ jobs:
           fi
 
       - name: Run Unit & Robolectric Tests
-        run: gradle :app:testDebugUnitTest --no-daemon --no-build-cache
+        run: gradle :app:testDebugUnitTest --no-daemon --no-build-cache --stacktrace
 
       - name: Build R8 Minified arm64-v8a APK
-        run: gradle :app:assembleRelease --no-daemon --no-build-cache
+        run: gradle :app:assembleRelease --no-daemon --no-build-cache --stacktrace
 
       - name: Verify APK Signature & Package Release Artifacts
         shell: bash

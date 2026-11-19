@@ -851,7 +851,7 @@ class ExampleRobolectricTest {
                     .protocol(okhttp3.Protocol.HTTP_1_1)
                     .code(code)
                     .message("OK")
-                    .body(okhttp3.ResponseBody.Companion.let { _ -> body.let { b -> okhttp3.ResponseBody.create(null, b) } })
+                    .body(with(okhttp3.ResponseBody.Companion) { body.toResponseBody(null) })
                     .build()
             }
             .build()
