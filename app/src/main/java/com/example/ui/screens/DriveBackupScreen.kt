@@ -2,16 +2,19 @@ package com.example.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,10 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,12 +32,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,22 +51,19 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.data.SettingsRepository
 import com.example.data.SyncDirection
-import com.example.model.BackupSnapshot
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
 import com.example.ui.AuthHelper
-import com.example.ui.findActivity
 import com.example.ui.CloudSyncViewModel
-import com.example.ui.CloudUiState
 import com.example.ui.MainViewModel
 import com.example.ui.SyncActionState
+import com.example.ui.findActivity
 import com.example.ui.theme.AmberPending
-import com.example.ui.theme.JetBrainsMonoFamily
 import com.google.android.gms.auth.api.identity.Identity
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -91,9 +86,10 @@ fun DriveBackupUnauthenticatedSheetContent(
         modifier = modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
-            .padding(bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp)
+            .padding(top = 4.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -128,7 +124,7 @@ fun DriveBackupUnauthenticatedSheetContent(
         }
 
         Text(
-            text = "Masuk dengan Google jika ingin menyinkronkan kamus pribadi (${dictionary.count { !it.deleted }} kata) secara otomatis ke folder \"${settings.driveFolderName}\" di Google Drive (hanya ketikku_dictionary.json).",
+            text = "Simpan dan sinkronkan otomatis ke folder \"${settings.driveFolderName}\" di Google Drive Anda agar berkas bisa langsung dilihat di Drive.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -168,7 +164,7 @@ fun DriveBackupUnauthenticatedSheetContent(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .heightIn(min = 54.dp)
                 .testTag("drive_connect_google_button")
         ) {
             if (isLoading) {
@@ -178,7 +174,7 @@ fun DriveBackupUnauthenticatedSheetContent(
                     strokeWidth = 2.dp
                 )
             } else {
-                Text("Masuk dengan Google (Drive Sync)", fontWeight = FontWeight.Bold)
+                Text("Masuk dengan Google (Drive Sync)", fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -202,11 +198,8 @@ fun DriveBackupSheetContent(
 
     val isOnline by cloudViewModel.isOnline.collectAsStateWithLifecycle()
     val syncActionState by cloudViewModel.syncActionState.collectAsStateWithLifecycle()
-    val snapshotsState by cloudViewModel.backupSnapshotsState.collectAsStateWithLifecycle()
 
     var pendingDirection by remember { mutableStateOf<SyncDirection?>(null) }
-    var showFolderDialog by remember { mutableStateOf(false) }
-    var showJsonDialog by remember { mutableStateOf(false) }
 
     val driveAuthLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
@@ -226,7 +219,7 @@ fun DriveBackupSheetContent(
         pendingDirection = null
     }
 
-    fun triggerDriveSync(direction: SyncDirection?) {
+    fun triggerDriveSync(direction: SyncDirection? = null) {
         pendingDirection = direction
         if (cloudViewModel.hasCachedDriveToken()) {
             cloudViewModel.syncWithCachedTokenOrRequestConsent(direction)
@@ -280,15 +273,53 @@ fun DriveBackupSheetContent(
         }
     }
 
+    DriveBackupConnectedContent(
+        userEmail = userEmail,
+        driveFolderName = settings.driveFolderName,
+        autoSyncEnabled = settings.autoSyncDriveEnabled,
+        isOnline = isOnline,
+        pendingChanges = syncLocalState.pendingChanges,
+        statusHeadline = statusHeadline,
+        statusDotColor = statusDotColor,
+        isSyncing = isSyncing,
+        onToggleAutoSync = { enabled ->
+            mainViewModel.updateSettings { it.copy(autoSyncDriveEnabled = enabled) }
+        },
+        onDisconnect = {
+            cloudViewModel.clearCachedDriveToken()
+            AuthHelper.signOut(credentialManager, scope) {
+                onSignedOut()
+            }
+        },
+        onSyncNow = { triggerDriveSync(direction = null) },
+        modifier = modifier
+    )
+}
+
+@Composable
+internal fun DriveBackupConnectedContent(
+    userEmail: String,
+    driveFolderName: String,
+    autoSyncEnabled: Boolean,
+    isOnline: Boolean,
+    pendingChanges: Boolean,
+    statusHeadline: String,
+    statusDotColor: androidx.compose.ui.graphics.Color,
+    isSyncing: Boolean,
+    onToggleAutoSync: (Boolean) -> Unit,
+    onDisconnect: () -> Unit,
+    onSyncNow: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
-            .padding(bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp)
+            .padding(top = 4.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        // Header row matching screenshot 2
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -324,22 +355,26 @@ fun DriveBackupSheetContent(
         }
 
         Text(
-            text = "Simpan dan sinkronkan otomatis kamus pribadi (${dictionary.count { !it.deleted }} kata) ke folder \"${settings.driveFolderName}\" di Google Drive Anda (ketikku_dictionary.json).",
+            text = "Simpan dan sinkronkan otomatis ke folder \"$driveFolderName\" di Google Drive Anda agar berkas bisa langsung dilihat di Drive.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        // Status Box
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                    shape = RoundedCornerShape(18.dp)
+                )
+                .testTag("drive_sync_status_card")
         ) {
             Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -347,7 +382,7 @@ fun DriveBackupSheetContent(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(10.dp)
+                            .size(11.dp)
                             .clip(CircleShape)
                             .background(statusDotColor)
                     )
@@ -368,7 +403,7 @@ fun DriveBackupSheetContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = if (syncLocalState.pendingChanges) {
+                        text = if (pendingChanges) {
                             "Perubahan menunggu sinkron"
                         } else {
                             "Semua perubahan tersimpan"
@@ -379,28 +414,19 @@ fun DriveBackupSheetContent(
                 }
 
                 Text(
-                    text = "Folder Drive: ${settings.driveFolderName} (Ubah)",
+                    text = "Folder Drive: $driveFolderName (Sinkron 2 arah)",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable { showFolderDialog = true }
-                        .padding(vertical = 2.dp)
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
 
-        // Auto-Sync Switch Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .clickable {
-                    mainViewModel.updateSettings {
-                        it.copy(autoSyncDriveEnabled = !it.autoSyncDriveEnabled)
-                    }
-                }
+                .clickable { onToggleAutoSync(!autoSyncEnabled) }
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -415,16 +441,14 @@ fun DriveBackupSheetContent(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Unggah otomatis setiap ada perubahan kamus atau saat kembali online",
+                    text = "Unggah otomatis setiap ada perubahan atau saat kembali online",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Switch(
-                checked = settings.autoSyncDriveEnabled,
-                onCheckedChange = { enabled ->
-                    mainViewModel.updateSettings { it.copy(autoSyncDriveEnabled = enabled) }
-                },
+                checked = autoSyncEnabled,
+                onCheckedChange = onToggleAutoSync,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.surface,
                     checkedTrackColor = MaterialTheme.colorScheme.primary
@@ -433,45 +457,42 @@ fun DriveBackupSheetContent(
             )
         }
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
 
-        // Primary Action Pills: Putuskan Akun & Sinkronkan Sekarang
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedButton(
-                onClick = {
-                    cloudViewModel.clearCachedDriveToken()
-                    AuthHelper.signOut(credentialManager, scope) {
-                        onSignedOut()
-                    }
-                },
+                onClick = onDisconnect,
                 shape = RoundedCornerShape(28.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                 modifier = Modifier
                     .weight(1f)
-                    .height(52.dp)
+                    .heightIn(min = 54.dp)
                     .testTag("drive_disconnect_button")
             ) {
                 Text(
                     text = "Putuskan Akun",
                     color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1
                 )
             }
 
             Button(
-                onClick = { triggerDriveSync(direction = null) },
+                onClick = onSyncNow,
                 enabled = !isSyncing,
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
+                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
                 modifier = Modifier
-                    .weight(1.25f)
-                    .height(52.dp)
+                    .weight(1.1f)
+                    .heightIn(min = 54.dp)
                     .testTag("drive_sync_now_button")
             ) {
                 if (isSyncing) {
@@ -487,214 +508,15 @@ fun DriveBackupSheetContent(
                         modifier = Modifier.size(18.dp)
                     )
                 }
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(10.dp))
                 Text(
                     text = if (isSyncing) "Menyinkron..." else "Sinkronkan Sekarang",
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-            }
-        }
-
-        // Secondary Drive tools: Restore from Drive & JSON Preview (Dictionary only)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            OutlinedButton(
-                onClick = { triggerDriveSync(direction = SyncDirection.DOWNLOADED) },
-                enabled = !isSyncing,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
-            ) {
-                Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Pulihkan Drive")
-            }
-
-            OutlinedButton(
-                onClick = { showJsonDialog = true },
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
-            ) {
-                Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Lihat JSON")
-            }
-        }
-
-        // Snapshot History
-        val snapshots = (snapshotsState as? CloudUiState.Success)?.data.orEmpty()
-        if (snapshots.isNotEmpty()) {
-            Text(
-                text = "Riwayat Sinkron Kamus",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                snapshots.take(3).forEach { snap ->
-                    BackupHistoryItem(snap)
-                }
-            }
-        }
-    }
-
-    if (showFolderDialog) {
-        FolderConfigDialog(
-            currentFolderName = settings.driveFolderName,
-            currentShortcutId = settings.driveShortcutFolderId,
-            onDismiss = { showFolderDialog = false },
-            onSave = { name, shortcutId ->
-                mainViewModel.updateSettings {
-                    it.copy(
-                        driveFolderName = name.ifBlank { "KetikKu" },
-                        driveShortcutFolderId = shortcutId.trim()
-                    )
-                }
-                showFolderDialog = false
-            }
-        )
-    }
-
-    if (showJsonDialog) {
-        JsonPreviewDialog(
-            dictionary = dictionary,
-            updatedAtMillis = syncLocalState.lastSyncedAtMillis,
-            onDismiss = { showJsonDialog = false }
-        )
-    }
-}
-
-@Composable
-private fun JsonPreviewDialog(
-    dictionary: List<PersonalDictionaryEntry>,
-    updatedAtMillis: Long,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val repo = remember(context) { SettingsRepository(context) }
-    val jsonPreview = remember(dictionary, updatedAtMillis) {
-        repo.encodeDictionaryBackupJson(dictionary, updatedAtMillis)
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("ketikku_dictionary.json (${dictionary.count { !it.deleted }} kata kamus)") },
-        text = {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Text(
-                    text = jsonPreview,
-                    fontFamily = JetBrainsMonoFamily,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(12.dp)
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Tutup")
-            }
-        }
-    )
-}
-
-@Composable
-private fun BackupHistoryItem(snap: BackupSnapshot) {
-    val dateStr = remember(snap.syncedAtMillis) {
-        SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(snap.syncedAtMillis))
-    }
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp))
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = snap.deviceName,
-                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "$dateStr • ${snap.dictionaryCount} kata kamus",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Text(
-                    text = if (snap.syncSource == "DRIVE_AND_CLOUD") "Drive + Cloud" else "Cloud",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    lineHeight = 18.sp
                 )
             }
         }
     }
-}
-
-@Composable
-private fun FolderConfigDialog(
-    currentFolderName: String,
-    currentShortcutId: String,
-    onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit
-) {
-    var folderName by remember { mutableStateOf(currentFolderName) }
-    var shortcutId by remember { mutableStateOf(currentShortcutId) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Konfigurasi Folder Google Drive") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = folderName,
-                    onValueChange = { folderName = it },
-                    label = { Text("Nama Folder Drive") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = shortcutId,
-                    onValueChange = { shortcutId = it },
-                    label = { Text("ID Folder / Shortcut Berbagi (Opsional)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = { onSave(folderName, shortcutId) }) {
-                Text("Simpan")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Batal")
-            }
-        }
-    )
 }
 
 private fun formatRelativeTime(timestampMillis: Long): String {

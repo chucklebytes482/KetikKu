@@ -1286,4 +1286,50 @@ class ExampleRobolectricTest {
         assertSame(activity, nestedWrapper.findActivity())
         assertNull(ApplicationProvider.getApplicationContext<Context>().findActivity())
     }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp")
+    fun driveBackupConnectedContent_rendersSimpleLayoutWithoutExtraButtonsOrHistory() {
+        var autoSync = true
+        var syncClicks = 0
+        var disconnectClicks = 0
+
+        composeRule.setContent {
+            KetikKuTheme(darkTheme = false) {
+                com.example.ui.screens.DriveBackupConnectedContent(
+                    userEmail = "pengguna@gmail.com",
+                    driveFolderName = "KetikKu",
+                    autoSyncEnabled = autoSync,
+                    isOnline = true,
+                    pendingChanges = false,
+                    statusHeadline = "Tersinkronisasi • Baru saja",
+                    statusDotColor = androidx.compose.material3.MaterialTheme.colorScheme.secondary,
+                    isSyncing = false,
+                    onToggleAutoSync = { autoSync = it },
+                    onDisconnect = { disconnectClicks++ },
+                    onSyncNow = { syncClicks++ }
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("drive_sync_status_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("drive_auto_sync_switch").assertIsDisplayed()
+        composeRule.onNodeWithTag("drive_disconnect_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("drive_sync_now_button").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("Folder Drive: KetikKu (Sinkron 2 arah)").fetchSemanticsNodes().isNotEmpty())
+
+        // Removed clutter must not appear
+        assertTrue(composeRule.onAllNodesWithText("Pulihkan Drive").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Lihat JSON").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Riwayat Sinkron Kamus").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("(Ubah)", substring = true).fetchSemanticsNodes().isEmpty())
+
+        composeRule.onNodeWithTag("drive_sync_now_button").performClick()
+        composeRule.onNodeWithTag("drive_disconnect_button").performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, syncClicks)
+        assertEquals(1, disconnectClicks)
+    }
 }
+
