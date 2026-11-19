@@ -11,7 +11,7 @@
     <string name="action_select_ime">Pilih KetikKu</string>
 
     <string name="drive_sync_title">Auto-Sinkronisasi Google Drive</string>
-    <string name="drive_sync_desc">Simpan dan sinkronkan otomatis kamus pribadi ke folder \"%1$s\" di Google Drive Anda agar berkas kamus (ketikku_dictionary.json) langsung tersimpan di Drive.</string>
+    <string name="drive_sync_desc">Simpan dan sinkronkan otomatis ke folder \"%1$s\" di Google Drive Anda agar berkas bisa langsung dilihat di Drive.</string>
     <string name="drive_auto_sync_title">Sinkronisasi Otomatis</string>
     <string name="drive_auto_sync_subtitle">Unggah otomatis setiap ada perubahan atau saat kembali online</string>
     <string name="drive_disconnect">Putuskan Akun</string>
