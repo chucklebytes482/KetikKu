@@ -6,6 +6,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.IgnoreExtraProperties
 import com.google.firebase.firestore.ServerTimestamp
+import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 enum class KeyboardLanguage(val code: String, val displayName: String, val shortBadge: String) {
@@ -51,7 +52,7 @@ data class PersonalDictionaryEntry(
     val id: String = "",
     val word: String = "",
     val shortcut: String = "",
-    val language: String = KeyboardLanguage.INDONESIAN.code,
+    @param:Json(ignore = true) val language: String = KeyboardLanguage.INDONESIAN.code,
     val updatedAtMillis: Long = 0L,
     val deleted: Boolean = false
 )

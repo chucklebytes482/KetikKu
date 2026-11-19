@@ -28,6 +28,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import org.json.JSONTokener
+import java.security.MessageDigest
 import java.util.UUID
 
 val Context.ketikKuDataStore: DataStore<Preferences> by preferencesDataStore(name = "ketikku_prefs")
@@ -417,48 +421,168 @@ class SettingsRepository(
     }
 
     fun encodeSettingsBackupJson(settings: KeyboardSettings): String {
-        val envelope = SettingsBackupEnvelope(
-            schemaVersion = 1,
-            updatedAtMillis = settings.updatedAtMillis,
-            settings = settings
-        )
-        return settingsEnvelopeAdapter.toJson(envelope)
+        val settingsObj = JSONObject().apply {
+            put("floatingModeEnabled", settings.floatingModeEnabled)
+            put("floatingPosX", settings.floatingPosX.toDouble())
+            put("floatingPosY", settings.floatingPosY.toDouble())
+            put("hapticEnabled", settings.hapticEnabled)
+            put("clipboardHistoryEnabled", settings.clipboardHistoryEnabled)
+            put("serifMiringEnabled", settings.serifMiringEnabled)
+            put("autoSyncDriveEnabled", settings.autoSyncDriveEnabled)
+            put("driveFolderName", settings.driveFolderName.ifBlank { "KetikKu" })
+            if (settings.driveShortcutFolderId.isNotBlank()) {
+                put("driveShortcutFolderId", settings.driveShortcutFolderId)
+            }
+        }
+        return JSONObject().apply {
+            put("updatedAtMillis", settings.updatedAtMillis)
+            put("settings", settingsObj)
+        }.toString(2)
     }
 
     fun encodeCompactSettingsJson(settings: KeyboardSettings): String = settingsAdapter.toJson(settings)
 
-    fun decodeSettingsBackupJson(json: String): SettingsBackupEnvelope? =
-        runCatching { settingsEnvelopeAdapter.fromJson(json) }.getOrNull()
+    fun decodeSettingsBackupJson(json: String): SettingsBackupEnvelope? {
+        runCatching {
+            val trimmed = json.trim()
+            if (trimmed.isEmpty()) return@runCatching null
+            val root = JSONObject(trimmed)
+            val sObj = root.optJSONObject("settings")
+                ?: if (root.has("floatingModeEnabled") || root.has("hapticEnabled") || root.has("driveFolderName")) {
+                    root
+                } else {
+                    return@runCatching null
+                }
+            val topUpdatedAt = root.optLong("updatedAtMillis", 0L)
+            val innerUpdatedAt = sObj.optLong("updatedAtMillis", 0L)
+            val effectiveUpdatedAt = maxOf(topUpdatedAt, innerUpdatedAt)
+            val decodedSettings = KeyboardSettings(
+                heightPreset = KeyboardHeightPreset.fromName(sObj.optString("heightPreset", KeyboardHeightPreset.NORMAL.name)).name,
+                floatingModeEnabled = sObj.optBoolean("floatingModeEnabled", false),
+                floatingPosX = sObj.optDouble("floatingPosX", 0.5).toFloat().coerceIn(0f, 1f),
+                floatingPosY = sObj.optDouble("floatingPosY", 0.85).toFloat().coerceIn(0f, 1f),
+                hapticEnabled = sObj.optBoolean("hapticEnabled", true),
+                clipboardHistoryEnabled = sObj.optBoolean("clipboardHistoryEnabled", true),
+                arialItalicEnabled = sObj.optBoolean("arialItalicEnabled", false),
+                serifMiringEnabled = sObj.optBoolean("serifMiringEnabled", false),
+                autoSyncDriveEnabled = sObj.optBoolean("autoSyncDriveEnabled", true),
+                driveFolderName = sObj.optString("driveFolderName", "KetikKu").ifBlank { "KetikKu" },
+                driveShortcutFolderId = sObj.optString("driveShortcutFolderId", ""),
+                updatedAtMillis = effectiveUpdatedAt
+            )
+            SettingsBackupEnvelope(
+                schemaVersion = root.optInt("schemaVersion", 1),
+                updatedAtMillis = effectiveUpdatedAt,
+                settings = decodedSettings
+            )
+        }.getOrNull()?.let { return it }
 
-    fun encodeDictionaryBackupJson(entries: List<PersonalDictionaryEntry>, updatedAtMillis: Long): String {
-        val envelope = DictionaryBackupEnvelope(
-            schemaVersion = 1,
-            updatedAtMillis = updatedAtMillis,
-            entries = entries
-        )
-        return dictEnvelopeAdapter.toJson(envelope)
+        return runCatching { settingsEnvelopeAdapter.fromJson(json) }.getOrNull()
     }
 
-    fun decodeDictionaryBackupJson(json: String): DictionaryBackupEnvelope? =
-        runCatching { dictEnvelopeAdapter.fromJson(json) }.getOrNull()
+    fun encodeDictionaryBackupJson(entries: List<PersonalDictionaryEntry>, updatedAtMillis: Long): String {
+        val array = JSONArray().apply {
+            entries.forEach { entry ->
+                put(JSONObject().apply {
+                    put("id", entry.id)
+                    put("word", entry.word)
+                    put("shortcut", entry.shortcut)
+                    put("updatedAtMillis", entry.updatedAtMillis)
+                    if (entry.deleted) {
+                        put("deleted", true)
+                    }
+                })
+            }
+        }
+        return JSONObject().apply {
+            put("updatedAtMillis", updatedAtMillis)
+            put("entries", array)
+        }.toString(2)
+    }
+
+    fun decodeDictionaryBackupJson(json: String): DictionaryBackupEnvelope? {
+        runCatching {
+            val trimmed = json.trim()
+            if (trimmed.isEmpty()) return@runCatching null
+            val fallbackNow = System.currentTimeMillis()
+            val parsed = JSONTokener(trimmed).nextValue()
+            val rootUpdatedAt: Long
+            val arr: JSONArray
+            when (parsed) {
+                is JSONObject -> {
+                    rootUpdatedAt = parsed.optLong("updatedAtMillis", 0L)
+                    arr = parsed.optJSONArray("entries")
+                        ?: parsed.optJSONArray("dictionary")
+                        ?: return@runCatching null
+                }
+                is JSONArray -> {
+                    rootUpdatedAt = 0L
+                    arr = parsed
+                }
+                else -> return@runCatching null
+            }
+            val fallbackEntryTs = if (rootUpdatedAt > 0L) rootUpdatedAt else fallbackNow
+            val seenIds = HashSet<String>()
+            val entries = buildList {
+                for (i in 0 until arr.length()) {
+                    val obj = arr.optJSONObject(i) ?: continue
+                    val word = obj.optString("word", "").trim()
+                    if (word.isEmpty()) continue
+                    val shortcut = obj.optString("shortcut", "").trim().lowercase(Locale.ROOT)
+                    var id = obj.optString("id", "").trim().ifEmpty {
+                        stableEntryId(word, shortcut)
+                    }
+                    if (!seenIds.add(id)) {
+                        id = "${id}_$i"
+                        seenIds.add(id)
+                    }
+                    val rawEntryTs = obj.optLong("updatedAtMillis", 0L)
+                    val entryTs = if (rawEntryTs > 0L) rawEntryTs else fallbackEntryTs
+                    val deleted = obj.optBoolean("deleted", false)
+                    add(
+                        PersonalDictionaryEntry(
+                            id = id,
+                            word = word,
+                            shortcut = shortcut,
+                            updatedAtMillis = entryTs,
+                            deleted = deleted
+                        )
+                    )
+                }
+            }
+            DictionaryBackupEnvelope(
+                schemaVersion = 1,
+                updatedAtMillis = rootUpdatedAt,
+                entries = entries
+            )
+        }.getOrNull()?.let { return it }
+
+        return runCatching { dictEnvelopeAdapter.fromJson(json) }.getOrNull()
+    }
 
     fun encodeFullBackupJson(
         settings: KeyboardSettings,
         entries: List<PersonalDictionaryEntry>,
         exportedAtMillis: Long = System.currentTimeMillis()
     ): String {
-        val envelope = FullBackupEnvelope(
-            schemaVersion = 1,
-            appName = "KetikKu",
-            exportedAtMillis = exportedAtMillis,
-            settings = settings,
-            dictionary = entries
-        )
-        return fullBackupAdapter.toJson(envelope)
+        val settingsObj = JSONObject(encodeSettingsBackupJson(settings)).getJSONObject("settings")
+        val dictArr = JSONObject(encodeDictionaryBackupJson(entries, exportedAtMillis)).getJSONArray("entries")
+        return JSONObject().apply {
+            put("appName", "KetikKu")
+            put("exportedAtMillis", exportedAtMillis)
+            put("settings", settingsObj)
+            put("dictionary", dictArr)
+        }.toString(2)
     }
 
     fun decodeFullBackupJson(json: String): FullBackupEnvelope? =
         runCatching { fullBackupAdapter.fromJson(json) }.getOrNull()
+
+    private fun stableEntryId(word: String, shortcut: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest("$word|$shortcut".lowercase(Locale.ROOT).toByteArray(Charsets.UTF_8))
+        return "ai_" + digest.take(6).joinToString("") { "%02x".format(it) }
+    }
 
     suspend fun importLocalBackupJson(rawJson: String): Result<String> {
         val full = decodeFullBackupJson(rawJson)

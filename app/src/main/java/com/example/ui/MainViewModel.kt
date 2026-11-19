@@ -119,9 +119,12 @@ class MainViewModel(
         }
     }
 
-    fun updateSettings(transform: (KeyboardSettings) -> KeyboardSettings) {
+    fun updateSettings(
+        markPendingSync: Boolean = true,
+        transform: (KeyboardSettings) -> KeyboardSettings
+    ) {
         viewModelScope.launch {
-            settingsRepository.updateSettings(markPendingSync = false, transform = transform)
+            settingsRepository.updateSettings(markPendingSync = markPendingSync, transform = transform)
         }
     }
 
@@ -136,7 +139,7 @@ class MainViewModel(
     fun saveFloatingPosition(posX: Float, posY: Float) {
         val clampedX = posX.coerceIn(0f, 1f)
         val clampedY = posY.coerceIn(0f, 1f)
-        updateSettings {
+        updateSettings(markPendingSync = false) {
             it.copy(
                 floatingPosX = clampedX,
                 floatingPosY = clampedY

@@ -498,14 +498,14 @@ private val longPressAlternates: Map<String, List<String>> = mapOf(
     "o" to listOf("9"),
     "p" to listOf("0"),
     "a" to listOf("@"),
-    "s" to listOf("%"),
-    "d" to listOf("&"),
+    "s" to listOf("#"),
+    "d" to listOf("$"),
     "f" to listOf("_"),
-    "g" to listOf("-"),
-    "h" to listOf("+"),
-    "j" to listOf("("),
-    "k" to listOf(")"),
-    "l" to listOf("/"),
+    "g" to listOf("&"),
+    "h" to listOf("-"),
+    "j" to listOf("+"),
+    "k" to listOf("("),
+    "l" to listOf(")", "/"),
     "z" to listOf("*"),
     "x" to listOf("\""),
     "c" to listOf("'"),
@@ -1479,19 +1479,19 @@ private val QWERTY_ROW_1 = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "
 private val QWERTY_ROW_2 = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
 private val QWERTY_ROW_3 = listOf("z", "x", "c", "v", "b", "n", "m")
 
-// Same geometry as QWERTY: 10 / 9 / (1.45 + 7 + 1.45) slots.
-// Panel 1: angka 1-0 pada baris 1 (ditukar dengan panah) + kurung/mata uang + emoji/tanda baca harian.
+// Same geometry as QWERTY: 10 / 10 / (1.45 + 7 + 1.45) slots.
+// Panel 1: standar Google Keyboard (1234567890, @#$_&-+()/, *"':;!?).
 private val SYMBOLS_1_ROWS = listOf(
     listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
-    listOf("[", "]", "\\", "|", "<", ">", "Rp", "$", "€"),
-    listOf("😂", "😍", "👍", "🙏", "!", "?", "@")
+    listOf("@", "#", "$", "_", "&", "-", "+", "(", ")", "/"),
+    listOf("*", "\"", "'", ":", ";", "!", "?")
 )
 
-// Panel 2: panah & simbol matematika pindahan pada baris 1 + simbol umum pelengkap yang belum ada di Panel 1.
+// Panel 2: simbol unik tanpa duplikat dari keyboard utama & Panel 1 (panah/status/Rp/markdown/kode + baris 3 ×÷=😂😍👍🙏).
 private val SYMBOLS_2_ROWS = listOf(
-    listOf("←", "→", "↑", "↓", "✓", "✗", "×", "÷", "=", "#"),
-    listOf("(", ")", "{", "}", "~", "`", "^", "%", "&"),
-    listOf("-", "_", "+", "*", "/", ":", ";")
+    listOf("←", "→", "↑", "↓", "✓", "✗", "Rp", "%", "^", "•"),
+    listOf("`", "~", "|", "<", ">", "{", "}", "[", "]", "\\"),
+    listOf("×", "÷", "=", "😂", "😍", "👍", "🙏")
 )
 
 private val NUMPAD_ROWS = listOf(
@@ -1778,8 +1778,11 @@ private fun SymbolsKeyboardGrid(
                 activeRows.forEachIndexed { rowIndex, rowSymbols ->
                     Row(
                         modifier = Modifier.fillMaxWidth().then(
-                            if (rowIndex == 1) Modifier.padding(horizontal = if (isFloating) 9.dp else 14.dp)
-                            else Modifier
+                            if (rowIndex == 1 && rowSymbols.size < 10) {
+                                Modifier.padding(horizontal = if (isFloating) 9.dp else 14.dp)
+                            } else {
+                                Modifier
+                            }
                         ),
                         horizontalArrangement = Arrangement.spacedBy(rowGap)
                     ) {

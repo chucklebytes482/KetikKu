@@ -151,7 +151,7 @@ class CloudSyncViewModel(
             val snapRes = firestoreRepo.recordBackupSnapshot(
                 userId = currentUserId,
                 driveFileId = null,
-                settingsJson = "{}",
+                settingsJson = settingsJson,
                 dictionaryCount = dictionary.count { !it.deleted },
                 syncSource = "CLOUD_ONLY",
                 syncedAtMillis = now
@@ -160,10 +160,10 @@ class CloudSyncViewModel(
             if (profileRes.isSuccess && snapRes.isSuccess) {
                 settingsRepository.updateSyncState(
                     lastSyncedAtMillis = now,
-                    message = "Kamus tersinkronisasi ke Cloud • Baru saja",
+                    message = "Kamus & pengaturan tersinkronisasi ke Cloud • Baru saja",
                     pendingChanges = false
                 )
-                _syncActionState.value = SyncActionState.Done("Cadangan kamus Cloud berhasil disimpan.")
+                _syncActionState.value = SyncActionState.Done("Cadangan kamus & pengaturan Cloud berhasil disimpan.")
             } else {
                 val err = profileRes.exceptionOrNull() ?: snapRes.exceptionOrNull()
                 _syncActionState.value = SyncActionState.Error(err?.message ?: "Gagal menyimpan ke Cloud.")
@@ -216,8 +216,8 @@ class CloudSyncViewModel(
             )
             firestoreRepo.recordBackupSnapshot(
                 userId = currentUserId,
-                driveFileId = outcome.dictionaryFileId,
-                settingsJson = "{}",
+                driveFileId = outcome.dictionaryFileId.ifBlank { outcome.settingsFileId },
+                settingsJson = settingsRepository.encodeCompactSettingsJson(outcome.syncedSettings),
                 dictionaryCount = outcome.syncedDictionary.count { !it.deleted },
                 syncSource = "DRIVE_AND_CLOUD",
                 syncedAtMillis = outcome.syncedAtMillis
