@@ -18,11 +18,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -32,7 +32,7 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      - name: Prepare release signing keystore
+      - name: Prepare keystores
         shell: bash
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -40,11 +40,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
+          if [ ! -f debug.keystore ] && [ -f debug.keystore.base64 ]; then
+            tr -d '[:space:]' < debug.keystore.base64 | base64 -d > debug.keystore
+          fi
+
           if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
-            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            printf '%s' "$RELEASE_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/upload.jks"
+            EFFECTIVE_KEY_PASSWORD="${KEY_PASSWORD:-$STORE_PASSWORD}"
             SRC_ALIAS="${KEY_ALIAS:-}"
             if [ -z "$SRC_ALIAS" ]; then
-              SRC_ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storepass "$STORE_PASSWORD" | awk -F',' '/PrivateKeyEntry/{print $1; exit}' | xargs)
+              SRC_ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storepass "$STORE_PASSWORD" 2>/dev/null | awk -F',' '/PrivateKeyEntry/{print $1; exit}' | xargs)
             fi
             if [ -n "$SRC_ALIAS" ] && [ "$SRC_ALIAS" != "upload" ]; then
               keytool -changealias \
@@ -52,11 +57,11 @@ jobs:
                 -alias "$SRC_ALIAS" \
                 -destalias upload \
                 -storepass "$STORE_PASSWORD" \
-                -keypass "$KEY_PASSWORD"
+                -keypass "$EFFECTIVE_KEY_PASSWORD"
             fi
             echo "KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
             echo "STORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
-            echo "KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=$EFFECTIVE_KEY_PASSWORD" >> "$GITHUB_ENV"
           else
             PASS="ketikku-ci-release"
             keytool -genkeypair -v \
@@ -89,7 +94,12 @@ jobs:
           APK_OUT="dist/KetikKu-${VERSION_TAG}-arm64-v8a-release.apk"
           cp "$APK_SRC" "$APK_OUT"
 
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
+          SDK_DIR="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          APKSIGNER=$(find "$SDK_DIR/build-tools" -name apksigner 2>/dev/null | sort -V | tail -n 1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "apksigner not found under $SDK_DIR/build-tools" >&2
+            exit 1
+          fi
           "$APKSIGNER" verify --print-certs "$APK_OUT" | tee dist/CERT_FINGERPRINT.txt
           sha256sum "$APK_OUT" | tee dist/CHECKSUMS.txt
 
