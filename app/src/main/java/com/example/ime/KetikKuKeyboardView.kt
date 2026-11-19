@@ -524,6 +524,7 @@ fun KetikKuKeyboardView(
     personalEntries: List<PersonalDictionaryEntry>,
     clipboardItems: List<ClipboardItem>,
     dismissedClipboardId: String? = null,
+    dismissedClipboardSignature: String? = null,
     onPasteClipboard: (String) -> Unit,
     onPasteClipboardItem: ((ClipboardItem) -> Unit)? = null,
     onRequestCtrlPaste: (() -> Unit)? = null,
@@ -577,13 +578,13 @@ fun KetikKuKeyboardView(
             } else {
                 currentOnPasteClipboard(item.preview)
             }
-            controller.dismissClipboardItem(item.id)
+            controller.dismissClipboardItem(item)
             currentOnDismissRecentClipboard(item.id)
         }
     }
     val onDismissRecentClipboardStable = remember(controller) {
         { item: ClipboardItem ->
-            controller.dismissClipboardItem(item.id)
+            controller.dismissClipboardItem(item)
             currentOnDismissRecentClipboard(item.id)
         }
     }
@@ -741,6 +742,7 @@ fun KetikKuKeyboardView(
                     personalEntries = personalEntries,
                     clipboardItems = clipboardItems,
                     dismissedClipboardId = dismissedClipboardId,
+                    dismissedClipboardSignature = dismissedClipboardSignature,
                     chipFontFamily = chipFontFamily,
                     keyFontStyle = keyFontStyle,
                     isFloating = isFloating,
@@ -1156,6 +1158,7 @@ private fun TopUtilityAndSuggestionBar(
     personalEntries: List<PersonalDictionaryEntry>,
     clipboardItems: List<ClipboardItem>,
     dismissedClipboardId: String?,
+    dismissedClipboardSignature: String? = null,
     chipFontFamily: FontFamily,
     keyFontStyle: FontStyle,
     isFloating: Boolean,
@@ -1171,11 +1174,17 @@ private fun TopUtilityAndSuggestionBar(
     val statusMsg = controller.clipboardStatusMessage
     val recentClipboardItem = if (settings.clipboardHistoryEnabled && !controller.isPasswordField) {
         clipboardItems.firstOrNull()?.takeIf { item ->
+            val itemSig = item.dismissSignature()
+            val hiddenBySig = (dismissedClipboardSignature != null && itemSig == dismissedClipboardSignature) ||
+                (dismissedClipboardSignature == null &&
+                    controller.dismissedClipboardSignature != null &&
+                    itemSig == controller.dismissedClipboardSignature)
             item.id.isNotBlank() &&
                 item.preview.isNotBlank() &&
                 item.charCount <= RECENT_CLIPBOARD_SUGGESTION_MAX_CHARS &&
                 item.id != dismissedClipboardId &&
-                item.id != controller.dismissedClipboardId
+                item.id != controller.dismissedClipboardId &&
+                !hiddenBySig
         }
     } else {
         null
@@ -1471,10 +1480,18 @@ private val QWERTY_ROW_2 = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
 private val QWERTY_ROW_3 = listOf("z", "x", "c", "v", "b", "n", "m")
 
 // Same geometry as QWERTY: 10 / 9 / (1.45 + 7 + 1.45) slots.
-private val SYMBOL_ROWS = listOf(
-    listOf("←", "→", "↑", "↓", "✓", "✗", "×", "÷", "=", "#"),
+// Panel 1: angka 1-0 pada baris 1 (ditukar dengan panah) + kurung/mata uang + emoji/tanda baca harian.
+private val SYMBOLS_1_ROWS = listOf(
+    listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
     listOf("[", "]", "\\", "|", "<", ">", "Rp", "$", "€"),
     listOf("😂", "😍", "👍", "🙏", "!", "?", "@")
+)
+
+// Panel 2: panah & simbol matematika pindahan pada baris 1 + simbol umum pelengkap yang belum ada di Panel 1.
+private val SYMBOLS_2_ROWS = listOf(
+    listOf("←", "→", "↑", "↓", "✓", "✗", "×", "÷", "=", "#"),
+    listOf("(", ")", "{", "}", "~", "`", "^", "%", "&"),
+    listOf("-", "_", "+", "*", "/", ":", ";")
 )
 
 private val NUMPAD_ROWS = listOf(
@@ -1756,7 +1773,9 @@ private fun SymbolsKeyboardGrid(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                SYMBOL_ROWS.forEachIndexed { rowIndex, rowSymbols ->
+                val isPanel2 = controller.currentPage == KeyboardPage.SYMBOLS_2
+                val activeRows = if (isPanel2) SYMBOLS_2_ROWS else SYMBOLS_1_ROWS
+                activeRows.forEachIndexed { rowIndex, rowSymbols ->
                     Row(
                         modifier = Modifier.fillMaxWidth().then(
                             if (rowIndex == 1) Modifier.padding(horizontal = if (isFloating) 9.dp else 14.dp)
@@ -1766,12 +1785,28 @@ private fun SymbolsKeyboardGrid(
                     ) {
                         if (rowIndex == 2) {
                             SpecialActionKey(
-                                height = keyHeight, palette = palette, bordered = true,
-                                highlighted = false, contentDescription = "Kembali ke Huruf",
-                                pointerTracker = pointerTracker, slotId = "symbols_abc",
-                                onTap = { onFeedback(); controller.setPage(KeyboardPage.QWERTY) },
-                                modifier = Modifier.weight(1.45f)
-                            ) { Text("ABC", color = palette.keyText, fontSize = 11.sp) }
+                                height = keyHeight,
+                                palette = palette,
+                                bordered = true,
+                                highlighted = isPanel2,
+                                contentDescription = if (isPanel2) "Panel Simbol 1" else "Panel Simbol 2",
+                                pointerTracker = pointerTracker,
+                                slotId = "symbols_page_toggle",
+                                onTap = {
+                                    onFeedback()
+                                    controller.setPage(if (isPanel2) KeyboardPage.SYMBOLS_1 else KeyboardPage.SYMBOLS_2)
+                                },
+                                modifier = Modifier
+                                    .weight(1.45f)
+                                    .testTag("key_symbols_page_toggle")
+                            ) {
+                                Text(
+                                    text = if (isPanel2) "2/2" else "1/2",
+                                    color = if (isPanel2) palette.accentBg else palette.keyText,
+                                    fontSize = if (isFloating) 10.sp else 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                         rowSymbols.forEach { sym ->
                             val symFontSize = if (sym.length > 1) {
@@ -1789,7 +1824,7 @@ private fun SymbolsKeyboardGrid(
                                 fontStyle = keyFontStyle,
                                 fontSize = symFontSize,
                                 pointerTracker = pointerTracker,
-                                slotId = "sym_$sym",
+                                slotId = "sym_${if (isPanel2) 2 else 1}_$sym",
                                 onTap = {
                                     onFeedback()
                                     controller.onCharacterTap(
@@ -2047,10 +2082,10 @@ private fun BottomNavigationRow(
             modifier = Modifier.weight(3.84f)
         )
 
-        // Combined comma (tap) / period (long-press) key with "." hint in top-right corner
+        // Combined period (tap) / comma (long-press) key with "," hint in top-right corner
         CharKey(
-            label = ",",
-            hint = ".",
+            label = ".",
+            hint = ",",
             height = keyHeight,
             palette = palette,
             bordered = true,
@@ -2060,13 +2095,13 @@ private fun BottomNavigationRow(
             hintFontSize = hintFontSize,
             hasLongPress = true,
             pointerTracker = pointerTracker,
-            slotId = "bottom_comma",
+            slotId = "bottom_period",
             onTap = {
                 onFeedback()
-                controller.onCharacterTap(",", settings, personalEntries)
+                controller.onCharacterTap(".", settings, personalEntries)
             },
             onLongPressStart = { coords, downOffset ->
-                onKeyPopupStart(",", coords, downOffset, listOf("."))
+                onKeyPopupStart(".", coords, downOffset, listOf(","))
             },
             onLongPressDrag = onKeyPopupDrag,
             onLongPressRelease = onKeyPopupRelease,

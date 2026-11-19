@@ -41,6 +41,7 @@ import com.example.ui.MainViewModel
 import com.example.ui.screens.DictionaryScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.KetikKuTheme
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -132,14 +133,14 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        // Number row 1..0 removed; Q..P show digit hints and , shows '.' hint
+        // Number row 1..0 removed on QWERTY; Q..P show digit hints and '.' shows ',' hint
         assertTrue(composeRule.onAllNodesWithTag("key_1").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("key_0").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithTag("key_.").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("key_,").fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithTag("key_q").assertIsDisplayed()
         composeRule.onNodeWithTag("key_ctrl").assertIsDisplayed()
         composeRule.onNodeWithTag("key_spacebar").assertIsDisplayed()
-        composeRule.onNodeWithTag("key_,").assertIsDisplayed()
+        composeRule.onNodeWithTag("key_.").assertIsDisplayed()
         composeRule.onNodeWithTag("key_symbols").assertIsDisplayed()
         composeRule.onNodeWithTag("ime_fixed_toolbar").assertIsDisplayed()
         val clipToolbarBounds = composeRule.onNodeWithTag("ime_clipboard_button").fetchSemanticsNode().boundsInRoot
@@ -179,20 +180,20 @@ class ExampleRobolectricTest {
         )
         assertTrue(composeRule.onAllNodesWithText("?!").fetchSemanticsNodes().isEmpty())
 
-        // Tap ',' outputs ',', Shift+Q outputs 'Q'
-        composeRule.onNodeWithTag("key_,").performClick()
+        // Tap '.' outputs '.', Shift+Q outputs 'Q'
+        composeRule.onNodeWithTag("key_.").performClick()
         composeRule.waitForIdle()
-        assertEquals(",", value.text)
+        assertEquals(".", value.text)
 
         composeRule.onNodeWithTag("key_q").performClick()
         composeRule.waitForIdle()
-        assertEquals(",q", value.text)
+        assertEquals(".q", value.text)
 
         composeRule.onNodeWithContentDescription("Shift").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("key_Q").performClick()
         composeRule.waitForIdle()
-        assertEquals(",qQ", value.text)
+        assertEquals(".qQ", value.text)
     }
 
     @Test
@@ -239,20 +240,20 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertEquals("3", value.text)
 
-        // Long-press ',' pops up '.' directly above ',' and inserts '.'
-        composeRule.onNodeWithTag("key_,").performTouchInput {
+        // Long-press '.' pops up ',' directly above '.' and inserts ','
+        composeRule.onNodeWithTag("key_.").performTouchInput {
             down(center)
         }
         composeRule.mainClock.advanceTimeBy(600L)
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("key_longpress_popup").assertIsDisplayed()
-        val commaBounds = composeRule.onNodeWithTag("key_,").fetchSemanticsNode().boundsInRoot
-        val commaPopupBounds = composeRule.onNodeWithTag("key_longpress_popup").fetchSemanticsNode().boundsInRoot
-        assertTrue("Popup should sit directly above key ','", commaPopupBounds.bottom <= commaBounds.top + 4f)
+        val periodBounds = composeRule.onNodeWithTag("key_.").fetchSemanticsNode().boundsInRoot
+        val periodPopupBounds = composeRule.onNodeWithTag("key_longpress_popup").fetchSemanticsNode().boundsInRoot
+        assertTrue("Popup should sit directly above key '.'", periodPopupBounds.bottom <= periodBounds.top + 4f)
 
-        composeRule.onNodeWithTag("key_,").performTouchInput { up() }
+        composeRule.onNodeWithTag("key_.").performTouchInput { up() }
         composeRule.waitForIdle()
-        assertEquals("3.", value.text)
+        assertEquals("3,", value.text)
 
         // Long-press 'a', 's', 'd' inserts '@', '%', '&'
         listOf("a" to "@", "s" to "%", "d" to "&").forEach { (keyChar, sym) ->
@@ -264,7 +265,7 @@ class ExampleRobolectricTest {
             composeRule.onNodeWithTag("key_$keyChar").performTouchInput { up() }
             composeRule.waitForIdle()
         }
-        assertEquals("3.@%&", value.text)
+        assertEquals("3,@%&", value.text)
     }
 
     @Test
@@ -912,7 +913,29 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithTag("recent_clipboard_suggestion_chip").fetchSemanticsNodes().isEmpty())
         assertEquals(3, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
 
-        // Newly copied text with a fresh ID reappears in the suggestion column and tapping it pastes & dismisses
+        // Even if clip listener emits the SAME text with a brand-new ID, it stays hidden from suggestion bar
+        clipboardState = listOf(
+            ClipboardItem(
+                id = "clip_1_duplicate",
+                preview = "penggunapanjang2026@gmail.com",
+                charCount = 29,
+                timestampMillis = 550L
+            )
+        )
+        composeRule.waitForIdle()
+        assertTrue(
+            "Same dismissed text must NOT reappear even with a new ClipboardItem id",
+            composeRule.onAllNodesWithTag("recent_clipboard_suggestion_chip").fetchSemanticsNodes().isEmpty()
+        )
+
+        // Item remains accessible inside Papan Klip panel
+        composeRule.onNodeWithTag("ime_clipboard_button").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("clipboard_item_clip_1_duplicate").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Tutup").performClick()
+        composeRule.waitForIdle()
+
+        // Newly copied DIFFERENT text appears in the suggestion column and tapping it pastes & dismisses
         clipboardState = listOf(
             ClipboardItem(id = "clip_2", preview = "081234567890", charCount = 12, timestampMillis = 600L)
         )
@@ -1005,13 +1028,13 @@ class ExampleRobolectricTest {
         val symBounds = composeRule.onNodeWithTag("key_symbols").fetchSemanticsNode().boundsInRoot
         val ctrlBounds = composeRule.onNodeWithTag("key_ctrl").fetchSemanticsNode().boundsInRoot
         val spaceBounds = composeRule.onNodeWithTag("key_spacebar").fetchSemanticsNode().boundsInRoot
-        val commaBounds = composeRule.onNodeWithTag("key_,").fetchSemanticsNode().boundsInRoot
+        val periodBounds = composeRule.onNodeWithTag("key_.").fetchSemanticsNode().boundsInRoot
         val enterBounds = composeRule.onNodeWithTag("key_enter").fetchSemanticsNode().boundsInRoot
 
         assertTrue(symBounds.right <= ctrlBounds.left + 1f)
         assertTrue(ctrlBounds.right <= spaceBounds.left + 1f)
-        assertTrue(spaceBounds.right <= commaBounds.left + 1f)
-        assertTrue(commaBounds.right <= enterBounds.left + 1f)
+        assertTrue(spaceBounds.right <= periodBounds.left + 1f)
+        assertTrue(periodBounds.right <= enterBounds.left + 1f)
         assertTrue(composeRule.onAllNodesWithText("Ω").fetchSemanticsNodes().isNotEmpty())
         // Spacebar trimmed 20% from its left (~3.84f weight vs total ~9.85f) and Ctrl occupies freed width
         assertTrue(ctrlBounds.width > symBounds.width)
@@ -1019,43 +1042,26 @@ class ExampleRobolectricTest {
         val spaceRatio = spaceBounds.width / totalRowWidth
         assertTrue("Expected spacebar ratio ~0.39, got $spaceRatio", spaceRatio in 0.35f..0.43f)
 
-        // Open Symbol panel ('Ω') and verify QWERTY-geometry rows (10 / 9 / ABC + 7 + Backspace), NO digits, NO removed symbols
+        // Open Symbol Panel 1 ('Ω'): Row 1 has digits 1..0, Row 2 brackets/currency, Row 3 has 1/2 toggle + 7 keys + Backspace
         composeRule.onNodeWithTag("key_symbols").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("symbols_panel").assertIsDisplayed()
-        listOf("Panah", "Centang", "Pemrograman", "Mata uang", "Matematika", "Emoji").forEach { removedTitle ->
-            assertTrue(
-                "Category header '$removedTitle' must NOT appear in symbols panel",
-                composeRule.onAllNodesWithText(removedTitle).fetchSemanticsNodes().isEmpty()
-            )
-        }
-        val row1 = listOf("←", "→", "↑", "↓", "✓", "✗", "×", "÷", "=", "#")
-        val row2 = listOf("[", "]", "\\", "|", "<", ">", "Rp", "$", "€")
-        val row3 = listOf("😂", "😍", "👍", "🙏", "!", "?", "@")
-        assertEquals(10, row1.size)
-        assertEquals(9, row2.size)
-        assertEquals(7, row3.size)
-        val all26 = row1 + row2 + row3
-        assertEquals(26, all26.distinct().size)
-        all26.forEach { sym ->
+        val p1Row1 = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
+        val p1Row2 = listOf("[", "]", "\\", "|", "<", ">", "Rp", "$", "€")
+        val p1Row3 = listOf("😂", "😍", "👍", "🙏", "!", "?", "@")
+        assertEquals(10, p1Row1.size)
+        assertEquals(9, p1Row2.size)
+        assertEquals(7, p1Row3.size)
+        (p1Row1 + p1Row2 + p1Row3).forEach { sym ->
             composeRule.onNodeWithTag("key_$sym").assertIsDisplayed()
         }
-        // Removed symbols °, ~, ^, }, { must NOT appear inside Symbol panel
-        listOf("°", "~", "^", "}", "{").forEach { removedSym ->
-            assertTrue(
-                "Removed symbol $removedSym must not appear in symbol panel",
-                composeRule.onAllNodesWithTag("key_$removedSym").fetchSemanticsNodes().isEmpty()
-            )
-        }
-        assertTrue(
-            composeRule.onAllNodesWithContentDescription("Kembali ke Huruf")
-                .fetchSemanticsNodes().isNotEmpty()
-        )
+        composeRule.onNodeWithTag("key_symbols_page_toggle").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("1/2").fetchSemanticsNodes().isNotEmpty())
         composeRule.onNodeWithTag("key_backspace").assertIsDisplayed()
 
-        // Verify row geometry (row1 above row2 above row3; row2 horizontally inset vs row1)
-        val r1First = composeRule.onNodeWithTag("key_←").fetchSemanticsNode().boundsInRoot
-        val r1Last = composeRule.onNodeWithTag("key_#").fetchSemanticsNode().boundsInRoot
+        // Verify Panel 1 geometry (row1 above row2 above row3; row2 horizontally inset vs row1)
+        val r1First = composeRule.onNodeWithTag("key_1").fetchSemanticsNode().boundsInRoot
+        val r1Last = composeRule.onNodeWithTag("key_0").fetchSemanticsNode().boundsInRoot
         val r2First = composeRule.onNodeWithTag("key_[").fetchSemanticsNode().boundsInRoot
         val r3First = composeRule.onNodeWithTag("key_😂").fetchSemanticsNode().boundsInRoot
         val r3Last = composeRule.onNodeWithTag("key_@").fetchSemanticsNode().boundsInRoot
@@ -1065,21 +1071,36 @@ class ExampleRobolectricTest {
         assertTrue(r2First.bottom <= r3First.top + 1f)
         assertTrue(r3First.right < r3Last.left)
 
-        for (digit in '0'..'9') {
-            assertTrue(
-                "Symbol panel must NOT contain digit $digit",
-                composeRule.onAllNodesWithTag("key_$digit").fetchSemanticsNodes().isEmpty()
-            )
-        }
-
-        // Tapping symbols (Rp, 😂) directly without scrolling inserts them, and tapping ABC in row 3 returns to QWERTY
+        // Tap '1' and 'Rp' in Panel 1
+        composeRule.onNodeWithTag("key_1").performClick()
         composeRule.onNodeWithTag("key_Rp").performClick()
         composeRule.waitForIdle()
-        assertEquals("Rp", value.text)
-        composeRule.onNodeWithTag("key_😂").performClick()
+        assertEquals("1Rp", value.text)
+
+        // Switch to Symbol Panel 2 via Row 3 toggle (replaces old redundant Row 3 ABC button)
+        composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
         composeRule.waitForIdle()
-        assertEquals("Rp😂", value.text)
-        composeRule.onAllNodesWithContentDescription("Kembali ke Huruf")[0].performClick()
+        assertTrue(composeRule.onAllNodesWithText("2/2").fetchSemanticsNodes().isNotEmpty())
+        val p2Row1 = listOf("←", "→", "↑", "↓", "✓", "✗", "×", "÷", "=", "#")
+        val p2Row2 = listOf("(", ")", "{", "}", "~", "`", "^", "%", "&")
+        val p2Row3 = listOf("-", "_", "+", "*", "/", ":", ";")
+        assertEquals(10, p2Row1.size)
+        assertEquals(9, p2Row2.size)
+        assertEquals(7, p2Row3.size)
+        (p2Row1 + p2Row2 + p2Row3).forEach { sym ->
+            composeRule.onNodeWithTag("key_$sym").assertIsDisplayed()
+        }
+        composeRule.onNodeWithTag("key_←").performClick()
+        composeRule.onNodeWithTag("key_{").performClick()
+        composeRule.onNodeWithTag("key_+").performClick()
+        composeRule.waitForIdle()
+        assertEquals("1Rp←{+", value.text)
+
+        // Toggle back to Panel 1 ('2/2' -> '1/2'), then bottom-left 'ABC' returns to QWERTY
+        composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
+        composeRule.waitForIdle()
+        assertTrue(composeRule.onAllNodesWithText("1/2").fetchSemanticsNodes().isNotEmpty())
+        composeRule.onNodeWithTag("key_symbols").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("key_q").assertIsDisplayed()
     }
@@ -1331,5 +1352,38 @@ class ExampleRobolectricTest {
         assertEquals(1, syncClicks)
         assertEquals(1, disconnectClicks)
     }
+
+    @Test
+    fun settingsRepository_dismissedRecentClipboardStaysDismissedAcrossDuplicateClipEvents() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = SettingsRepository(context)
+        repo.clearAllClipboard()
+
+        repo.addClipboardText("Teks salinan uji 123")
+        val itemsAfterFirstCopy = repo.clipboardFlow.first()
+        assertEquals(1, itemsAfterFirstCopy.size)
+        val firstItem = itemsAfterFirstCopy.first()
+        assertTrue(firstItem.contentHash.isNotBlank())
+
+        // Dismiss via X: both id and content signature are saved, and clipboard history retains item
+        repo.dismissRecentClipboard(firstItem.id)
+        val dismissedId = repo.dismissedClipboardIdFlow.first()
+        val dismissedSig = repo.dismissedClipboardSignatureFlow.first()
+        assertEquals(firstItem.id, dismissedId)
+        assertEquals(firstItem.dismissSignature(), dismissedSig)
+
+        // Duplicate clip listener events with identical text must NOT clear dismissal
+        repo.addClipboardText("Teks salinan uji 123")
+        repo.syncSystemClipboardIfChanged("Teks salinan uji 123")
+        assertEquals(firstItem.id, repo.dismissedClipboardIdFlow.first())
+        assertEquals(firstItem.dismissSignature(), repo.dismissedClipboardSignatureFlow.first())
+        assertEquals(1, repo.clipboardFlow.first().size)
+
+        // A genuinely new different text clears dismissal
+        repo.addClipboardText("Teks berbeda 456")
+        assertNull(repo.dismissedClipboardIdFlow.first())
+        assertNull(repo.dismissedClipboardSignatureFlow.first())
+    }
 }
+
 

@@ -87,7 +87,22 @@ data class ClipboardItem(
     val id: String = "",
     val preview: String = "",
     val charCount: Int = 0,
-    val timestampMillis: Long = 0L
+    val timestampMillis: Long = 0L,
+    val contentHash: String = ""
+) {
+    fun dismissSignature(): String = if (contentHash.isNotBlank()) {
+        "$charCount:$contentHash"
+    } else {
+        "preview:$charCount:$preview"
+    }
+}
+
+@Immutable
+@JsonClass(generateAdapter = true)
+data class WordPersonalityStat(
+    val word: String = "",
+    val usageCount: Int = 1,
+    val lastUsedMillis: Long = 0L
 )
 
 @Immutable

@@ -18,9 +18,11 @@ import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SettingsBackupEnvelope
 import com.example.model.SyncLocalState
+import com.example.model.WordPersonalityStat
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import kotlinx.coroutines.Dispatchers
+import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -48,6 +50,12 @@ class SettingsRepository(
     private val dictEnvelopeAdapter = moshi.adapter(DictionaryBackupEnvelope::class.java)
     private val dictListType = Types.newParameterizedType(List::class.java, PersonalDictionaryEntry::class.java)
     private val dictListAdapter = moshi.adapter<List<PersonalDictionaryEntry>>(dictListType)
+    private val personalityMapType = Types.newParameterizedType(
+        Map::class.java,
+        String::class.java,
+        WordPersonalityStat::class.java
+    )
+    private val personalityMapAdapter = moshi.adapter<Map<String, WordPersonalityStat>>(personalityMapType)
 
     private object Keys {
         val HEIGHT_PRESET = stringPreferencesKey("height_preset")
@@ -63,8 +71,10 @@ class SettingsRepository(
         val SETTINGS_UPDATED_AT = longPreferencesKey("settings_updated_at")
 
         val DICTIONARY_JSON = stringPreferencesKey("dictionary_json")
+        val PERSONALITY_JSON = stringPreferencesKey("suggestion_personality_json")
         val CLIPBOARD_REVISION = longPreferencesKey("clipboard_revision")
         val DISMISSED_CLIPBOARD_ID = stringPreferencesKey("dismissed_clipboard_id")
+        val DISMISSED_CLIPBOARD_SIGNATURE = stringPreferencesKey("dismissed_clipboard_signature")
 
         val LAST_SYNCED_AT = longPreferencesKey("last_synced_at")
         val LAST_SYNC_MESSAGE = stringPreferencesKey("last_sync_message")
@@ -117,6 +127,21 @@ class SettingsRepository(
     val dismissedClipboardIdFlow: Flow<String?> = dataStore.data
         .map { prefs -> prefs[Keys.DISMISSED_CLIPBOARD_ID]?.takeIf { it.isNotBlank() } }
         .distinctUntilChanged()
+
+    val dismissedClipboardSignatureFlow: Flow<String?> = dataStore.data
+        .map { prefs -> prefs[Keys.DISMISSED_CLIPBOARD_SIGNATURE]?.takeIf { it.isNotBlank() } }
+        .distinctUntilChanged()
+
+    val personalityFlow: Flow<Map<String, WordPersonalityStat>> = dataStore.data
+        .map { prefs -> prefs[Keys.PERSONALITY_JSON] }
+        .distinctUntilChanged()
+        .map { raw ->
+            if (raw.isNullOrBlank()) {
+                emptyMap()
+            } else {
+                runCatching { personalityMapAdapter.fromJson(raw) }.getOrNull() ?: emptyMap()
+            }
+        }
 
     val syncLocalStateFlow: Flow<SyncLocalState> = dataStore.data
         .map { prefs ->
@@ -228,16 +253,55 @@ class SettingsRepository(
         return mergedResult
     }
 
+    suspend fun recordWordUsage(word: String, countDelta: Int = 1) {
+        val clean = word.trim()
+        if (clean.isEmpty() || countDelta <= 0) return
+        val key = clean.lowercase(Locale.ROOT)
+        val now = System.currentTimeMillis()
+        runCatching {
+            dataStore.edit { prefs ->
+                val current = prefs[Keys.PERSONALITY_JSON]?.let { raw ->
+                    runCatching { personalityMapAdapter.fromJson(raw) }.getOrNull()
+                }?.toMutableMap() ?: LinkedHashMap()
+
+                val existing = current[key]
+                current[key] = WordPersonalityStat(
+                    word = clean,
+                    usageCount = (existing?.usageCount ?: 0) + countDelta,
+                    lastUsedMillis = now
+                )
+
+                val trimmed = if (current.size > PERSONALITY_MAX_ENTRIES) {
+                    current.entries
+                        .sortedByDescending { DictionaryEngine.personalityScore(it.key, current, now) }
+                        .take(PERSONALITY_MAX_ENTRIES)
+                        .associate { it.key to it.value }
+                } else {
+                    current
+                }
+                prefs[Keys.PERSONALITY_JSON] = personalityMapAdapter.toJson(trimmed)
+            }
+        }
+    }
+
     suspend fun addClipboardText(text: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val (start, end) = TextChunker.trimmedBounds(text)
             if (start >= end) return@runCatching
+            if (clipboardStore.isLatestSame(text)) return@runCatching
             val now = System.currentTimeMillis()
             val saved = clipboardStore.saveClipboardText(text, now) ?: return@runCatching
+            val newSignature = saved.dismissSignature()
             val autoEntries = extractAutoSavableEntries(text)
             dataStore.edit { prefs ->
                 prefs[Keys.CLIPBOARD_REVISION] = (prefs[Keys.CLIPBOARD_REVISION] ?: 0L) + 1L
-                prefs.remove(Keys.DISMISSED_CLIPBOARD_ID)
+                val dismissedSig = prefs[Keys.DISMISSED_CLIPBOARD_SIGNATURE]
+                if (dismissedSig != newSignature) {
+                    prefs.remove(Keys.DISMISSED_CLIPBOARD_ID)
+                    prefs.remove(Keys.DISMISSED_CLIPBOARD_SIGNATURE)
+                } else {
+                    prefs[Keys.DISMISSED_CLIPBOARD_ID] = saved.id
+                }
 
                 if (autoEntries.isNotEmpty()) {
                     val currentDict = prefs[Keys.DICTIONARY_JSON]?.let {
@@ -295,11 +359,20 @@ class SettingsRepository(
         }
     }
 
-    suspend fun dismissRecentClipboard(clipboardId: String) {
-        if (clipboardId.isBlank()) return
-        runCatching {
-            dataStore.edit { prefs ->
-                prefs[Keys.DISMISSED_CLIPBOARD_ID] = clipboardId
+    suspend fun dismissRecentClipboard(clipboardId: String, signature: String? = null) {
+        if (clipboardId.isBlank() && signature.isNullOrBlank()) return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val resolvedSig = signature?.takeIf { it.isNotBlank() }
+                    ?: clipboardId.takeIf { it.isNotBlank() }?.let { clipboardStore.getContentHash(it) }
+                dataStore.edit { prefs ->
+                    if (clipboardId.isNotBlank()) {
+                        prefs[Keys.DISMISSED_CLIPBOARD_ID] = clipboardId
+                    }
+                    if (!resolvedSig.isNullOrBlank()) {
+                        prefs[Keys.DISMISSED_CLIPBOARD_SIGNATURE] = resolvedSig
+                    }
+                }
             }
         }
     }
@@ -310,6 +383,7 @@ class SettingsRepository(
             dataStore.edit { prefs ->
                 prefs[Keys.CLIPBOARD_REVISION] = (prefs[Keys.CLIPBOARD_REVISION] ?: 0L) + 1L
                 prefs.remove(Keys.DISMISSED_CLIPBOARD_ID)
+                prefs.remove(Keys.DISMISSED_CLIPBOARD_SIGNATURE)
             }
             Unit
         }
@@ -439,6 +513,8 @@ class SettingsRepository(
     }
 
     companion object {
+        private const val PERSONALITY_MAX_ENTRIES = 600
+
         fun mergeDictionaryLists(
             local: List<PersonalDictionaryEntry>,
             remote: List<PersonalDictionaryEntry>

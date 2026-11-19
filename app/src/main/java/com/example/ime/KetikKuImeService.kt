@@ -110,7 +110,13 @@ class KetikKuImeService : InputMethodService() {
         clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         clipboardManager?.addPrimaryClipChangedListener(clipListener)
 
-        controller = KeyboardController(target = target)
+        controller = KeyboardController(target = target).apply {
+            onRecordWordUsage = { word ->
+                serviceScope.launch {
+                    settingsRepository.recordWordUsage(word)
+                }
+            }
+        }
 
         serviceScope.launch {
             settingsRepository.settingsFlow.collectLatest { settings ->
@@ -128,6 +134,11 @@ class KetikKuImeService : InputMethodService() {
                 }
                 latestDictionary = entries
                 controller.refreshState(latestSettings, latestDictionary)
+            }
+        }
+        serviceScope.launch {
+            settingsRepository.personalityFlow.collectLatest { stats ->
+                controller.updatePersonality(stats, latestSettings, latestDictionary)
             }
         }
     }
@@ -160,6 +171,7 @@ class KetikKuImeService : InputMethodService() {
                 val dictionary by settingsRepository.dictionaryFlow.collectAsState(initial = latestDictionary)
                 val clipboard by settingsRepository.clipboardFlow.collectAsState(initial = emptyList())
                 val dismissedClipboardId by settingsRepository.dismissedClipboardIdFlow.collectAsState(initial = null)
+                val dismissedClipboardSignature by settingsRepository.dismissedClipboardSignatureFlow.collectAsState(initial = null)
 
                 KetikKuKeyboardView(
                     controller = controller,
@@ -167,6 +179,7 @@ class KetikKuImeService : InputMethodService() {
                     personalEntries = dictionary,
                     clipboardItems = clipboard,
                     dismissedClipboardId = dismissedClipboardId,
+                    dismissedClipboardSignature = dismissedClipboardSignature,
                     applySystemBarInsets = true,
                     isImeFloatingOverlay = true,
                     onPasteClipboard = { text ->

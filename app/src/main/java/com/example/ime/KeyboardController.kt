@@ -10,9 +10,12 @@ import androidx.compose.ui.text.input.TextFieldValue
 import com.example.data.DictionaryEngine
 import com.example.data.FontStyleConverter
 import com.example.data.TextChunker
+import com.example.model.ClipboardItem
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
+import com.example.model.WordPersonalityStat
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 enum class KeyboardPage {
     QWERTY,
@@ -275,7 +278,7 @@ class KeyboardController(
         private set
     var clipboardStatusMessage by mutableStateOf<String?>(null)
         private set
-    var suggestions by mutableStateOf<List<String>>(listOf("Saya", "Tidak", "Yang"))
+    var suggestions by mutableStateOf<List<String>>(listOf("Sekarang", "Bagaimana", "Informasi"))
         private set
     var primaryAutoCorrect by mutableStateOf<String?>(null)
         private set
@@ -287,9 +290,41 @@ class KeyboardController(
         private set
     var dismissedClipboardId by mutableStateOf<String?>(null)
         private set
+    var dismissedClipboardSignature by mutableStateOf<String?>(null)
+        private set
+
+    var onRecordWordUsage: ((String) -> Unit)? = null
+
+    private var personalityStats: MutableMap<String, WordPersonalityStat> = LinkedHashMap()
+
+    fun updatePersonality(
+        stats: Map<String, WordPersonalityStat>,
+        settings: KeyboardSettings? = null,
+        personalEntries: List<PersonalDictionaryEntry> = emptyList()
+    ) {
+        val merged = LinkedHashMap<String, WordPersonalityStat>(stats.size + personalityStats.size)
+        merged.putAll(stats)
+        for ((k, localStat) in personalityStats) {
+            val remoteStat = merged[k]
+            if (remoteStat == null || localStat.usageCount > remoteStat.usageCount || localStat.lastUsedMillis > remoteStat.lastUsedMillis) {
+                merged[k] = localStat
+            }
+        }
+        personalityStats = merged
+        if (settings != null) {
+            refreshState(settings, personalEntries)
+        }
+    }
+
+    fun getPersonalitySnapshot(): Map<String, WordPersonalityStat> = personalityStats
 
     fun dismissClipboardItem(clipboardId: String) {
         dismissedClipboardId = clipboardId
+    }
+
+    fun dismissClipboardItem(item: ClipboardItem) {
+        dismissedClipboardId = item.id
+        dismissedClipboardSignature = item.dismissSignature()
     }
 
     fun showClipboardStatus(message: String?) {
@@ -435,7 +470,10 @@ class KeyboardController(
         val isBoundaryPunctuation = rawChar.length == 1 && rawChar[0] in BOUNDARY_PUNCTUATION
 
         if (isBoundaryPunctuation) {
-            applyPersonalShortcutIfNeeded(settings, personalEntries, appendSpace = false)
+            val expanded = applyPersonalShortcutIfNeeded(settings, personalEntries, appendSpace = false)
+            if (!expanded) {
+                recordCompletedTypedWordIfEligible(personalEntries)
+            }
         }
 
         val output = formatOutput(letterTransformed, settings)
@@ -469,6 +507,7 @@ class KeyboardController(
     ) {
         val expanded = applyPersonalShortcutIfNeeded(settings, personalEntries, appendSpace = true)
         if (!expanded) {
+            recordCompletedTypedWordIfEligible(personalEntries)
             target.commitText(" ")
         }
         localContextValid = true
@@ -499,7 +538,10 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        applyPersonalShortcutIfNeeded(settings, personalEntries, appendSpace = false)
+        val expanded = applyPersonalShortcutIfNeeded(settings, personalEntries, appendSpace = false)
+        if (!expanded) {
+            recordCompletedTypedWordIfEligible(personalEntries)
+        }
         target.performEnterAction(enterActionType)
         localContextValid = true
         clearLocalWordBuffer()
@@ -527,6 +569,7 @@ class KeyboardController(
         } else {
             target.commitText("$styled ")
         }
+        recordWordUsageInternal(word, personalEntries, forceRecord = true)
         localContextValid = true
         clearLocalWordBuffer()
         applySuggestionResult(personalEntries)
@@ -734,6 +777,44 @@ class KeyboardController(
         localContextValid = true
     }
 
+    private fun recordCompletedTypedWordIfEligible(personalEntries: List<PersonalDictionaryEntry>) {
+        if (isPasswordField) return
+        val typed = if (localContextValid) {
+            localWordPlain.toString()
+        } else {
+            FontStyleConverter.extractCurrentWordRawAndPlain(target.getTextBeforeCursor(48)).second
+        }
+        if (typed.isNotBlank()) {
+            recordWordUsageInternal(typed, personalEntries, forceRecord = false)
+        }
+    }
+
+    private fun recordWordUsageInternal(
+        word: String,
+        personalEntries: List<PersonalDictionaryEntry>,
+        forceRecord: Boolean
+    ) {
+        if (isPasswordField) return
+        val clean = word.trim()
+        if (clean.isEmpty()) return
+        val lower = clean.lowercase(Locale.ROOT)
+        val isPersonalWord = personalEntries.any {
+            !it.deleted && it.word.trim().equals(clean, ignoreCase = true)
+        }
+        val isLongWord = clean.length >= DictionaryEngine.MIN_BUILTIN_WORD_LENGTH &&
+            clean.all { it.isLetter() }
+        if (!forceRecord && !isPersonalWord && !isLongWord) return
+
+        val now = System.currentTimeMillis()
+        val existing = personalityStats[lower]
+        personalityStats[lower] = WordPersonalityStat(
+            word = clean,
+            usageCount = (existing?.usageCount ?: 0) + 1,
+            lastUsedMillis = now
+        )
+        onRecordWordUsage?.invoke(clean)
+    }
+
     private fun applySuggestionResult(personalEntries: List<PersonalDictionaryEntry>) {
         if (isPasswordField) {
             if (suggestions.isNotEmpty()) suggestions = emptyList()
@@ -744,7 +825,8 @@ class KeyboardController(
         val result = DictionaryEngine.getSuggestions(
             currentWord = currentWord,
             previousWord = "",
-            personalEntries = personalEntries
+            personalEntries = personalEntries,
+            personality = personalityStats
         )
         if (suggestions != result.suggestions) {
             suggestions = result.suggestions
@@ -772,9 +854,18 @@ class KeyboardController(
         }
         if (currentWord.isEmpty() || rawLen == 0) return false
 
-        val shortcutWord = DictionaryEngine.findShortcutMatch(currentWord, personalEntries) ?: return false
+        val matches = DictionaryEngine.findShortcutMatches(
+            currentWord = currentWord,
+            personalEntries = personalEntries,
+            personality = personalityStats
+        )
+        // If > 1 personal entries share this shortcut, keep typed text and let user pick from suggestion bar.
+        if (matches.size != 1) return false
+
+        val shortcutWord = matches.first()
         val suffix = if (appendSpace) " " else ""
         target.replaceWordBeforeCursor(rawLen, formatOutput(shortcutWord, settings) + suffix)
+        recordWordUsageInternal(shortcutWord, personalEntries, forceRecord = true)
         clearLocalWordBuffer()
         localContextValid = true
         return true
