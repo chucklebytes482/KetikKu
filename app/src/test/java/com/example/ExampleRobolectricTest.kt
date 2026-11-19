@@ -1767,6 +1767,77 @@ class ExampleRobolectricTest {
         assertEquals(android.view.KeyEvent.KEYCODE_DEL, sentKeyEvents[0].keyCode)
     }
 
+    @Test
+    @Config(qualifiers = "w411dp-h891dp")
+    fun dictionaryScreen_deleteActionsAlwaysRequireConfirmation() {
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "e1", word = "Halo dunia", shortcut = "hd", folder = "", updatedAtMillis = 10L)
+        )
+        val folders = listOf("FolderKosong")
+        var deletedCalls = 0
+        var lastDeletedEntries = emptySet<String>()
+        var lastDeletedFolders = emptySet<String>()
+
+        composeRule.setContent {
+            KetikKuTheme(darkTheme = false) {
+                DictionaryScreen(
+                    settings = KeyboardSettings(),
+                    dictionary = entries,
+                    folders = folders,
+                    onUpsertEntry = { _, _, _, _, _ -> },
+                    onDeleteEntry = {},
+                    onDeleteItems = { entryIds, folderPaths ->
+                        deletedCalls++
+                        lastDeletedEntries = entryIds
+                        lastDeletedFolders = folderPaths
+                    }
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+
+        // 1. Delete empty folder from 3-dot menu -> MUST show confirmation dialog, NOT delete immediately
+        composeRule.onNodeWithTag("folder_menu_FolderKosong").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("folder_delete_FolderKosong").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(0, deletedCalls)
+        assertTrue(composeRule.onAllNodesWithText("Hapus Item Terpilih?").fetchSemanticsNodes().isNotEmpty())
+        composeRule.onNodeWithTag("confirm_delete_items_button").assertIsDisplayed()
+
+        // Dismiss with Batal -> nothing deleted
+        composeRule.onAllNodesWithText("Batal")[0].performClick()
+        composeRule.waitForIdle()
+        assertEquals(0, deletedCalls)
+
+        // Confirm delete empty folder -> deletes after confirmation
+        composeRule.onNodeWithTag("folder_menu_FolderKosong").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("folder_delete_FolderKosong").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("confirm_delete_items_button").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(1, deletedCalls)
+        assertEquals(setOf("FolderKosong"), lastDeletedFolders)
+        assertTrue(lastDeletedEntries.isEmpty())
+
+        // 2. Delete entry via SelectionActionBar -> MUST show confirmation dialog
+        composeRule.onNodeWithTag("dictionary_item_e1").performTouchInput { longClick() }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("delete_selected_button").performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, deletedCalls)
+        composeRule.onNodeWithTag("confirm_delete_items_button").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(2, deletedCalls)
+        assertEquals(setOf("e1"), lastDeletedEntries)
+    }
+
 }
+
 
 
