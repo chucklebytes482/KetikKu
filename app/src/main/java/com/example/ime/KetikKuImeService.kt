@@ -304,6 +304,11 @@ class KetikKuImeService : InputMethodService() {
             else -> EnterActionType.ENTER
         }
 
+        val isRawOrWebCodeEditor = inputType == InputType.TYPE_NULL ||
+            (typeClass == InputType.TYPE_CLASS_TEXT &&
+                variation == InputType.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT)
+
+        target.onEditorStarted(isRawOrWebCodeEditor = isRawOrWebCodeEditor)
         target.onSelectionUpdated(
             newSelStart = info?.initialSelStart ?: -1,
             newSelEnd = info?.initialSelEnd ?: -1
@@ -411,6 +416,11 @@ class KetikKuImeService : InputMethodService() {
         private var expectedCursorEnd: Int = -1
         private var pendingSelfEdits: Int = 0
         private var lastSelfEditUptimeMs: Long = 0L
+        private var isRawOrWebCodeEditor: Boolean = false
+
+        fun onEditorStarted(isRawOrWebCodeEditor: Boolean) {
+            this.isRawOrWebCodeEditor = isRawOrWebCodeEditor
+        }
 
         private fun markSelfEdit(newExpectedEnd: Int = -1, clearSelection: Boolean = true) {
             if (clearSelection) {
@@ -468,26 +478,67 @@ class KetikKuImeService : InputMethodService() {
             ic.commitText(text, 1)
         }
 
+        private fun dispatchHardwareDel(ic: InputConnection) {
+            val now = SystemClock.uptimeMillis()
+            ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DEL, 0, 0))
+            ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL, 0, 0))
+        }
+
         override fun deleteBeforeCursor(count: Int) {
+            if (count <= 0) return
             val ic = icProvider() ?: return
-            if (hasKnownSelection) {
+            val liveSelection = runCatching { ic.getSelectedText(0)?.toString() }.getOrNull()
+            if (!liveSelection.isNullOrEmpty()) {
                 markSelfEdit(newExpectedEnd = -1)
-                ic.commitText("", 1)
-            } else {
-                val nextEnd = if (expectedCursorEnd >= count) expectedCursorEnd - count else -1
-                markSelfEdit(newExpectedEnd = nextEnd)
-                ic.deleteSurroundingText(count, 0)
+                val committed = runCatching { ic.commitText("", 1) }.getOrDefault(false)
+                if (!committed) {
+                    dispatchHardwareDel(ic)
+                }
+                return
+            }
+            if (hasKnownSelection) {
+                hasKnownSelection = false
+            }
+
+            val nextEnd = if (expectedCursorEnd >= count) expectedCursorEnd - count else -1
+            markSelfEdit(newExpectedEnd = nextEnd)
+            val textBefore = runCatching { ic.getTextBeforeCursor(count.coerceAtMost(64), 0)?.toString() }.getOrNull()
+            if (isRawOrWebCodeEditor || textBefore.isNullOrEmpty()) {
+                repeat(count) { dispatchHardwareDel(ic) }
+                return
+            }
+            val deleted = runCatching { ic.deleteSurroundingText(count, 0) }.getOrDefault(false)
+            if (!deleted) {
+                repeat(count) { dispatchHardwareDel(ic) }
             }
         }
 
         override fun deleteSingleCodePointBeforeCursor() {
             val ic = icProvider() ?: return
+            val liveSelection = runCatching { ic.getSelectedText(0)?.toString() }.getOrNull()
+            if (!liveSelection.isNullOrEmpty()) {
+                markSelfEdit(newExpectedEnd = -1)
+                val committed = runCatching { ic.commitText("", 1) }.getOrDefault(false)
+                if (!committed) {
+                    dispatchHardwareDel(ic)
+                }
+                return
+            }
             if (hasKnownSelection) {
-                markSelfEdit(newExpectedEnd = -1)
-                ic.commitText("", 1)
-            } else {
-                markSelfEdit(newExpectedEnd = -1)
-                ic.deleteSurroundingTextInCodePoints(1, 0)
+                hasKnownSelection = false
+            }
+
+            markSelfEdit(newExpectedEnd = -1)
+            val textBefore = runCatching { ic.getTextBeforeCursor(2, 0)?.toString() }.getOrNull()
+            if (isRawOrWebCodeEditor || textBefore.isNullOrEmpty()) {
+                dispatchHardwareDel(ic)
+                return
+            }
+            val deletedCp = runCatching { ic.deleteSurroundingTextInCodePoints(1, 0) }.getOrDefault(false)
+            if (deletedCp) return
+            val deletedChars = runCatching { ic.deleteSurroundingText(1, 0) }.getOrDefault(false)
+            if (!deletedChars) {
+                dispatchHardwareDel(ic)
             }
         }
 

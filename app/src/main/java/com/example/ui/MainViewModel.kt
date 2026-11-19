@@ -40,6 +40,9 @@ class MainViewModel(
     val dictionary: StateFlow<List<PersonalDictionaryEntry>> = settingsRepository.dictionaryFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
 
+    val folders: StateFlow<List<String>> = settingsRepository.foldersFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
+
     val clipboard: StateFlow<List<ClipboardItem>> = settingsRepository.clipboardFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), emptyList())
 
@@ -147,15 +150,45 @@ class MainViewModel(
         }
     }
 
-    fun upsertDictionaryEntry(word: String, shortcut: String, language: String, existingId: String? = null) {
+    fun upsertDictionaryEntry(
+        word: String,
+        shortcut: String,
+        language: String,
+        existingId: String? = null,
+        folder: String = ""
+    ) {
         viewModelScope.launch {
-            settingsRepository.upsertDictionaryEntry(word, shortcut, language, existingId)
+            settingsRepository.upsertDictionaryEntry(word, shortcut, language, existingId, folder)
         }
     }
 
     fun deleteDictionaryEntry(entryId: String) {
         viewModelScope.launch {
             settingsRepository.deleteDictionaryEntry(entryId)
+        }
+    }
+
+    fun createDictionaryFolder(folderPath: String) {
+        viewModelScope.launch {
+            settingsRepository.createFolder(folderPath)
+        }
+    }
+
+    fun renameDictionaryFolder(oldPath: String, newName: String) {
+        viewModelScope.launch {
+            settingsRepository.renameFolder(oldPath, newName)
+        }
+    }
+
+    fun moveDictionaryItems(entryIds: Set<String>, folderPaths: Set<String>, targetFolderPath: String) {
+        viewModelScope.launch {
+            settingsRepository.moveEntriesAndFolders(entryIds, folderPaths, targetFolderPath)
+        }
+    }
+
+    fun deleteDictionaryItems(entryIds: Set<String>, folderPaths: Set<String>) {
+        viewModelScope.launch {
+            settingsRepository.deleteEntriesAndFolders(entryIds, folderPaths)
         }
     }
 
@@ -215,7 +248,8 @@ class MainViewModel(
     suspend fun buildFullBackupJson(): String {
         val currentSettings = settingsRepository.getCurrentSettings()
         val currentDict = settingsRepository.getCurrentDictionary()
-        return settingsRepository.encodeFullBackupJson(currentSettings, currentDict)
+        val currentFolders = settingsRepository.getCurrentFolders()
+        return settingsRepository.encodeFullBackupJson(currentSettings, currentDict, folders = currentFolders)
     }
 
     fun importLocalBackupJson(rawJson: String, onComplete: (Result<String>) -> Unit) {

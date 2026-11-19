@@ -38,6 +38,7 @@ data class DriveSyncOutcome(
     val dictionaryFileId: String,
     val syncedSettings: KeyboardSettings,
     val syncedDictionary: List<PersonalDictionaryEntry>,
+    val syncedFolders: List<String> = emptyList(),
     val syncedAtMillis: Long,
     val message: String
 )
@@ -68,7 +69,8 @@ class GoogleDriveClient(
         localSettings: KeyboardSettings,
         localDictionary: List<PersonalDictionaryEntry>,
         settingsRepository: SettingsRepository,
-        forceDirection: SyncDirection? = null
+        forceDirection: SyncDirection? = null,
+        localFolders: List<String> = emptyList()
     ): Result<DriveSyncOutcome> = withContext(Dispatchers.IO) {
         try {
             val folderId = resolveTargetFolderId(
@@ -83,13 +85,14 @@ class GoogleDriveClient(
 
             // 1. Sinkronisasi kamus pribadi (ketikku_dictionary.json)
             var finalDictionary = localDictionary
+            var finalFolders = SettingsRepository.normalizeOrderedFolders(localFolders, localDictionary)
             var dictFileId = remoteDictMeta?.id ?: ""
             var dictAction = SyncDirection.UP_TO_DATE
 
             if (remoteDictMeta == null) {
                 if (forceDirection != SyncDirection.DOWNLOADED) {
                     val now = System.currentTimeMillis()
-                    val payload = settingsRepository.encodeDictionaryBackupJson(localDictionary, now)
+                    val payload = settingsRepository.encodeDictionaryBackupJson(localDictionary, now, finalFolders)
                     dictFileId = upsertJsonFile(
                         accessToken = accessToken,
                         folderId = folderId,
@@ -106,12 +109,13 @@ class GoogleDriveClient(
                 if (forceDirection == SyncDirection.UPLOADED) {
                     val now = System.currentTimeMillis()
                     val mergedForUpload = if (remoteDictEnv != null) {
-                        settingsRepository.mergeRemoteDictionary(remoteDictEnv.entries)
+                        settingsRepository.mergeRemoteDictionary(remoteDictEnv.entries, remoteDictEnv.folders)
                     } else {
                         localDictionary
                     }
                     finalDictionary = mergedForUpload
-                    val payload = settingsRepository.encodeDictionaryBackupJson(mergedForUpload, now)
+                    finalFolders = settingsRepository.getCurrentFolders()
+                    val payload = settingsRepository.encodeDictionaryBackupJson(mergedForUpload, now, finalFolders)
                     dictFileId = upsertJsonFile(
                         accessToken = accessToken,
                         folderId = folderId,
@@ -121,15 +125,25 @@ class GoogleDriveClient(
                     )
                     dictAction = SyncDirection.UPLOADED
                 } else if (remoteDictEnv != null) {
-                    val merged = settingsRepository.mergeRemoteDictionary(remoteDictEnv.entries)
+                    val merged = settingsRepository.mergeRemoteDictionary(remoteDictEnv.entries, remoteDictEnv.folders)
                     finalDictionary = merged
-                    val localUpdated = dictionaryContentsDiffer(merged, localDictionary)
+                    finalFolders = settingsRepository.getCurrentFolders()
+                    val remoteFoldersNorm = SettingsRepository.normalizeOrderedFolders(
+                        remoteDictEnv.folders,
+                        remoteDictEnv.entries
+                    )
+                    val localFoldersNorm = SettingsRepository.normalizeOrderedFolders(
+                        localFolders,
+                        localDictionary
+                    )
+                    val localUpdated = dictionaryContentsDiffer(merged, localDictionary) ||
+                        finalFolders != localFoldersNorm
                     val remoteNeedsUpdate = forceDirection != SyncDirection.DOWNLOADED &&
-                        dictionaryContentsDiffer(merged, remoteDictEnv.entries)
+                        (dictionaryContentsDiffer(merged, remoteDictEnv.entries) || finalFolders != remoteFoldersNorm)
 
                     if (remoteNeedsUpdate) {
                         val now = System.currentTimeMillis()
-                        val payload = settingsRepository.encodeDictionaryBackupJson(merged, now)
+                        val payload = settingsRepository.encodeDictionaryBackupJson(merged, now, finalFolders)
                         dictFileId = upsertJsonFile(
                             accessToken = accessToken,
                             folderId = folderId,
@@ -143,7 +157,7 @@ class GoogleDriveClient(
                     }
                 } else if (forceDirection != SyncDirection.DOWNLOADED) {
                     val now = System.currentTimeMillis()
-                    val payload = settingsRepository.encodeDictionaryBackupJson(localDictionary, now)
+                    val payload = settingsRepository.encodeDictionaryBackupJson(localDictionary, now, finalFolders)
                     dictFileId = upsertJsonFile(
                         accessToken = accessToken,
                         folderId = folderId,
@@ -299,6 +313,7 @@ class GoogleDriveClient(
                     dictionaryFileId = dictFileId,
                     syncedSettings = finalSettings,
                     syncedDictionary = finalDictionary,
+                    syncedFolders = finalFolders,
                     syncedAtMillis = now,
                     message = message
                 )
@@ -321,6 +336,7 @@ class GoogleDriveClient(
             val other = bById[entry.id] ?: return@any true
             entry.word != other.word ||
                 entry.shortcut != other.shortcut ||
+                entry.folder != other.folder ||
                 entry.updatedAtMillis != other.updatedAtMillis ||
                 entry.deleted != other.deleted
         }
@@ -335,6 +351,8 @@ class GoogleDriveClient(
             a.clipboardHistoryEnabled == b.clipboardHistoryEnabled &&
             a.arialItalicEnabled == b.arialItalicEnabled &&
             a.serifMiringEnabled == b.serifMiringEnabled &&
+            a.swapPeriodCommaEnabled == b.swapPeriodCommaEnabled &&
+            a.swapSymbolPanelsEnabled == b.swapSymbolPanelsEnabled &&
             a.autoSyncDriveEnabled == b.autoSyncDriveEnabled &&
             a.driveFolderName == b.driveFolderName &&
             a.driveShortcutFolderId == b.driveShortcutFolderId

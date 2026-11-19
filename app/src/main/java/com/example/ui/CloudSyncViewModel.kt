@@ -194,6 +194,7 @@ class CloudSyncViewModel(
 
         val localSettings = settingsRepository.getCurrentSettings()
         val localDictionary = settingsRepository.getCurrentDictionary()
+        val localFolders = settingsRepository.getCurrentFolders()
 
         val driveResult = driveClient.syncTwoWay(
             accessToken = accessToken,
@@ -202,7 +203,8 @@ class CloudSyncViewModel(
             localSettings = localSettings,
             localDictionary = localDictionary,
             settingsRepository = settingsRepository,
-            forceDirection = forceDirection
+            forceDirection = forceDirection,
+            localFolders = localFolders
         )
 
         driveResult.onSuccess { outcome ->

@@ -38,6 +38,8 @@ data class KeyboardSettings(
     val clipboardHistoryEnabled: Boolean = true,
     val arialItalicEnabled: Boolean = false,
     val serifMiringEnabled: Boolean = false,
+    val swapPeriodCommaEnabled: Boolean = false,
+    val swapSymbolPanelsEnabled: Boolean = false,
     val autoSyncDriveEnabled: Boolean = true,
     val driveFolderName: String = "KetikKu",
     val driveShortcutFolderId: String = "",
@@ -52,6 +54,7 @@ data class PersonalDictionaryEntry(
     val id: String = "",
     val word: String = "",
     val shortcut: String = "",
+    val folder: String = "",
     @param:Json(ignore = true) val language: String = KeyboardLanguage.INDONESIAN.code,
     val updatedAtMillis: Long = 0L,
     val deleted: Boolean = false
@@ -62,6 +65,7 @@ data class PersonalDictionaryEntry(
 data class DictionaryBackupEnvelope(
     val schemaVersion: Int = 1,
     val updatedAtMillis: Long = 0L,
+    val folders: List<String> = emptyList(),
     val entries: List<PersonalDictionaryEntry> = emptyList()
 )
 
@@ -80,6 +84,7 @@ data class FullBackupEnvelope(
     val appName: String = "KetikKu",
     val exportedAtMillis: Long = 0L,
     val settings: KeyboardSettings = KeyboardSettings(),
+    val folders: List<String> = emptyList(),
     val dictionary: List<PersonalDictionaryEntry> = emptyList()
 )
 
