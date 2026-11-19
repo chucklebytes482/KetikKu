@@ -386,12 +386,7 @@ fun DictionaryScreen(
                         onRename = { renamingFolderPath = folderPath },
                         onMove = { moveRequest = emptySet<String>() to setOf(folderPath) },
                         onDelete = {
-                            val hasContent = stats.first > 0 || stats.third > 0
-                            if (hasContent) {
-                                deleteRequest = emptySet<String>() to setOf(folderPath)
-                            } else {
-                                onDeleteItems(emptySet(), setOf(folderPath))
-                            }
+                            deleteRequest = emptySet<String>() to setOf(folderPath)
                         }
                     )
                 }
@@ -800,7 +795,8 @@ private fun FolderRowCard(
                             onClick = {
                                 menuExpanded = false
                                 onDelete()
-                            }
+                            },
+                            modifier = Modifier.testTag("folder_delete_${folderPath.replace('/', '_')}")
                         )
                     }
                 }
