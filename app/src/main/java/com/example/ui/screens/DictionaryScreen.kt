@@ -418,8 +418,7 @@ fun DictionaryScreen(
                         onLongPress = {
                             selectionMode = true
                             selectedEntryIds = selectedEntryIds + entry.id
-                        },
-                        onDelete = { onDeleteEntry(entry.id) }
+                        }
                     )
                 }
             }
@@ -432,7 +431,6 @@ fun DictionaryScreen(
         DictionaryEntryDialog(
             initialEntry = editingEntry,
             defaultFolderPath = currentFolderPath,
-            availableFolders = allOrderedFolders,
             onDismiss = {
                 showAddDialog = false
                 editingEntry = null
@@ -819,8 +817,7 @@ private fun DictionaryItemCard(
     selectionMode: Boolean,
     selected: Boolean,
     onTap: () -> Unit,
-    onLongPress: () -> Unit,
-    onDelete: () -> Unit
+    onLongPress: () -> Unit
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -896,20 +893,6 @@ private fun DictionaryItemCard(
                             )
                         }
                     }
-                }
-            }
-            if (!selectionMode) {
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .testTag("delete_dictionary_${entry.id}")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "Hapus kata ${entry.word}",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }

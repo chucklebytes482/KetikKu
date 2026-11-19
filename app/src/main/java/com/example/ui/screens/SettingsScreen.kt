@@ -42,17 +42,13 @@ import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -335,21 +331,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 6. Personalisasi Keyboard (Tukar titik/koma & Tukar Panel Simbol 1/2)
-            item {
-                PersonalizationCard(
-                    swapPeriodCommaEnabled = settings.swapPeriodCommaEnabled,
-                    swapSymbolPanelsEnabled = settings.swapSymbolPanelsEnabled,
-                    onToggleSwapPeriodComma = { enabled ->
-                        viewModel.updateSettings { it.copy(swapPeriodCommaEnabled = enabled) }
-                    },
-                    onToggleSwapSymbolPanels = { enabled ->
-                        viewModel.updateSettings { it.copy(swapSymbolPanelsEnabled = enabled) }
-                    }
-                )
-            }
-
-            // 7. Instruksi AI (klik untuk salin) untuk mengedit ketikku_dictionary.json
+            // 6. Instruksi AI (klik untuk salin) untuk mengedit ketikku_dictionary.json
             item {
                 AiDictionaryPromptCard(
                     onCopyPrompt = {
@@ -362,136 +344,6 @@ fun SettingsScreen(
             }
 
             item { Spacer(Modifier.height(24.dp)) }
-        }
-    }
-}
-
-@Composable
-private fun PersonalizationCard(
-    swapPeriodCommaEnabled: Boolean,
-    swapSymbolPanelsEnabled: Boolean,
-    onToggleSwapPeriodComma: (Boolean) -> Unit,
-    onToggleSwapSymbolPanels: (Boolean) -> Unit
-) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
-            .testTag("personalization_card")
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Tune,
-                        contentDescription = "Personalisasi Keyboard",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Personalisasi Keyboard",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Sesuaikan tata letak tombol & panel simbol",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { onToggleSwapPeriodComma(!swapPeriodCommaEnabled) }
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 12.dp)
-                ) {
-                    Text(
-                        text = "Tukar posisi titik & koma",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Ketuk koma (,) langsung, tekan tahan untuk titik (.)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = swapPeriodCommaEnabled,
-                    onCheckedChange = onToggleSwapPeriodComma,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.surface,
-                        checkedTrackColor = MaterialTheme.colorScheme.primary
-                    ),
-                    modifier = Modifier.testTag("toggle_swap_period_comma")
-                )
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { onToggleSwapSymbolPanels(!swapSymbolPanelsEnabled) }
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 12.dp)
-                ) {
-                    Text(
-                        text = "Tukar Panel Simbol 1 & 2",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Menekan Ω membuka panel panah, emoji & kode terlebih dahulu",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = swapSymbolPanelsEnabled,
-                    onCheckedChange = onToggleSwapSymbolPanels,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.surface,
-                        checkedTrackColor = MaterialTheme.colorScheme.primary
-                    ),
-                    modifier = Modifier.testTag("toggle_swap_symbol_panels")
-                )
-            }
         }
     }
 }

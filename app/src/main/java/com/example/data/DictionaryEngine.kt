@@ -16,7 +16,6 @@ object DictionaryEngine {
 
     private const val MAX_INDEX_PREFIX_LEN = 16
     private const val MAX_PERSONAL_PREFIX_BUCKET = 32
-    const val MIN_BUILTIN_WORD_LENGTH = 8
 
     private class IndexedDictionary(
         val sourceIdentity: List<PersonalDictionaryEntry>,
@@ -98,62 +97,6 @@ object DictionaryEngine {
         return built
     }
 
-    private val CORE_INDONESIAN: List<String> = listOf(
-        "sekarang", "terutama", "informasi", "komunikasi", "pengaturan",
-        "perbaikan", "perjalanan", "pembayaran", "pekerjaan", "pertemuan",
-        "perhatian", "pertanyaan", "penjelasan", "pengiriman", "penerimaan",
-        "penyimpanan", "pembaruan", "penelitian", "pendidikan", "kesehatan",
-        "kebutuhan", "keamanan", "kebijakan", "keputusan", "kesalahan",
-        "kesempatan", "kegiatan", "keluarga", "kendaraan", "keuangan",
-        "kehadiran", "kepastian", "kemudahan", "kenyamanan", "kerjasama",
-        "ketentuan", "komputer", "aplikasi", "perangkat", "mengetik",
-        "membacanya", "menghubungi", "menyimpan", "mengetahui", "mengirimkan",
-        "menunggu", "memulainya", "memastikan", "membuatnya", "mengambil"
-    )
-
-    private val CORE_ENGLISH: List<String> = listOf(
-        "tomorrow", "schedule", "meeting", "password", "remember",
-        "together", "question", "response", "software", "hardware",
-        "keyboard", "messages", "internet", "delivery", "feedback",
-        "progress", "approved", "complete", "personal", "document",
-        "location", "transfer", "calendar", "reminder", "solution",
-        "planning", "settings", "language", "download", "research"
-    )
-
-    // Kamus bawaan khusus untuk saran teks (tidak masuk ke kamus pribadi / sinkronisasi):
-    // seluruh kata dijamin minimal 8 karakter.
-    val SMALL_DICT_INDONESIAN: List<String> = (CORE_INDONESIAN + ExpandedSuggestionWords.indonesian)
-        .asSequence()
-        .map { it.trim().lowercase(Locale.ROOT) }
-        .filter { it.length >= MIN_BUILTIN_WORD_LENGTH && it.all { ch -> ch.isLetter() } }
-        .distinct()
-        .toList()
-
-    val SMALL_DICT_ENGLISH: List<String> = (CORE_ENGLISH + ExpandedSuggestionWords.english)
-        .asSequence()
-        .map { it.trim().lowercase(Locale.ROOT) }
-        .filter { it.length >= MIN_BUILTIN_WORD_LENGTH && it.all { ch -> ch.isLetter() } }
-        .filter { it !in SMALL_DICT_INDONESIAN }
-        .distinct()
-        .toList()
-
-    private val SMALL_DICT_ALL: List<String> = (SMALL_DICT_INDONESIAN + SMALL_DICT_ENGLISH).distinct()
-    private val SMALL_DICT_SET: Set<String> = SMALL_DICT_ALL.toHashSet()
-    private val SMALL_DICT_BY_PREFIX: Map<String, List<String>> = buildMap {
-        val mutable = HashMap<String, MutableList<String>>(SMALL_DICT_ALL.size * 6)
-        for (word in SMALL_DICT_ALL) {
-            val maxLen = minOf(word.length, MAX_INDEX_PREFIX_LEN)
-            for (length in 1..maxLen) {
-                val prefix = word.substring(0, length)
-                val bucket = mutable.getOrPut(prefix) { ArrayList(8) }
-                bucket.add(word)
-            }
-        }
-        putAll(mutable)
-    }
-
-    private val DEFAULT_IDLE_SUGGESTIONS: List<String> = listOf("Sekarang", "Bagaimana", "Informasi")
-
     fun personalityScore(
         word: String,
         personality: Map<String, WordPersonalityStat>,
@@ -206,36 +149,14 @@ object DictionaryEngine {
         val index = getOrBuildIndex(personalEntries)
         val boundedWord = if (currentWord.length > 30) currentWord.takeLast(30) else currentWord
         if (boundedWord.isEmpty()) {
-            val idleScored = ArrayList<Pair<String, Double>>(16)
-            val seenIdleLower = HashSet<String>(16)
-
-            // Prioritize learned words (>= 8 chars) and active personal entries ordered by personality
-            for ((_, stat) in personality) {
-                val clean = stat.word.trim()
-                if (clean.isEmpty()) continue
-                val lower = clean.lowercase(Locale.ROOT)
-                val eligible = clean.length >= MIN_BUILTIN_WORD_LENGTH || index.wordLowerSet.contains(lower)
-                if (eligible && seenIdleLower.add(lower)) {
-                    idleScored.add(clean to personalityScore(clean, personality, nowMillis))
-                }
+            if (index.defaultSuggestions.isEmpty()) {
+                return SuggestionResult(primaryAutoCorrect = null, suggestions = emptyList())
             }
-            for (word in index.defaultSuggestions) {
-                val lower = word.lowercase(Locale.ROOT)
-                if (seenIdleLower.add(lower)) {
+            val topIdle = index.defaultSuggestions
+                .sortedByDescending { word ->
                     val score = personalityScore(word, personality, nowMillis)
-                    idleScored.add(word to if (score > 0.0) score else 1.0)
+                    if (score > 0.0) score else 1.0
                 }
-            }
-            for (fallback in DEFAULT_IDLE_SUGGESTIONS) {
-                val lower = fallback.lowercase(Locale.ROOT)
-                if (seenIdleLower.add(lower)) {
-                    idleScored.add(fallback to personalityScore(fallback, personality, nowMillis))
-                }
-            }
-
-            val topIdle = idleScored
-                .sortedByDescending { it.second }
-                .map { it.first }
                 .take(3)
 
             return SuggestionResult(
@@ -248,7 +169,6 @@ object DictionaryEngine {
         val shortcutMatches = findShortcutMatches(boundedWord, personalEntries, personality, nowMillis)
         val primaryShortcut = if (shortcutMatches.size == 1) shortcutMatches.first() else null
         val exactPersonalExists = index.wordLowerSet.contains(lowerWord)
-        val exactSmallDictExists = SMALL_DICT_SET.contains(lowerWord)
 
         val preserveCaps = boundedWord[0].isUpperCase()
         fun applyCase(w: String): String =
@@ -282,31 +202,16 @@ object DictionaryEngine {
             lowerWord
         }
 
-        // Gather prefix matches from personal dictionary, built-in (>= 8 chars), and learned personality (>= 8 chars)
+        // Gather matches strictly from Kamus Pribadi (across all folders and subfolders)
         val rankedPool = ArrayList<Pair<String, Double>>(16)
         val seenPoolLower = HashSet<String>(16)
 
-        // Include exact personal/built-in typed word with baseline tie-breaker priority
-        if (exactPersonalExists || exactSmallDictExists) {
+        if (exactPersonalExists) {
             seenPoolLower.add(lowerWord)
             val baseScore = personalityScore(boundedWord, personality, nowMillis)
             rankedPool.add(boundedWord to (baseScore + 5.0))
         }
 
-        // Boosted personality words that start with typed prefix
-        if (personality.isNotEmpty()) {
-            for ((statLower, stat) in personality) {
-                if (statLower != lowerWord && statLower.startsWith(lowerWord)) {
-                    val clean = stat.word.trim()
-                    val eligible = clean.length >= MIN_BUILTIN_WORD_LENGTH || index.wordLowerSet.contains(statLower)
-                    if (eligible && seenPoolLower.add(statLower)) {
-                        rankedPool.add(applyCase(clean) to personalityScore(clean, personality, nowMillis))
-                    }
-                }
-            }
-        }
-
-        // Personal dictionary prefix bucket
         val personalBucket = index.wordsByPrefix[lookupPrefix]
         if (personalBucket != null) {
             for ((lowerDict, rawDict) in personalBucket) {
@@ -318,25 +223,9 @@ object DictionaryEngine {
             }
         }
 
-        // Built-in >= 8-char dictionary prefix bucket
-        val smallBucket = SMALL_DICT_BY_PREFIX[lookupPrefix]
-        if (smallBucket != null) {
-            for (smallWord in smallBucket) {
-                if (smallWord != lowerWord && smallWord.startsWith(lowerWord) && seenPoolLower.add(smallWord)) {
-                    val styled = applyCase(smallWord)
-                    val score = personalityScore(smallWord, personality, nowMillis)
-                    rankedPool.add(styled to score)
-                }
-            }
-        }
-
         rankedPool.sortByDescending { it.second }
         for ((word, _) in rankedPool) {
             if (!addCandidate(word)) break
-        }
-
-        if (candidates.size < 3 && !exactPersonalExists && !exactSmallDictExists) {
-            addCandidate(currentWord)
         }
 
         return SuggestionResult(

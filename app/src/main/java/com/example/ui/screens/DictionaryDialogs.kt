@@ -48,15 +48,12 @@ import com.example.model.PersonalDictionaryEntry
 internal fun DictionaryEntryDialog(
     initialEntry: PersonalDictionaryEntry?,
     defaultFolderPath: String,
-    availableFolders: List<String>,
     onDismiss: () -> Unit,
     onSave: (word: String, shortcut: String, language: String, folder: String) -> Unit
 ) {
     var word by remember(initialEntry) { mutableStateOf(initialEntry?.word.orEmpty()) }
     var shortcut by remember(initialEntry) { mutableStateOf(initialEntry?.shortcut.orEmpty()) }
-    var folder by remember(initialEntry, defaultFolderPath) {
-        mutableStateOf(initialEntry?.folder ?: defaultFolderPath)
-    }
+    val targetFolder = initialEntry?.folder ?: defaultFolderPath
     val language = initialEntry?.language ?: "id-ID"
 
     AlertDialog(
@@ -78,33 +75,17 @@ internal fun DictionaryEntryDialog(
                 OutlinedTextField(
                     value = shortcut,
                     onValueChange = { shortcut = it },
-                    label = { Text("Pintasan (opsional, misal: ttd)") },
+                    label = { Text("Pintasan (misal: ttd)") },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("dictionary_shortcut_input")
                 )
-                OutlinedTextField(
-                    value = folder,
-                    onValueChange = { folder = it },
-                    label = { Text("Folder (kosong = Utama, mis: Kerja/CS)") },
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("dictionary_folder_input")
-                )
-                if (availableFolders.isNotEmpty()) {
-                    Text(
-                        text = "Folder cepat: Utama • " + availableFolders.take(4).joinToString(" • "),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSave(word, shortcut, language, SettingsRepository.normalizeFolderPath(folder)) },
+                onClick = { onSave(word, shortcut, language, SettingsRepository.normalizeFolderPath(targetFolder)) },
                 enabled = word.isNotBlank(),
                 modifier = Modifier.testTag("save_dictionary_button")
             ) {
