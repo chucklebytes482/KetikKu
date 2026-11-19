@@ -16,8 +16,13 @@ android {
     applicationId = "com.aistudio.ketikku.xqvrmz"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.1"
+    val baseVersionCode = 2
+    val baseVersionName = "1.1"
+    val ciVersionCode = System.getenv("CI_VERSION_CODE")?.toIntOrNull()
+    val ciVersionName = System.getenv("CI_VERSION_NAME")?.takeIf { it.isNotBlank() }
+
+    versionCode = ciVersionCode ?: baseVersionCode
+    versionName = ciVersionName ?: baseVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
