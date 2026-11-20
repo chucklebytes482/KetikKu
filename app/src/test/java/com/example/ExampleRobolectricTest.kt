@@ -1967,6 +1967,15 @@ class ExampleRobolectricTest {
         val decodedCustom = repo.decodeSettingsBackupJson(customJson)
         assertEquals(240, decodedCustom?.settings?.syncIntervalMinutes)
     }
+
+    @Test
+    fun mainActivity_launchesCleanlyWithoutCrashing() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        assertNotNull(activity)
+        assertFalse(activity.isFinishing)
+        controller.pause().stop().destroy()
+    }
 }
 
 
