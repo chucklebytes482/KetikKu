@@ -16,6 +16,7 @@ object DictionaryEngine {
 
     private const val MAX_INDEX_PREFIX_LEN = 16
     private const val MAX_PERSONAL_PREFIX_BUCKET = 32
+    private const val SHORTCUT_PERSONALIZATION_BONUS = 25.0
 
     private class IndexedDictionary(
         val sourceIdentity: List<PersonalDictionaryEntry>,
@@ -24,6 +25,7 @@ object DictionaryEngine {
         val shortcutMap: Map<String, List<PersonalDictionaryEntry>>,
         val wordsByPrefix: Map<String, List<Pair<String, String>>>,
         val wordLowerSet: Set<String>,
+        val shortcutOwnedLowerWords: Set<String>,
         val defaultSuggestions: List<String>
     )
 
@@ -51,22 +53,26 @@ object DictionaryEngine {
         for (entry in snapshot) {
             if (!entry.deleted) active.add(entry)
         }
+        // Place shortcut-bearing entries first so they take priority in defaults and prefix buckets.
+        active.sortByDescending { it.shortcut.isNotBlank() }
 
         val shortcutMap = HashMap<String, MutableList<PersonalDictionaryEntry>>(active.size)
         val shortcutWordsSeen = HashMap<String, MutableSet<String>>(active.size)
         val seenLowerWords = HashSet<String>(active.size)
+        val shortcutOwnedLowerWords = HashSet<String>(active.size)
         val wordsByPrefix = HashMap<String, MutableList<Pair<String, String>>>(active.size * 4)
-        val defaults = ArrayList<String>(12)
+        val defaults = ArrayList<String>(24)
 
         for (entry in active) {
             val trimmedWord = entry.word.trim()
             if (trimmedWord.isBlank()) continue
             val lowerWord = trimmedWord.lowercase(Locale.ROOT)
 
-            if (defaults.size < 12 && !defaults.contains(trimmedWord)) {
+            if (defaults.size < 24 && !defaults.contains(trimmedWord)) {
                 defaults.add(trimmedWord)
             }
             if (entry.shortcut.isNotBlank()) {
+                shortcutOwnedLowerWords.add(lowerWord)
                 val key = entry.shortcut.trim().lowercase(Locale.ROOT)
                 val seenForKey = shortcutWordsSeen.getOrPut(key) { HashSet(4) }
                 if (seenForKey.add(lowerWord)) {
@@ -91,6 +97,7 @@ object DictionaryEngine {
             shortcutMap = shortcutMap,
             wordsByPrefix = wordsByPrefix,
             wordLowerSet = seenLowerWords,
+            shortcutOwnedLowerWords = shortcutOwnedLowerWords,
             defaultSuggestions = defaults
         )
         cachedIndex = built
@@ -155,7 +162,12 @@ object DictionaryEngine {
             val topIdle = index.defaultSuggestions
                 .sortedByDescending { word ->
                     val score = personalityScore(word, personality, nowMillis)
-                    if (score > 0.0) score else 1.0
+                    val shortcutBonus = if (index.shortcutOwnedLowerWords.contains(word.lowercase(Locale.ROOT))) {
+                        SHORTCUT_PERSONALIZATION_BONUS
+                    } else {
+                        0.0
+                    }
+                    score + shortcutBonus + 1.0
                 }
                 .take(3)
 
@@ -209,7 +221,12 @@ object DictionaryEngine {
         if (exactPersonalExists) {
             seenPoolLower.add(lowerWord)
             val baseScore = personalityScore(boundedWord, personality, nowMillis)
-            rankedPool.add(boundedWord to (baseScore + 5.0))
+            val shortcutBonus = if (index.shortcutOwnedLowerWords.contains(lowerWord)) {
+                SHORTCUT_PERSONALIZATION_BONUS
+            } else {
+                0.0
+            }
+            rankedPool.add(boundedWord to (baseScore + shortcutBonus + 5.0))
         }
 
         val personalBucket = index.wordsByPrefix[lookupPrefix]
@@ -218,7 +235,12 @@ object DictionaryEngine {
                 if (lowerDict != lowerWord && lowerDict.startsWith(lowerWord) && seenPoolLower.add(lowerDict)) {
                     val styled = applyCase(rawDict)
                     val score = personalityScore(rawDict, personality, nowMillis)
-                    rankedPool.add(styled to (score + 2.0))
+                    val shortcutBonus = if (index.shortcutOwnedLowerWords.contains(lowerDict)) {
+                        SHORTCUT_PERSONALIZATION_BONUS
+                    } else {
+                        0.0
+                    }
+                    rankedPool.add(styled to (score + shortcutBonus + 2.0))
                 }
             }
         }

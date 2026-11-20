@@ -11,7 +11,6 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
-import com.example.R
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
@@ -38,6 +37,18 @@ object AuthHelper {
     private const val TAG = "Auth"
     const val DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
 
+    private fun resolveDefaultWebClientId(context: Context): String? {
+        val resId = context.resources.getIdentifier(
+            "default_web_client_id",
+            "string",
+            context.packageName
+        )
+        if (resId == 0) return null
+        return runCatching { context.getString(resId) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+    }
+
     fun attemptAutoSignIn(
         context: Context,
         credentialManager: CredentialManager,
@@ -49,9 +60,7 @@ object AuthHelper {
             onAuthSuccess()
             return
         }
-        val clientId = try {
-            context.getString(R.string.default_web_client_id)
-        } catch (_: Exception) {
+        val clientId = resolveDefaultWebClientId(context) ?: run {
             onUnauthenticated()
             return
         }
@@ -88,9 +97,7 @@ object AuthHelper {
         scope: CoroutineScope,
         onAuthCancelled: () -> Unit = {}
     ) {
-        val clientId = try {
-            context.getString(R.string.default_web_client_id)
-        } catch (_: Exception) {
+        val clientId = resolveDefaultWebClientId(context) ?: run {
             onAuthError("Konfigurasi Google Sign-In tidak ditemukan: default_web_client_id tidak tersedia.")
             return
         }

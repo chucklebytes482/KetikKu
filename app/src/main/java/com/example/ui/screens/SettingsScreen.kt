@@ -1,7 +1,5 @@
 package com.example.ui.screens
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -18,26 +16,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
@@ -63,12 +55,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
@@ -76,7 +66,6 @@ import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.theme.AmberPending
 import com.example.ui.theme.MintSynced
-import kotlinx.coroutines.delay
 
 internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/KetikKu/"
 
@@ -118,12 +107,17 @@ fun SettingsScreen(
                 .testTag("settings_list"),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 1. Paling atas: Auto-Sinkronisasi Google Drive (ModalBottomSheet)
+            // 1. Paling atas: Sinkronisasi Google Drive (ModalBottomSheet)
             item {
                 val driveSubtitle = if (!connectedUserEmail.isNullOrBlank()) {
-                    "$connectedUserEmail • ${syncLocalState.lastSyncMessage}"
+                    val statusPart = if (syncLocalState.lastSyncedAtMillis > 0L) {
+                        "Tersinkronisasi"
+                    } else {
+                        "Belum disinkronkan"
+                    }
+                    "$connectedUserEmail • $statusPart"
                 } else {
-                    "Opsional • Sinkron 2 file (kamus & pengaturan)"
+                    "Belum terhubung"
                 }
                 Surface(
                     shape = RoundedCornerShape(18.dp),
@@ -149,14 +143,14 @@ fun SettingsScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.CloudDone,
-                                contentDescription = "Auto-Sinkronisasi Google Drive",
+                                contentDescription = "Sinkronisasi",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Auto-Sinkronisasi Google Drive",
+                                text = "Sinkronisasi",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -170,14 +164,14 @@ fun SettingsScreen(
                         }
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Buka Auto-Sinkronisasi Google Drive",
+                            contentDescription = "Buka Sinkronisasi",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
             }
 
-            // 2. Nomor 2: Website & Panduan Resmi (GitHub Pages)
+            // 2. Nomor 2: Web Panduan (GitHub Pages)
             item {
                 Surface(
                     shape = RoundedCornerShape(18.dp),
@@ -210,19 +204,19 @@ fun SettingsScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Public,
-                                contentDescription = "Website Panduan KetikKu",
+                                contentDescription = "Web Panduan",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Website & Panduan KetikKu",
+                                text = "Web Panduan",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Cara pakai, pintasan Ctrl & variasi prompt AI",
+                                text = "GitHub Pages",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -231,7 +225,7 @@ fun SettingsScreen(
                         }
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                            contentDescription = "Buka Website KetikKu",
+                            contentDescription = "Buka Web Panduan",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
@@ -329,18 +323,6 @@ fun SettingsScreen(
                         )
                     }
                 }
-            }
-
-            // 6. Instruksi AI (klik untuk salin) untuk mengedit ketikku_dictionary.json
-            item {
-                AiDictionaryPromptCard(
-                    onCopyPrompt = {
-                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                        cm?.setPrimaryClip(
-                            ClipData.newPlainText("Instruksi AI Kamus KetikKu", AI_DICTIONARY_JSON_PROMPT)
-                        )
-                    }
-                )
             }
 
             item { Spacer(Modifier.height(24.dp)) }
@@ -447,152 +429,6 @@ private fun ImeStatusCard(
                     Spacer(Modifier.size(6.dp))
                     Text("2. Pilih", fontWeight = FontWeight.Bold)
                 }
-            }
-        }
-    }
-}
-
-internal val AI_DICTIONARY_JSON_PROMPT = """
-Bantu edit file JSON kamus KetikKu (ketikku_dictionary.json).
-Format wajib (setiap entri memiliki 6 field seragam tanpa field opsional):
-{
-  "updatedAtMillis": <timestamp_ms_terbaru>,
-  "folders": ["Gmail", "Nomor", "Kerja", "Kerja/CS"],
-  "entries": [
-    {
-      "id": "<id_unik>",
-      "word": "<kalimat_atau_frasa>",
-      "shortcut": "<pintasan_singkat_atau_kosong>",
-      "folder": "<path_folder_atau_kosong>",
-      "updatedAtMillis": <timestamp_ms_terbaru>,
-      "deleted": false
-    }
-  ]
-}
-Aturan:
-1. Jangan sertakan field "language" atau field tambahan lain.
-2. Setiap objek di "entries" wajib berisi keenam field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
-3. Gunakan "" untuk entry tanpa shortcut atau tanpa folder, serta gunakan "/" untuk subfolder (mis. "Kerja/CS").
-4. Cantumkan seluruh path folder & subfolder yang dipakai di array "folders".
-5. Pertahankan entri & "id" lama, lalu kembalikan 1 blok kode JSON valid.
-
-Daftar kalimat, pintasan & folder baru:
-- [tulis daftar data atau folder di sini]
-""".trimIndent()
-
-@Composable
-private fun AiDictionaryPromptCard(
-    onCopyPrompt: () -> Unit
-) {
-    var copied by remember { mutableStateOf(false) }
-
-    LaunchedEffect(copied) {
-        if (copied) {
-            delay(2500L)
-            copied = false
-        }
-    }
-
-    val triggerCopy = {
-        onCopyPrompt()
-        copied = true
-    }
-
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Code,
-                        contentDescription = "Instruksi AI Kamus JSON",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Instruksi AI Edit Kamus JSON",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Klik untuk salin, lalu kirim bersama file ketikku_dictionary.json ke AI.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            val promptScrollState = rememberScrollState()
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(112.dp)
-                    .border(
-                        width = 1.dp,
-                        color = if (copied) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                    .clip(RoundedCornerShape(14.dp))
-                    .clickable(onClick = triggerCopy)
-                    .testTag("ai_dictionary_prompt_card")
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(promptScrollState)
-                        .padding(12.dp)
-                ) {
-                    Text(
-                        text = AI_DICTIONARY_JSON_PROMPT,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.5.sp,
-                        lineHeight = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-
-            OutlinedButton(
-                onClick = triggerCopy,
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .testTag("copy_ai_dictionary_prompt_button")
-            ) {
-                Icon(
-                    imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    text = if (copied) "Instruksi Tersalin!" else "Salin Instruksi AI",
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
             }
         }
     }

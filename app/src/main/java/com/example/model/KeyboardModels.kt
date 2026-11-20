@@ -27,6 +27,19 @@ enum class KeyboardHeightPreset(val label: String, val keyHeightDp: Float) {
     }
 }
 
+enum class SyncScheduleInterval(val minutes: Int, val label: String) {
+    MINUTES_5(5, "5 menit"),
+    MINUTES_15(15, "15 menit"),
+    HOURS_4(240, "4 jam"),
+    HOURS_24(1440, "24 jam");
+
+    companion object {
+        val DEFAULT = MINUTES_15
+        fun fromMinutes(minutes: Int): SyncScheduleInterval =
+            entries.firstOrNull { it.minutes == minutes } ?: DEFAULT
+    }
+}
+
 @Immutable
 @JsonClass(generateAdapter = true)
 data class KeyboardSettings(
@@ -41,11 +54,13 @@ data class KeyboardSettings(
     val swapPeriodCommaEnabled: Boolean = false,
     val swapSymbolPanelsEnabled: Boolean = false,
     val autoSyncDriveEnabled: Boolean = true,
+    val syncIntervalMinutes: Int = SyncScheduleInterval.DEFAULT.minutes,
     val driveFolderName: String = "KetikKu",
     val driveShortcutFolderId: String = "",
     val updatedAtMillis: Long = 0L
 ) {
     val heightEnum: KeyboardHeightPreset get() = KeyboardHeightPreset.fromName(heightPreset)
+    val syncIntervalEnum: SyncScheduleInterval get() = SyncScheduleInterval.fromMinutes(syncIntervalMinutes)
 }
 
 @Immutable

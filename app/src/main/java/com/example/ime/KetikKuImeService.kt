@@ -295,13 +295,19 @@ class KetikKuImeService : InputMethodService() {
                 variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
             )) || (typeClass == InputType.TYPE_CLASS_NUMBER && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD)
 
-        val action = when ((info?.imeOptions ?: 0) and EditorInfo.IME_MASK_ACTION) {
-            EditorInfo.IME_ACTION_SEARCH -> EnterActionType.SEARCH
-            EditorInfo.IME_ACTION_SEND -> EnterActionType.SEND
-            EditorInfo.IME_ACTION_NEXT -> EnterActionType.NEXT
-            EditorInfo.IME_ACTION_DONE -> EnterActionType.DONE
-            EditorInfo.IME_ACTION_GO -> EnterActionType.GO
-            else -> EnterActionType.ENTER
+        val imeOptions = info?.imeOptions ?: 0
+        val noEnterAction = (imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
+        val action = if (noEnterAction) {
+            EnterActionType.ENTER
+        } else {
+            when (imeOptions and EditorInfo.IME_MASK_ACTION) {
+                EditorInfo.IME_ACTION_SEARCH -> EnterActionType.SEARCH
+                EditorInfo.IME_ACTION_SEND -> EnterActionType.SEND
+                EditorInfo.IME_ACTION_NEXT -> EnterActionType.NEXT
+                EditorInfo.IME_ACTION_DONE -> EnterActionType.DONE
+                EditorInfo.IME_ACTION_GO -> EnterActionType.GO
+                else -> EnterActionType.ENTER
+            }
         }
 
         val isRawOrWebCodeEditor = inputType == InputType.TYPE_NULL ||
@@ -572,8 +578,9 @@ class KetikKuImeService : InputMethodService() {
                 val keyCode = if (delta < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
                 val meta = if (extendSelection) KeyEvent.META_SHIFT_ON else 0
                 repeat(kotlin.math.abs(delta)) {
-                    ic.sendKeyEvent(KeyEvent(0L, 0L, KeyEvent.ACTION_DOWN, keyCode, 0, meta))
-                    ic.sendKeyEvent(KeyEvent(0L, 0L, KeyEvent.ACTION_UP, keyCode, 0, meta))
+                    val now = SystemClock.uptimeMillis()
+                    ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, meta))
+                    ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, meta))
                 }
             }
         }
@@ -581,8 +588,9 @@ class KetikKuImeService : InputMethodService() {
         override fun moveCursorVertical(deltaLines: Int) {
             val ic = icProvider() ?: return
             val keyCode = if (deltaLines < 0) KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_DOWN
-            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
-            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+            val now = SystemClock.uptimeMillis()
+            ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, 0))
+            ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, 0))
         }
 
         override fun moveCursorToEdge(toStart: Boolean) {
@@ -680,8 +688,40 @@ class KetikKuImeService : InputMethodService() {
             }.getOrDefault(false)
         }
 
+        private fun dispatchHardwareEnter(ic: InputConnection): Boolean {
+            val now = SystemClock.uptimeMillis()
+            val downOk = runCatching {
+                ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0, 0))
+            }.getOrDefault(false)
+            val upOk = runCatching {
+                ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0, 0))
+            }.getOrDefault(false)
+            return downOk || upOk
+        }
+
+        override fun insertNewline() {
+            val ic = icProvider() ?: return
+            val nextEnd = if (!hasKnownSelection && expectedCursorEnd >= 0) {
+                expectedCursorEnd + 1
+            } else {
+                -1
+            }
+            markSelfEdit(newExpectedEnd = nextEnd)
+            if (isRawOrWebCodeEditor) {
+                if (!dispatchHardwareEnter(ic)) {
+                    runCatching { ic.commitText("\n", 1) }
+                }
+            } else {
+                val committed = runCatching { ic.commitText("\n", 1) }.getOrDefault(false)
+                if (!committed) {
+                    dispatchHardwareEnter(ic)
+                }
+            }
+        }
+
         override fun performEnterAction(actionType: EnterActionType) {
             val ic = icProvider() ?: return
+            markSelfEdit(newExpectedEnd = -1)
             val editorAction = when (actionType) {
                 EnterActionType.SEARCH -> EditorInfo.IME_ACTION_SEARCH
                 EnterActionType.SEND -> EditorInfo.IME_ACTION_SEND
@@ -691,10 +731,14 @@ class KetikKuImeService : InputMethodService() {
                 EnterActionType.ENTER -> EditorInfo.IME_ACTION_UNSPECIFIED
             }
             if (editorAction != EditorInfo.IME_ACTION_UNSPECIFIED) {
-                ic.performEditorAction(editorAction)
+                val handled = runCatching { ic.performEditorAction(editorAction) }.getOrDefault(false)
+                if (!handled && !dispatchHardwareEnter(ic)) {
+                    runCatching { ic.commitText("\n", 1) }
+                }
             } else {
-                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+                if (!dispatchHardwareEnter(ic)) {
+                    runCatching { ic.commitText("\n", 1) }
+                }
             }
         }
 

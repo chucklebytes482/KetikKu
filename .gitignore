@@ -18,3 +18,11 @@ local.properties
 debug.keystore
 *-debug.log
 google-services.json
+firebase-applet-config.json
+*.jks
+*.keystore
+*.b64
+dist/
+releases/
+*.apk
+*.aab

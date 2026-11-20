@@ -5,10 +5,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,13 +29,12 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +59,7 @@ import com.example.data.SyncDirection
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
+import com.example.model.SyncScheduleInterval
 import com.example.ui.AuthHelper
 import com.example.ui.CloudSyncViewModel
 import com.example.ui.MainViewModel
@@ -89,7 +91,7 @@ fun DriveBackupUnauthenticatedSheetContent(
             .navigationBarsPadding()
             .padding(horizontal = 24.dp)
             .padding(top = 4.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -97,37 +99,33 @@ fun DriveBackupUnauthenticatedSheetContent(
         ) {
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(48.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.CloudDone,
-                    contentDescription = "Auto-Sinkronisasi Google Drive",
+                    contentDescription = "Sinkronisasi",
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Auto-Sinkronisasi Google Drive",
+                    text = "Sinkronisasi",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Opsional • Belum terhubung ke akun Google",
+                    text = "Belum terhubung",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
-
-        Text(
-            text = "Simpan dan sinkronkan otomatis ke folder \"${settings.driveFolderName}\" di Google Drive Anda agar berkas bisa langsung dilihat di Drive.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
         if (errorMsg != null) {
             Text(
@@ -164,7 +162,7 @@ fun DriveBackupUnauthenticatedSheetContent(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 54.dp)
+                .heightIn(min = 52.dp)
                 .testTag("drive_connect_google_button")
         ) {
             if (isLoading) {
@@ -174,7 +172,7 @@ fun DriveBackupUnauthenticatedSheetContent(
                     strokeWidth = 2.dp
                 )
             } else {
-                Text("Masuk dengan Google (Drive Sync)", fontWeight = FontWeight.SemiBold)
+                Text("Masuk dengan Google", fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -257,33 +255,31 @@ fun DriveBackupSheetContent(
     val isSyncing = syncActionState is SyncActionState.Syncing
     val statusDotColor = when {
         !isOnline -> MaterialTheme.colorScheme.error
+        isSyncing -> MaterialTheme.colorScheme.primary
         syncLocalState.pendingChanges -> AmberPending
         syncLocalState.lastSyncedAtMillis > 0L -> MaterialTheme.colorScheme.secondary
         else -> AmberPending
     }
 
     val statusHeadline = when (val st = syncActionState) {
-        is SyncActionState.Syncing -> "Menyinkronkan kamus & pengaturan..."
-        is SyncActionState.Done -> st.message
+        is SyncActionState.Syncing -> "Menyinkronkan..."
         is SyncActionState.Error -> st.message
         else -> if (syncLocalState.lastSyncedAtMillis > 0L) {
             "Tersinkronisasi • ${formatRelativeTime(syncLocalState.lastSyncedAtMillis)}"
         } else {
-            syncLocalState.lastSyncMessage
+            "Belum disinkronkan"
         }
     }
 
     DriveBackupConnectedContent(
         userEmail = userEmail,
-        driveFolderName = settings.driveFolderName,
-        autoSyncEnabled = settings.autoSyncDriveEnabled,
-        isOnline = isOnline,
-        pendingChanges = syncLocalState.pendingChanges,
+        selectedIntervalMinutes = settings.syncIntervalEnum.minutes,
         statusHeadline = statusHeadline,
         statusDotColor = statusDotColor,
         isSyncing = isSyncing,
-        onToggleAutoSync = { enabled ->
-            mainViewModel.updateSettings { it.copy(autoSyncDriveEnabled = enabled) }
+        onSelectInterval = { intervalMinutes ->
+            mainViewModel.updateSettings { it.copy(syncIntervalMinutes = intervalMinutes) }
+            cloudViewModel.updateSyncSchedule(intervalMinutes)
         },
         onDisconnect = {
             cloudViewModel.clearCachedDriveToken()
@@ -296,17 +292,15 @@ fun DriveBackupSheetContent(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun DriveBackupConnectedContent(
     userEmail: String,
-    driveFolderName: String,
-    autoSyncEnabled: Boolean,
-    isOnline: Boolean,
-    pendingChanges: Boolean,
+    selectedIntervalMinutes: Int,
     statusHeadline: String,
-    statusDotColor: androidx.compose.ui.graphics.Color,
+    statusDotColor: Color,
     isSyncing: Boolean,
-    onToggleAutoSync: (Boolean) -> Unit,
+    onSelectInterval: (Int) -> Unit,
     onDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
     modifier: Modifier = Modifier
@@ -318,7 +312,7 @@ internal fun DriveBackupConnectedContent(
             .navigationBarsPadding()
             .padding(horizontal = 24.dp)
             .padding(top = 4.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -326,21 +320,21 @@ internal fun DriveBackupConnectedContent(
         ) {
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(48.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.CloudDone,
-                    contentDescription = "Auto-Sinkronisasi Google Drive",
+                    contentDescription = "Sinkronisasi",
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Auto-Sinkronisasi Google Drive",
+                    text = "Sinkronisasi",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -354,107 +348,70 @@ internal fun DriveBackupConnectedContent(
             }
         }
 
-        Text(
-            text = "Simpan dan sinkronkan otomatis ke folder \"$driveFolderName\" di Google Drive Anda agar berkas bisa langsung dilihat di Drive.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
+        // Status 1 baris
         Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             modifier = Modifier
                 .fillMaxWidth()
                 .border(
                     width = 1.dp,
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
-                    shape = RoundedCornerShape(18.dp)
+                    shape = RoundedCornerShape(16.dp)
                 )
                 .testTag("drive_sync_status_card")
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(11.dp)
-                            .clip(CircleShape)
-                            .background(statusDotColor)
-                    )
-                    Text(
-                        text = statusHeadline,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = if (isOnline) "Jaringan: Online" else "Jaringan: Offline",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = if (pendingChanges) {
-                            "Perubahan menunggu sinkron"
-                        } else {
-                            "Semua perubahan tersimpan"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(statusDotColor)
+                )
                 Text(
-                    text = "Folder Drive: $driveFolderName (Sinkron 2 arah)",
+                    text = statusHeadline,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable { onToggleAutoSync(!autoSyncEnabled) }
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 12.dp)
-            ) {
-                Text(
-                    text = "Sinkronisasi Otomatis",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Unggah otomatis setiap ada perubahan atau saat kembali online",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Switch(
-                checked = autoSyncEnabled,
-                onCheckedChange = onToggleAutoSync,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.surface,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.testTag("drive_auto_sync_switch")
+        // Jadwal sinkronisasi (5 menit / 15 menit [default] / 4 jam / 24 jam)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "Jadwal Sinkronisasi",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SyncScheduleInterval.entries.forEach { interval ->
+                    val isSelected = selectedIntervalMinutes == interval.minutes
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onSelectInterval(interval.minutes) },
+                        label = {
+                            Text(
+                                text = interval.label,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        },
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("sync_interval_${interval.minutes}")
+                    )
+                }
+            }
         }
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
@@ -470,11 +427,11 @@ internal fun DriveBackupConnectedContent(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = 54.dp)
+                    .heightIn(min = 52.dp)
                     .testTag("drive_disconnect_button")
             ) {
                 Text(
-                    text = "Putuskan Akun",
+                    text = "Putuskan",
                     color = MaterialTheme.colorScheme.error,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1
@@ -489,10 +446,10 @@ internal fun DriveBackupConnectedContent(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
-                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
                 modifier = Modifier
-                    .weight(1.1f)
-                    .heightIn(min = 54.dp)
+                    .weight(1.2f)
+                    .heightIn(min = 52.dp)
                     .testTag("drive_sync_now_button")
             ) {
                 if (isSyncing) {
@@ -508,11 +465,13 @@ internal fun DriveBackupConnectedContent(
                         modifier = Modifier.size(18.dp)
                     )
                 }
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = if (isSyncing) "Menyinkron..." else "Sinkronkan Sekarang",
+                    text = if (isSyncing) "Menyinkron..." else "Sinkron Sekarang",
                     fontWeight = FontWeight.Medium,
-                    lineHeight = 18.sp
+                    lineHeight = 18.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

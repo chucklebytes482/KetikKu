@@ -3,6 +3,9 @@
 Panduan umum ini menjelaskan cara menyiapkan **keystore release**, mengonfigurasi **GitHub Secrets**, menghubungkan **Firebase / Google Cloud Console** (jika aplikasi memakai Google Sign-In atau API Google), serta menyertakan **source code siap salin** (`.gitignore`, `app/build.gradle.kts`, `app/proguard-rules.pro`, dan `.github/workflows/release.yml`) untuk menghasilkan **APK release bertanda tangan (< 10 MB)** secara otomatis lewat **GitHub Actions** — tanpa menyimpan keystore maupun file APK di dalam repositori Git.
 
 > **Penting:** Panduan ini bersifat umum untuk aplikasi Android berbasis Gradle (Kotlin DSL `.gradle.kts`). Ganti placeholder bertanda `<...>` sesuai identitas proyek Anda.
+> **Penamaan `applicationId` (Euskara):** Gunakan 1 kata asli Euskara 3 suku kata tanpa diakritik dengan format `com.aistudio.<kata>` *(mis. `com.aistudio.lotura`)*. Bila mengganti `applicationId`, perbarui `app/build.gradle.kts`, `proguard-rules.pro`, lalu daftarkan ulang `applicationId` + SHA-1/SHA-256 (debug & release) dan perbarui `google-services.json`.
+> **Standar UI & Sinkronisasi Wajib:** Urutan prioritas utama aplikasi adalah **#1 Sinkronisasi** (jadwal `5 menit` / `15 menit` [default] / `4 jam` / `24 jam`, status 1 baris, tanpa tombol toggle auto-sync) dan **#2 Web Panduan (GitHub Pages)**. Dilarang menyediakan pemilih tema (tema otomatis mengikuti sistem) maupun keterangan berlebih di dalam aplikasi—seluruh dokumentasi rinci hanya ditempatkan di GitHub Pages. Pastikan aturan ProGuard untuk `CoroutineWorker` tetap dipertahankan di `app/proguard-rules.pro`.
+> **Otomasi Teknis (Ramah HP):** Seluruh konfigurasi teknis yang bisa dieksekusi AI (provisioning OAuth/Firebase, pembacaan & pendaftaran SHA-1/SHA-256 debug, `.gitignore`, Gradle R8, ProGuard, workflow CI/CD, dan skrip otomasi `.sh`) **wajib dikerjakan otomatis oleh AI**. Untuk langkah yang hanya bisa diklik dari akun pribadi di Google Cloud Console (yang di HP memerlukan **Mode Desktop / Situs Desktop** agar seluruh menu tampil), selalu gunakan **tautan langsung (*deep link*)** berparameter `?project=<project_id>` beserta nilai siap salin.
 
 ---
 
@@ -87,6 +90,7 @@ keystore.properties
 debug.keystore
 google-services.json
 app/google-services.json
+firebase-applet-config.json
 
 # Direktori output APK sementara
 dist/
@@ -166,6 +170,11 @@ android {
 # Pertahankan model data agar serialisasi JSON / Gson / Moshi / Firestore tidak terhapus R8
 -keep class <com.contoh.aplikasi>.model.** { *; }
 
+# Pertahankan WorkManager CoroutineWorker untuk sinkronisasi terjadwal (5m / 15m default / 4j / 24j)
+-keep class * extends androidx.work.CoroutineWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+
 # Jika memakai kotlinx.serialization
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
@@ -202,7 +211,7 @@ Salin baris **SHA1** dan **SHA256**, lalu daftarkan ke:
 2. **Google Cloud Console:** **APIs & Services** → **Credentials** → pilih **OAuth 2.0 Client ID (Android)** yang sesuai → verifikasi `Package name` dan `SHA-1`.
 3. **OAuth Consent Screen & API:**
    - Aktifkan API yang dibutuhkan (misal: **Google Drive API**).
-   - Tambahkan scope minimal (misal: `https://www.googleapis.com/auth/drive.file`).
+   - Tambahkan scope minimal (misal: `https://www.googleapis.com/auth/drive.file`, atau `https://www.googleapis.com/auth/drive` untuk pemakaian pribadi mode *Testing*).
    - Jika status aplikasi masih *Testing*, daftarkan akun penguji pada bagian **Test users**.
 
 ---
@@ -334,7 +343,6 @@ jobs:
             echo "STORE_PASSWORD=$CLEAN_STORE_PASSWORD" >> "$GITHUB_ENV"
             echo "KEY_PASSWORD=$CLEAN_KEY_PASSWORD" >> "$GITHUB_ENV"
           else
-            # Fallback sementara jika secret keystore belum ditambahkan (jangan dipakai untuk produksi)
             TEMP_PASS="ci-temp-keystore-pass"
             keytool -genkeypair -v \
               -keystore "$RUNNER_TEMP/upload.jks" \

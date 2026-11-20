@@ -135,8 +135,10 @@ fun DictionaryScreen(
         }
     }
 
-    // Entries visible in current folder (or global search across all folders)
+    // Entries visible in current folder (or global search across all folders), shortcut-bearing entries first
     val visibleEntries = remember(activeEntriesAll, currentFolderPath, q, isSearching) {
+        val comparator = compareByDescending<PersonalDictionaryEntry> { it.shortcut.isNotBlank() }
+            .thenBy { it.word.lowercase() }
         if (isSearching) {
             activeEntriesAll
                 .filter { entry ->
@@ -144,13 +146,13 @@ fun DictionaryScreen(
                         entry.shortcut.lowercase().contains(q) ||
                         entry.folder.lowercase().contains(q)
                 }
-                .sortedBy { it.word.lowercase() }
+                .sortedWith(comparator)
         } else {
             activeEntriesAll
                 .filter { entry ->
                     SettingsRepository.normalizeFolderPath(entry.folder) == currentFolderPath
                 }
-                .sortedBy { it.word.lowercase() }
+                .sortedWith(comparator)
         }
     }
 
@@ -384,10 +386,7 @@ fun DictionaryScreen(
                             selectedFolderPaths = selectedFolderPaths + folderPath
                         },
                         onRename = { renamingFolderPath = folderPath },
-                        onMove = { moveRequest = emptySet<String>() to setOf(folderPath) },
-                        onDelete = {
-                            deleteRequest = emptySet<String>() to setOf(folderPath)
-                        }
+                        onMove = { moveRequest = emptySet<String>() to setOf(folderPath) }
                     )
                 }
 
@@ -682,8 +681,7 @@ private fun FolderRowCard(
     onTap: () -> Unit,
     onLongPress: () -> Unit,
     onRename: () -> Unit,
-    onMove: () -> Unit,
-    onDelete: () -> Unit
+    onMove: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val folderIcon = when (folderPath) {
@@ -789,14 +787,6 @@ private fun FolderRowCard(
                                 menuExpanded = false
                                 onMove()
                             }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Hapus Folder") },
-                            onClick = {
-                                menuExpanded = false
-                                onDelete()
-                            },
-                            modifier = Modifier.testTag("folder_delete_${folderPath.replace('/', '_')}")
                         )
                     }
                 }
