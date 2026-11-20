@@ -354,6 +354,7 @@ class GoogleDriveClient(
             a.swapPeriodCommaEnabled == b.swapPeriodCommaEnabled &&
             a.swapSymbolPanelsEnabled == b.swapSymbolPanelsEnabled &&
             a.autoSyncDriveEnabled == b.autoSyncDriveEnabled &&
+            a.syncIntervalMinutes == b.syncIntervalMinutes &&
             a.driveFolderName == b.driveFolderName &&
             a.driveShortcutFolderId == b.driveShortcutFolderId
 

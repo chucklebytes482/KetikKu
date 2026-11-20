@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.DriveAuthExpiredException
+import com.example.data.DriveSyncScheduler
 import com.example.data.FirestoreSyncRepository
 import com.example.data.GoogleDriveClient
 import com.example.data.SettingsRepository
@@ -48,8 +49,9 @@ class CloudSyncViewModel(
     appContext: Context
 ) : ViewModel() {
 
+    private val appContext = appContext.applicationContext
     private val connectivityManager =
-        appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        this.appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
 
     private val _isOnline = MutableStateFlow(checkOnlineNow())
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
@@ -110,6 +112,14 @@ class CloudSyncViewModel(
         runCatching {
             connectivityManager?.registerDefaultNetworkCallback(networkCallback)
         }
+        viewModelScope.launch {
+            val settings = settingsRepository.getCurrentSettings()
+            DriveSyncScheduler.schedule(appContext, settings.syncIntervalMinutes)
+        }
+    }
+
+    fun updateSyncSchedule(intervalMinutes: Int) {
+        DriveSyncScheduler.schedule(appContext, intervalMinutes)
     }
 
     fun setDriveTokenAndSync(accessToken: String, forceDirection: SyncDirection? = null) {
@@ -177,6 +187,7 @@ class CloudSyncViewModel(
 
     fun clearCachedDriveToken() {
         cachedDriveToken = null
+        DriveSyncScheduler.cancel(appContext)
         viewModelScope.launch {
             settingsRepository.clearDriveIdsOnDisconnect()
         }
@@ -224,6 +235,7 @@ class CloudSyncViewModel(
                 syncSource = "DRIVE_AND_CLOUD",
                 syncedAtMillis = outcome.syncedAtMillis
             )
+            DriveSyncScheduler.schedule(appContext, outcome.syncedSettings.syncIntervalMinutes)
             _syncActionState.value = SyncActionState.Done(outcome.message)
         }.onFailure { err ->
             if (err is DriveAuthExpiredException) {

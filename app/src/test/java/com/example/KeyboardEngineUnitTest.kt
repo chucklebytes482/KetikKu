@@ -120,7 +120,7 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
-    fun keyboardController_commitsPlainTextEvenWithLegacyFlagAndPersonalShortcutsWork() {
+    fun keyboardController_commitsPlainTextEvenWithLegacyFlagAndPersonalShortcutsRequireTap() {
         var tf = TextFieldValue("")
         val settings = KeyboardSettings(serifMiringEnabled = true)
         val entries = listOf(
@@ -142,13 +142,23 @@ class KeyboardEngineUnitTest {
         controller.onCharacterTap("t", settings, entries)
         controller.onCharacterTap("d", settings, entries)
         assertEquals("ttd", tf.text)
+        assertTrue(controller.suggestions.contains("Hormat kami"))
 
+        // Pressing space must NOT auto-fill personal dictionary shortcut
         controller.onSpaceTap(settings, entries)
-        assertEquals("Hormat kami ", tf.text)
+        assertEquals("ttd ", tf.text)
+
+        // Tapping the suggestion chip explicitly fills the entry
+        controller.onCharacterTap("t", settings, entries)
+        controller.onCharacterTap("t", settings, entries)
+        controller.onCharacterTap("d", settings, entries)
+        assertTrue(controller.suggestions.contains("Hormat kami"))
+        controller.onSuggestionTap("Hormat kami", settings, entries)
+        assertEquals("ttd Hormat kami ", tf.text)
 
         controller.onBackspaceTap(settings, entries)
         controller.onBackspaceTap(settings, entries)
-        assertEquals("Hormat kam", tf.text)
+        assertEquals("ttd Hormat kam", tf.text)
     }
 
     @Test
@@ -236,15 +246,15 @@ class KeyboardEngineUnitTest {
         }
         controller.onSpaceTap(settings, entries)
 
-        assertEquals("halo semua apa kabar Terima kasih ", delegateTf.value.text)
+        assertEquals("halo semua apa kabar tk ", delegateTf.value.text)
         assertEquals(0, getTextBeforeCursorCalls)
 
         // Rapid backspaces delete space + word letters using single-codepoint path without extra reads
-        repeat(6) {
+        repeat(3) {
             controller.onBackspaceTap(settings, entries)
         }
-        assertEquals(6, singleCodePointDeletes)
-        assertEquals("halo semua apa kabar Terima ", delegateTf.value.text)
+        assertEquals(3, singleCodePointDeletes)
+        assertEquals("halo semua apa kabar ", delegateTf.value.text)
     }
 
     @Test
@@ -622,5 +632,94 @@ class KeyboardEngineUnitTest {
         )
         assertTrue(DictionaryEngine.getSuggestions("th", "", deletedOnly).suggestions.isEmpty())
     }
+
+    @Test
+    fun keyboardController_shortcutDoesNotAutoFillOnSpaceEnterNewlineOrPunctuation() {
+        var tf = TextFieldValue("")
+        val settings = KeyboardSettings()
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "s1", word = "Terima kasih banyak", shortcut = "tk", updatedAtMillis = 10L)
+        )
+        val controller = KeyboardController(
+            TextFieldImeTarget(
+                getValue = { tf },
+                setValue = { tf = it }
+            )
+        )
+
+        // Space does not auto-expand
+        controller.onCharacterTap("t", settings, entries)
+        controller.onCharacterTap("k", settings, entries)
+        assertEquals(listOf("Terima kasih banyak"), controller.suggestions)
+        controller.onSpaceTap(settings, entries)
+        assertEquals("tk ", tf.text)
+
+        // Punctuation '.' does not auto-expand
+        controller.onCharacterTap("t", settings, entries)
+        controller.onCharacterTap("k", settings, entries)
+        controller.onCharacterTap(".", settings, entries)
+        assertEquals("tk tk.", tf.text)
+
+        // Newline key inserts '\n' without auto-expanding shortcut
+        controller.onSpaceTap(settings, entries)
+        controller.onCharacterTap("t", settings, entries)
+        controller.onCharacterTap("k", settings, entries)
+        controller.onNewlineTap(settings, entries)
+        assertEquals("tk tk. tk\n", tf.text)
+
+        // Enter action does not auto-expand shortcut
+        controller.onCharacterTap("t", settings, entries)
+        controller.onCharacterTap("k", settings, entries)
+        controller.onEnterTap(settings, entries)
+        assertEquals("tk tk. tk\ntk\n", tf.text)
+
+        // Explicit suggestion tap replaces typed shortcut
+        controller.onCharacterTap("t", settings, entries)
+        controller.onCharacterTap("k", settings, entries)
+        controller.onSuggestionTap("Terima kasih banyak", settings, entries)
+        assertEquals("tk tk. tk\ntk\nTerima kasih banyak ", tf.text)
+    }
+
+    @Test
+    fun dictionaryEngine_prioritizesShortcutBearingEntriesInIdleAndPrefixPersonalization() {
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "p1", word = "Kantor biasa", shortcut = "", updatedAtMillis = 500L),
+            PersonalDictionaryEntry(id = "p2", word = "Kantor pusat", shortcut = "kp", updatedAtMillis = 100L),
+            PersonalDictionaryEntry(id = "p3", word = "Katalog umum", shortcut = "", updatedAtMillis = 600L),
+            PersonalDictionaryEntry(id = "p4", word = "Katalog promo", shortcut = "kpr", updatedAtMillis = 100L)
+        )
+
+        val idleSuggestions = DictionaryEngine.getSuggestions(
+            currentWord = "",
+            previousWord = "",
+            personalEntries = entries,
+            personality = emptyMap(),
+            nowMillis = 1_000L
+        ).suggestions
+        assertEquals("Kantor pusat", idleSuggestions[0])
+        assertEquals("Katalog promo", idleSuggestions[1])
+
+        val prefixSuggestions = DictionaryEngine.getSuggestions(
+            currentWord = "Ka",
+            previousWord = "",
+            personalEntries = entries,
+            personality = emptyMap(),
+            nowMillis = 1_000L
+        ).suggestions
+        assertEquals("Kantor pusat", prefixSuggestions[0])
+        assertEquals("Katalog promo", prefixSuggestions[1])
+    }
+
+    @Test
+    fun syncScheduleInterval_parsesValidIntervalsAndDefaultsTo15Minutes() {
+        assertEquals(15, com.example.model.SyncScheduleInterval.DEFAULT.minutes)
+        assertEquals(15, KeyboardSettings().syncIntervalMinutes)
+        assertEquals(com.example.model.SyncScheduleInterval.MINUTES_5, com.example.model.SyncScheduleInterval.fromMinutes(5))
+        assertEquals(com.example.model.SyncScheduleInterval.MINUTES_15, com.example.model.SyncScheduleInterval.fromMinutes(15))
+        assertEquals(com.example.model.SyncScheduleInterval.HOURS_4, com.example.model.SyncScheduleInterval.fromMinutes(240))
+        assertEquals(com.example.model.SyncScheduleInterval.HOURS_24, com.example.model.SyncScheduleInterval.fromMinutes(1440))
+        assertEquals(com.example.model.SyncScheduleInterval.DEFAULT, com.example.model.SyncScheduleInterval.fromMinutes(999))
+    }
 }
+
 

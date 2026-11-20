@@ -1,127 +1,13 @@
-# Panduan Personality & Alur Build Aplikasi Android Ringan (< 10 MB)
+# Kumpulan Source Code Siap Salin (Standar UI, Tata Letak & Sinkronisasi)
 
-**Standar Pengembangan Ringan | Kotlin + Jetpack Compose + Material 3 | Arsitektur MVVM | Distribusi APK GitHub Release**
-
-Dokumen ini adalah panduan umum (*personality* / pola standar pengembangan) sekaligus referensi **source code siap salin** untuk membangun aplikasi Android yang cepat, responsif, berukuran rilis di bawah **10 MB**, mendukung tata letak standar edge-to-edge dan sinkronisasi Google Drive 2 arah opsional, serta siap dirilis otomatis sebagai signed APK di GitHub Releases.
-
----
-
-## Prinsip Utama (Wajib Diterapkan)
-
-1. **Fokus pada Fitur Inti & Pangkas Fitur Opsional**
-   - Bangun hanya fitur yang benar-benar dibutuhkan pengguna.
-   - Tolak atau hapus fitur tambahan yang membengkakkan ukuran APK dan menambah beban UI (seperti aset media berat, SDK iklan/analitik tak perlu, menu berlapis, atau kamus/data bawaan raksasa yang tidak diminta).
-   - Nonaktifkan atau hapus dependensi Gradle yang tidak digunakan.
-2. **Target Ukuran APK Rilis < 10 MB**
-   - Aktifkan **R8 / ProGuard** (`isMinifyEnabled = true`), **Resource Shrinking** (`isShrinkResources = true`), dan **filter ABI `arm64-v8a`** khusus pada varian `release` (biarkan `debug` mendukung multi-ABI untuk pengujian emulator/perangkat).
-3. **Antarmuka Ringkas, Responsif & Intuitif**
-   - Hindari tombol aksi berulang yang memakan ruang layar. Gunakan gestur langsung (*tap* untuk buka/edit, tekan tahan untuk mode pilih banyak / aksi lanjutan, *swipe* jika relevan).
-   - Sediakan bilah pencarian atau penyaringan cepat di bagian atas bila mengelola daftar item/folder.
-   - Pastikan seluruh target sentuh minimal **48dp × 48dp** dengan aksesibilitas (`contentDescription`) yang jelas.
-4. **Kepatuhan Keamanan & Tanpa Data Palsu**
-   - Jangan menanamkan API key, password keystore, atau kredensial pribadi di dalam kode sumber maupun repositori Git.
-   - Gunakan `BuildConfig` / environment secrets atau Google Sign-In (`CredentialManager`) sesuai kebutuhan.
+Pasangan teknis dari **`Panduan_Personality_Build_APK_(umum).md`**. Seluruh contoh memakai namespace contoh `com.contoh.aplikasi` (ganti dengan `com.aistudio.<kata_euskara>` saat memulai proyek) dan mematuhi aturan wajib:
+- Tema selalu otomatis mengikuti sistem (`isSystemInDarkTheme()`, tanpa pemilih tema).
+- Urutan prioritas Beranda wajib: **#1 Sinkronisasi**, **#2 Web Panduan (GitHub Pages)**.
+- Kartu status sinkronisasi **1 baris** (`Tersinkronisasi • 14 jam lalu`), tanpa sakelar on/off *Sinkronisasi Otomatis*, dengan pemilih jadwal **`5 menit`**, **`15 menit` (default)**, **`4 jam`**, **`24 jam`**, dan tanpa keterangan berlebih.
 
 ---
 
-## Fase 1 — Konsep, Identitas & Format Data Terstruktur
-
-1. **Identitas Aplikasi Unik**
-   - Tetapkan `applicationId` unik (misal: `com.organisasi.namaapp`), nama launcher pendek (1–2 kata agar tidak terpotong di beranda Android), dan ikon adaptif kustom (`res/mipmap-*`).
-2. **Arsitektur Modern**
-   - Gunakan **Kotlin** + **Jetpack Compose** + **Material Design 3** (`Theme.kt` terpusat, `enableEdgeToEdge()`, dan penanganan `WindowInsets`).
-   - Terapkan pola **MVVM** dengan `ViewModel`, `StateFlow` / `collectAsStateWithLifecycle`, serta `kotlinx.serialization` atau `org.json` untuk parsing data yang konsisten.
-3. **Skema Data Bersih & Seragam**
-   - Rancang skema JSON / Room / DataStore dengan field seragam (tanpa field opsional yang membingungkan jika file juga diedit manual/AI), dilengkapi `id`, `updatedAtMillis`, dan penanda `deleted` (*soft-delete*) bila mendukung sinkronisasi dua arah.
-4. **Pisahkan Metadata Teknis dari UI**
-   - Jangan tampilkan ID internal, metadata mentah, atau log teknis di tampilan utama pengguna.
-
----
-
-## Fase 2 — Strategi Penyimpanan & Sinkronisasi Cloud (Metode Ganda)
-
-Sesuaikan mekanisme persistensi dengan sifat data aplikasi:
-
-### A. Sinkronisasi Cloud (Opsional / Dengan Akun Google)
-- Gunakan **Google Sign-In** via Jetpack `CredentialManager` (`GetSignInWithGoogleOption`) — jangan gunakan login anonim bila aplikasi memakai layanan Google/Firebase.
-- Gunakan OAuth scope minimal sesuai kebutuhan (misal `https://www.googleapis.com/auth/drive.file` untuk menyimpan data cadangan JSON di folder aplikasi Google Drive).
-- Daftarkan sidik jari sertifikat **SHA-1** dan **SHA-256** (baik varian *debug* maupun *release*) ke Firebase Console / Google Cloud Console agar autentikasi tetap berjalan pada APK rilis.
-- Simpan data dan pengaturan sebagai file JSON terpisah di folder Google Drive dengan **sinkronisasi 2 arah berbasis timestamp** (`updatedAtMillis`).
-
-### B. Mode Tanpa Login / Offline-First
-- Aplikasi harus tetap dapat langsung dipakai tanpa memaksa pengguna login di layar pertama (*no mandatory login gate*).
-- Untuk data lokal perangkat atau preferensi UI, gunakan **DataStore** atau **Room** (jika tidak memerlukan sinkronisasi cloud). Jika mendukung ekspor/impor lokal, gunakan Android **Storage Access Framework** (`CreateDocument` / `OpenDocument`) tanpa izin penyimpanan berbahaya (`READ_EXTERNAL_STORAGE`).
-
----
-
-## Fase 3 — Kurasi Fitur, Pemangkasan UI & Efisiensi Memori
-
-1. **Audit Dependensi Rutin**
-   - Hapus library yang tidak dipakai dari `gradle/libs.versions.toml` dan `app/build.gradle.kts`.
-2. **UI Bersih & Tidak Redundan**
-   - Hilangkan tab navigasi kosong, tombol aksi duplikat di setiap baris, dan kartu pengaturan yang jarang terpakai.
-   - Kelompokkan aksi massal (Pilih Semua, Pindahkan, Hapus) ke dalam satu bilah aksi kontekstual saat mode pilih aktif.
-3. **Efisiensi Performa & Memori**
-   - Gunakan `remember` dan `derivedStateOf` untuk meminimalkan rekomposisi.
-   - Hindari IPC berulang atau operasi I/O di main thread; gunakan cache in-memory untuk jalur akses cepat dan Kotlin Coroutines (`Dispatchers.IO`) untuk pembacaan penyimpanan.
-
----
-
-## Fase 4 — Pengujian Otomatis, Kompresi R8 & Build APK Release
-
-### 1. Pengujian Sebelum Build Rilis
-- Tulis dan jalankan **Unit Test** untuk logika bisnis, sinkronisasi/merge JSON, dan edge case.
-- Tulis dan jalankan **Robolectric UI Test** untuk memvalidasi layar Compose, navigasi, tata letak responsif, dan alur pengguna utama (tanpa memerlukan emulator fisik).
-- Perintah verifikasi:
-  ```bash
-  gradle :app:testDebugUnitTest --no-daemon
-  ```
-
-### 2. Konfigurasi Build Release (`app/build.gradle.kts`)
-```kotlin
-buildTypes {
-    release {
-        isMinifyEnabled = true
-        isShrinkResources = true
-        ndk {
-            abiFilters += "arm64-v8a"
-        }
-        proguardFiles(
-            getDefaultProguardFile("proguard-android-optimize.txt"),
-            "proguard-rules.pro"
-        )
-    }
-}
-```
-Pastikan `proguard-rules.pro` mempertahankan kelas model serialisasi / Kotlin metadata yang dibutuhkan agar R8 tidak menghapus field penting.
-
-### 3. Target Metrik Lolos Rilis
-- [ ] Seluruh Unit Test & Robolectric Test lulus (0 gagal, 0 error).
-- [ ] Ukuran APK `release` **< 10 MB**.
-- [ ] Folder `lib/` di dalam APK `release` hanya berisi arsitektur `arm64-v8a` (atau tanpa native lib yang tidak perlu).
-- [ ] Tanda tangan APK lolos verifikasi `apksigner verify --print-certs`.
-- [ ] Sidik jari SHA-1 & SHA-256 sertifikat rilis terdaftar di Google Cloud / Firebase Console (jika memakai Google Sign-In / API Google).
-
----
-
-## Fase 5 — Otomasi GitHub Release & Dokumentasi (Tanpa Menyimpan APK di Repo)
-
-1. **Jangan Simpan File APK di Repositori Git**
-   - File `.apk`, `.aab`, dan `.jks` tidak boleh di-commit ke folder mana pun di dalam repositori (termasuk folder `releases/`) agar ukuran repositori tetap ringan dan bebas kebocoran kredensial.
-2. **Publikasi Otomatis via GitHub Actions**
-   - Gunakan workflow `.github/workflows/release.yml` yang menjalankan test, membangun `:app:assembleRelease` ke direktori sementara `dist/`, menghitung `CHECKSUMS.txt` & `CERT_FINGERPRINT.txt`, lalu mengunggahnya langsung ke **GitHub Releases** dan **Workflow Artifacts**.
-3. **Dokumentasi Publik di GitHub Pages**
-   - Gunakan folder `docs/` dengan halaman HTML/Markdown ringan untuk panduan penggunaan, format data/skema, dan tombol unduh yang mengarah langsung ke `https://github.com/<username>/<repo>/releases/latest`.
-
----
-
-## Kumpulan Source Code Siap Salin (Standar UI, Tata Letak & Sinkronisasi)
-
-Seluruh contoh di bawah menggunakan namespace contoh `com.contoh.aplikasi` agar langsung bisa disesuaikan dan disalin ke proyek Android mana pun.
-
-### 1. Standar Tema, Palet Warna & Bentuk (`ui/theme/Color.kt` & `Theme.kt`)
-
-Palet *Precision Slate* (gelap & terang) dengan warna semantik status sinkronisasi (`MintSynced`, `AmberPending`, `CoralAlert`).
+## 1. Tema Otomatis Sistem, Palet Warna & Bentuk (`ui/theme/Color.kt` & `Theme.kt`)
 
 ```kotlin
 // app/src/main/java/com/contoh/aplikasi/ui/theme/Color.kt
@@ -141,7 +27,7 @@ val CyanOnAccent = Color(0xFF032D35)
 val CyanContainer = Color(0xFF0E3A44)
 val CyanOnContainer = Color(0xFFB3F1FA)
 
-// Warna status semantik (Sinkronisasi & Peringatan)
+// Warna status semantik
 val MintSynced = Color(0xFF4ADE80)
 val AmberPending = Color(0xFFFBBF24)
 val CoralAlert = Color(0xFFFF8A80)
@@ -166,19 +52,15 @@ val TextSecondaryLight = Color(0xFF4B5E6B)
 // app/src/main/java/com/contoh/aplikasi/ui/theme/Theme.kt
 package com.contoh.aplikasi.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 private val AppDarkScheme = darkColorScheme(
@@ -229,18 +111,10 @@ val AppShapes = Shapes(
 
 @Composable
 fun AppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val context = LocalContext.current
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> AppDarkScheme
-        else -> AppLightScheme
-    }
+    // Wajib mengikuti tema sistem secara otomatis (tanpa pemilih tema)
+    val colorScheme = if (isSystemInDarkTheme()) AppDarkScheme else AppLightScheme
 
     MaterialTheme(
         colorScheme = colorScheme,
@@ -253,9 +127,9 @@ fun AppTheme(
 
 ---
 
-### 2. Standar Tata Letak Utama Edge-to-Edge & Kartu Menu (`MainScaffold.kt`)
+## 2. Tata Letak Utama Edge-to-Edge & Prioritas Beranda (`ui/MainScaffold.kt`)
 
-Pola standar layar beranda adaptif (`widthIn(max = 640.dp)` untuk tablet/foldable), `enableEdgeToEdge()`, `WindowInsets.safeDrawing`, kartu menu 1 baris dengan ikon 42dp, serta pemicu `ModalBottomSheet` untuk Sinkronisasi Google Drive.
+Urutan prioritas wajib di bagian paling atas Beranda: **#1 Sinkronisasi** diikuti **#2 Web Panduan (GitHub Pages)**.
 
 ```kotlin
 // app/src/main/java/com/contoh/aplikasi/ui/MainScaffold.kt
@@ -276,11 +150,11 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -293,10 +167,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -374,7 +244,7 @@ fun StandardAppScaffold(
 @Composable
 fun AdaptiveMenuContainer(
     modifier: Modifier = Modifier,
-    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit
+    content: LazyListScope.() -> Unit
 ) {
     Column(
         modifier = modifier
@@ -454,13 +324,46 @@ fun StandardMenuCard(
         }
     }
 }
+
+/**
+ * Urutan prioritas wajib di bagian teratas Beranda:
+ * #1 Sinkronisasi
+ * #2 Web Panduan (GitHub Pages)
+ */
+fun LazyListScope.standardHomePriorityCards(
+    syncStatusText: String,
+    syncIcon: ImageVector,
+    guideIcon: ImageVector,
+    openExternalIcon: ImageVector,
+    onOpenSyncSheet: () -> Unit,
+    onOpenWebGuide: () -> Unit
+) {
+    item(key = "priority_1_sync") {
+        StandardMenuCard(
+            icon = syncIcon,
+            title = "Sinkronisasi",
+            subtitle = syncStatusText,
+            onClick = onOpenSyncSheet,
+            testTag = "home_drive_status_card"
+        )
+    }
+
+    item(key = "priority_2_web_guide") {
+        StandardMenuCard(
+            icon = guideIcon,
+            title = "Web Panduan",
+            subtitle = "GitHub Pages",
+            trailingIcon = openExternalIcon,
+            onClick = onOpenWebGuide,
+            testTag = "home_web_guide_card"
+        )
+    }
+}
 ```
 
 ---
 
-### 3. Standar Tampilan Sinkronisasi Google Drive (`ui/screens/DriveSyncSheet.kt`)
-
-Tampilan **ModalBottomSheet** siap salin untuk dua kondisi: **Belum Login** (tanpa memaksa login di awal) dan **Terhubung** (indikator status *online/pending/synced*, toggle **Sinkronisasi Otomatis**, tombol **Putuskan Akun**, serta tombol **Sinkronkan Sekarang**).
+## 3. Modal Sinkronisasi Google Drive Terjadwal (`ui/screens/DriveSyncSheet.kt`)
 
 ```kotlin
 // app/src/main/java/com/contoh/aplikasi/ui/screens/DriveSyncSheet.kt
@@ -469,7 +372,6 @@ package com.contoh.aplikasi.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -492,13 +394,13 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -515,9 +417,22 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+enum class SyncScheduleInterval(val minutes: Int, val label: String) {
+    FIVE_MINUTES(5, "5 menit"),
+    FIFTEEN_MINUTES(15, "15 menit"),
+    FOUR_HOURS(240, "4 jam"),
+    TWENTY_FOUR_HOURS(1440, "24 jam");
+
+    companion object {
+        val DEFAULT = FIFTEEN_MINUTES
+
+        fun fromMinutes(minutes: Int): SyncScheduleInterval =
+            entries.firstOrNull { it.minutes == minutes } ?: DEFAULT
+    }
+}
+
 @Composable
 fun DriveSyncUnauthenticatedSheetContent(
-    driveFolderName: String,
     isLoading: Boolean,
     errorMessage: String?,
     onConnectGoogleClick: () -> Unit,
@@ -545,30 +460,24 @@ fun DriveSyncUnauthenticatedSheetContent(
             ) {
                 Icon(
                     imageVector = Icons.Default.CloudDone,
-                    contentDescription = "Auto-Sinkronisasi Google Drive",
+                    contentDescription = "Sinkronisasi",
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(28.dp)
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Auto-Sinkronisasi Google Drive",
+                    text = "Sinkronisasi",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Opsional • Belum terhubung ke akun Google",
+                    text = "Belum terhubung",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-
-        Text(
-            text = "Simpan dan sinkronkan otomatis ke folder \"$driveFolderName\" di Google Drive Anda agar berkas cadangan JSON mudah diakses lintas perangkat.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
 
         if (!errorMessage.isNullOrBlank()) {
             Text(
@@ -598,7 +507,7 @@ fun DriveSyncUnauthenticatedSheetContent(
                     strokeWidth = 2.dp
                 )
             } else {
-                Text("Masuk dengan Google (Drive Sync)", fontWeight = FontWeight.SemiBold)
+                Text("Hubungkan Google Drive", fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -607,29 +516,26 @@ fun DriveSyncUnauthenticatedSheetContent(
 @Composable
 fun DriveSyncConnectedSheetContent(
     userEmail: String,
-    driveFolderName: String,
-    autoSyncEnabled: Boolean,
-    isOnline: Boolean,
-    pendingChanges: Boolean,
+    selectedIntervalMinutes: Int = SyncScheduleInterval.DEFAULT.minutes,
     lastSyncedAtMillis: Long,
-    fallbackStatusMessage: String,
     isSyncing: Boolean,
-    onToggleAutoSync: (Boolean) -> Unit,
+    onSelectInterval: (Int) -> Unit,
     onDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val activeInterval = SyncScheduleInterval.fromMinutes(selectedIntervalMinutes)
+
     val statusDotColor: Color = when {
-        !isOnline -> MaterialTheme.colorScheme.error
-        pendingChanges -> AmberPending
+        isSyncing -> AmberPending
         lastSyncedAtMillis > 0L -> MaterialTheme.colorScheme.secondary
         else -> AmberPending
     }
 
     val statusHeadline = when {
-        isSyncing -> "Menyinkronkan data & pengaturan..."
+        isSyncing -> "Menyinkronkan..."
         lastSyncedAtMillis > 0L -> "Tersinkronisasi • ${formatRelativeTime(lastSyncedAtMillis)}"
-        else -> fallbackStatusMessage
+        else -> "Belum disinkronkan"
     }
 
     Column(
@@ -654,14 +560,14 @@ fun DriveSyncConnectedSheetContent(
             ) {
                 Icon(
                     imageVector = Icons.Default.CloudDone,
-                    contentDescription = "Auto-Sinkronisasi Google Drive",
+                    contentDescription = "Sinkronisasi",
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(28.dp)
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Auto-Sinkronisasi Google Drive",
+                    text = "Sinkronisasi",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -675,7 +581,7 @@ fun DriveSyncConnectedSheetContent(
             }
         }
 
-        // Kartu Ringkasan Status Sinkronisasi
+        // Kartu Status Ringkas (hanya 1 baris status)
         Surface(
             shape = RoundedCornerShape(18.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
@@ -688,91 +594,63 @@ fun DriveSyncConnectedSheetContent(
                 )
                 .testTag("drive_sync_status_card")
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(11.dp)
-                            .clip(CircleShape)
-                            .background(statusDotColor)
-                    )
-                    Text(
-                        text = statusHeadline,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = if (isOnline) "Jaringan: Online" else "Jaringan: Offline",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = if (pendingChanges) "Menunggu sinkron" else "Semua tersimpan",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
+                Box(
+                    modifier = Modifier
+                        .size(11.dp)
+                        .clip(CircleShape)
+                        .background(statusDotColor)
+                )
                 Text(
-                    text = "Folder Drive: $driveFolderName (Sinkron 2 arah)",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
+                    text = statusHeadline,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
 
-        // Toggle Auto-Sinkronisasi
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable { onToggleAutoSync(!autoSyncEnabled) }
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 12.dp)
-            ) {
-                Text(
-                    text = "Sinkronisasi Otomatis",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Unggah otomatis setiap ada perubahan atau saat kembali online",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Switch(
-                checked = autoSyncEnabled,
-                onCheckedChange = onToggleAutoSync,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.surface,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.testTag("drive_auto_sync_switch")
+        // Pemilih Jadwal Sinkronisasi (Default: 15 menit, tanpa keterangan berlebih)
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "Jadwal Sinkronisasi",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SyncScheduleInterval.entries.forEach { option ->
+                    val isSelected = activeInterval == option
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onSelectInterval(option.minutes) },
+                        label = {
+                            Text(
+                                text = option.label,
+                                maxLines = 1,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                            .testTag("sync_interval_${option.minutes}")
+                    )
+                }
+            }
         }
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
 
-        // Tombol Aksi Bawah (Putuskan Akun & Sinkronkan Sekarang)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -788,7 +666,7 @@ fun DriveSyncConnectedSheetContent(
                     .testTag("drive_disconnect_button")
             ) {
                 Text(
-                    text = "Putuskan Akun",
+                    text = "Putuskan",
                     color = MaterialTheme.colorScheme.error,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1
@@ -824,7 +702,7 @@ fun DriveSyncConnectedSheetContent(
                 }
                 Spacer(Modifier.width(10.dp))
                 Text(
-                    text = if (isSyncing) "Menyinkron..." else "Sinkronkan Sekarang",
+                    text = if (isSyncing) "Menyinkron..." else "Sinkron Sekarang",
                     fontWeight = FontWeight.Medium,
                     lineHeight = 18.sp
                 )
@@ -846,9 +724,7 @@ fun formatRelativeTime(timestampMillis: Long): String {
 
 ---
 
-### 4. Autentikasi Google Sign-In & OAuth Google Drive (`ui/AuthHelper.kt`)
-
-Menggunakan Jetpack `CredentialManager` (`GetSignInWithGoogleOption`) + Firebase Auth + `Identity.getAuthorizationClient(...)` untuk meminta scope `drive.file`.
+## 4. Autentikasi Google Sign-In & OAuth Google Drive (`ui/AuthHelper.kt`)
 
 ```kotlin
 // app/src/main/java/com/contoh/aplikasi/ui/AuthHelper.kt
@@ -985,9 +861,7 @@ object AuthHelper {
 
 ---
 
-### 5. Klien Sinkronisasi JSON 2 Arah Google Drive & Merge LWW (`data/DriveSyncClient.kt`)
-
-Implementasi ringan menggunakan `OkHttp` + `org.json` untuk membaca/menulis file JSON ke folder Google Drive (termasuk dukungan shortcut folder) serta fungsi penggabungan dua arah **Last-Write-Wins (LWW)** berbasis `updatedAtMillis` dan penanda `deleted`.
+## 5. Klien Sinkronisasi JSON 2 Arah Google Drive & Merge LWW (`data/DriveSyncClient.kt`)
 
 ```kotlin
 // app/src/main/java/com/contoh/aplikasi/data/DriveSyncClient.kt
@@ -1030,9 +904,6 @@ class DriveSyncClient(
         private const val SHORTCUT_MIME = "application/vnd.google-apps.shortcut"
     }
 
-    /**
-     * Menggabungkan daftar item lokal dan remote secara deterministik (Last-Write-Wins).
-     */
     fun mergeLastWriteWins(
         localItems: List<SyncRecord>,
         remoteItems: List<SyncRecord>
@@ -1155,9 +1026,7 @@ class DriveSyncClient(
 
 ---
 
-### 6. Pola File Manager Ringkas: Bilah Pencarian, Mode Pilih & `BackHandler` (`SelectionActionBar.kt`)
-
-Gunakan pola ini saat layar menampilkan daftar item atau folder agar tetap bersih tanpa tombol hapus/pindah berulang di tiap baris.
+## 6. Bilah Pencarian, Mode Pilih & `BackHandler` (`ui/components/SelectionComponents.kt`)
 
 ```kotlin
 // app/src/main/java/com/contoh/aplikasi/ui/components/SelectionComponents.kt
@@ -1305,7 +1174,7 @@ fun SelectionActionBar(
 }
 ```
 
-Jangan lupa menambahkan `BackHandler` di layar sekunder / mode pilih agar tombol kembali sistem keluar dari mode pilih atau naik satu tingkat folder terlebih dahulu:
+Tambahkan `BackHandler` pada layar sekunder / mode pilih:
 
 ```kotlin
 BackHandler(enabled = selectionMode || currentFolderPath.isNotEmpty()) {
@@ -1320,7 +1189,7 @@ BackHandler(enabled = selectionMode || currentFolderPath.isNotEmpty()) {
 
 ---
 
-### 7. Template Unit Test & Robolectric Compose Test (`AppVerificationTest.kt`)
+## 7. Template Unit Test & Robolectric Compose Test (`AppVerificationTest.kt`)
 
 ```kotlin
 // app/src/test/java/com/contoh/aplikasi/AppVerificationTest.kt
@@ -1333,6 +1202,7 @@ import androidx.compose.ui.test.performClick
 import com.contoh.aplikasi.data.DriveSyncClient
 import com.contoh.aplikasi.data.SyncRecord
 import com.contoh.aplikasi.ui.screens.DriveSyncConnectedSheetContent
+import com.contoh.aplikasi.ui.screens.SyncScheduleInterval
 import com.contoh.aplikasi.ui.theme.AppTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -1367,20 +1237,17 @@ class AppVerificationTest {
     }
 
     @Test
-    fun driveSyncConnectedSheet_rendersControlsAndTriggersSync() {
+    fun driveSyncConnectedSheet_rendersIntervalSelectorAndTriggersSync() {
         var syncTriggered = false
+        var selectedMinutes = SyncScheduleInterval.DEFAULT.minutes
         composeRule.setContent {
             AppTheme {
                 DriveSyncConnectedSheetContent(
                     userEmail = "pengguna@contoh.com",
-                    driveFolderName = "CadanganApp",
-                    autoSyncEnabled = true,
-                    isOnline = true,
-                    pendingChanges = false,
+                    selectedIntervalMinutes = selectedMinutes,
                     lastSyncedAtMillis = System.currentTimeMillis(),
-                    fallbackStatusMessage = "Siap sinkron",
                     isSyncing = false,
-                    onToggleAutoSync = {},
+                    onSelectInterval = { selectedMinutes = it },
                     onDisconnect = {},
                     onSyncNow = { syncTriggered = true }
                 )
@@ -1388,47 +1255,12 @@ class AppVerificationTest {
         }
 
         composeRule.onNodeWithTag("drive_sync_status_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("drive_auto_sync_switch").assertIsDisplayed()
+        composeRule.onNodeWithTag("sync_interval_15").assertIsDisplayed()
+        composeRule.onNodeWithTag("sync_interval_240").performClick()
+        assertEquals(240, selectedMinutes)
+
         composeRule.onNodeWithTag("drive_sync_now_button").performClick()
         assertTrue(syncTriggered)
     }
 }
 ```
-
----
-
-## Template Prompt / PRD Memulai Aplikasi Android Baru
-
-Salin dan isi bagian bertanda `[...]` saat memulai proyek Android baru:
-
-```text
-Buat aplikasi Android (Kotlin + Jetpack Compose + Material 3 + MVVM):
-- Nama Aplikasi (1-2 kata): [Nama Aplikasi] | applicationId unik + ikon adaptif kustom
-- Fitur Inti Wajib:
-  1. [Fitur utama 1]
-  2. [Fitur utama 2]
-  3. [Fitur utama 3]
-- Kebijakan Ringan (< 10 MB):
-  - Fokus hanya pada fitur inti yang diminta; JANGAN tambahkan fitur bloat, SDK iklan, atau aset media besar.
-  - Nonaktifkan/hapus dependensi Gradle yang tidak dipakai.
-  - Aktifkan isMinifyEnabled = true, isShrinkResources = true, dan filter ABI arm64-v8a pada buildTypes.release.
-- Tata Letak & Sinkronisasi:
-  - Ikuti standar Material 3 edge-to-edge (WindowInsets.safeDrawing, CenterAlignedTopAppBar, lebar adaptif max 640dp).
-  - [Pilih: Firestore / Google Drive JSON sync 2 arah via CredentialManager + ModalBottomSheet tanpa wajib login di awal / DataStore & Room khusus lokal]
-- Desain UI Ringkas:
-  - Tanpa menu berlapis atau tombol duplikat di setiap baris; gunakan mode pilih kontekstual (SelectionActionBar) + bilah pencarian cepat.
-- Pengujian & Rilis Otomatis:
-  - Sertakan Unit Test & Robolectric UI Test untuk alur inti.
-  - Siapkan .github/workflows/release.yml untuk build APK signed ke GitHub Releases & Artifacts (tanpa menyimpan biner APK di repositori).
-```
-
----
-
-## Checklist Audit Sebelum Merilis Versi Baru
-
-- [ ] **Ukuran APK < 10 MB** setelah minifikasi R8 dan resource shrinking.
-- [ ] **Tidak ada file sensitif** (`*.jks`, `*.keystore`, `keystore.properties`, API key) yang ikut ter-commit ke Git.
-- [ ] **Tidak ada folder biner APK** (`releases/`, `dist/`) yang tertinggal di repositori.
-- [ ] **Unit Test & Robolectric lulus 100%** untuk logika bisnis dan UI terbaru.
-- [ ] **Tanda tangan APK valid** (`apksigner verify`) dan SHA-1/SHA-256 rilis cocok dengan konfigurasi OAuth / Firebase.
-- [ ] **GitHub Release & GitHub Pages** mencerminkan fitur dan catatan perubahan terbaru.

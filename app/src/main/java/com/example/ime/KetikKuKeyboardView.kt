@@ -2023,6 +2023,21 @@ private fun BottomNavigationRow(
         horizontalArrangement = Arrangement.spacedBy(rowGap),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Ctrl key and Symbols key share equal width (1.705f each)
+        CtrlKey(
+            ctrlState = controller.ctrlState,
+            height = keyHeight,
+            palette = palette,
+            isFloating = isFloating,
+            pointerTracker = pointerTracker,
+            slotId = "bottom_ctrl",
+            onTap = {
+                onFeedback()
+                controller.onCtrlTap()
+            },
+            modifier = Modifier.weight(1.705f)
+        )
+
         SpecialActionKey(
             height = keyHeight,
             palette = palette,
@@ -2034,7 +2049,7 @@ private fun BottomNavigationRow(
             slotId = "bottom_symbols",
             onTap = onLeftModeTap,
             modifier = Modifier
-                .weight(1.45f)
+                .weight(1.705f)
                 .testTag("key_symbols")
         ) {
             Text(
@@ -2051,22 +2066,7 @@ private fun BottomNavigationRow(
             )
         }
 
-        // Ctrl key occupies space freed by standalone comma removal (1.0f) + 20% left trim of spacebar (0.96f)
-        CtrlKey(
-            ctrlState = controller.ctrlState,
-            height = keyHeight,
-            palette = palette,
-            isFloating = isFloating,
-            pointerTracker = pointerTracker,
-            slotId = "bottom_ctrl",
-            onTap = {
-                onFeedback()
-                controller.onCtrlTap()
-            },
-            modifier = Modifier.weight(1.96f)
-        )
-
-        // Blank Spacebar (80% width, trimmed from left side) with trackpad & long-press IME picker
+        // Blank Spacebar trimmed to make room for dedicated newline key left of Enter
         SpacebarTrackpadKey(
             height = keyHeight,
             palette = palette,
@@ -2083,7 +2083,7 @@ private fun BottomNavigationRow(
                 onFeedback()
                 controller.onSpacebarTrackpadStep(step)
             },
-            modifier = Modifier.weight(3.84f)
+            modifier = Modifier.weight(2.84f)
         )
 
         // Combined period / comma key
@@ -2112,6 +2112,32 @@ private fun BottomNavigationRow(
             onLongPressCancel = onClearPopup,
             modifier = Modifier.weight(1.0f)
         )
+
+        // Dedicated newline arrow key (↵) left of Enter to always insert a line break
+        SpecialActionKey(
+            height = keyHeight,
+            palette = palette,
+            bordered = true,
+            highlighted = false,
+            useAccentFill = false,
+            contentDescription = "Baris baru",
+            pointerTracker = pointerTracker,
+            slotId = "bottom_newline",
+            onTap = {
+                onFeedback()
+                controller.onNewlineTap(settings, personalEntries)
+            },
+            modifier = Modifier
+                .weight(1.0f)
+                .testTag("key_newline")
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
+                contentDescription = "Baris baru",
+                tint = palette.keyText,
+                modifier = Modifier.size(if (isFloating) 16.dp else 19.dp)
+            )
+        }
 
         SpecialActionKey(
             height = keyHeight,

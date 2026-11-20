@@ -28,5 +28,8 @@
     @com.squareup.moshi.FromJson <methods>;
     @com.squareup.moshi.ToJson <methods>;
 }
+-keep class * extends androidx.work.CoroutineWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
 -dontwarn org.codehaus.mojo.**
 -dontwarn javax.annotation.**

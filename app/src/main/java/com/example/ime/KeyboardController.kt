@@ -73,6 +73,7 @@ interface ImeTarget {
         return false
     }
     fun sendCtrlKey(letter: Char): Boolean = false
+    fun insertNewline() = commitText("\n")
     fun performEnterAction(actionType: EnterActionType)
     fun openAppSettings() {}
 }
@@ -470,10 +471,7 @@ class KeyboardController(
         val isBoundaryPunctuation = rawChar.length == 1 && rawChar[0] in BOUNDARY_PUNCTUATION
 
         if (isBoundaryPunctuation) {
-            val expanded = applyPersonalShortcutIfNeeded(settings, personalEntries, appendSpace = false)
-            if (!expanded) {
-                recordCompletedTypedWordIfEligible(personalEntries)
-            }
+            recordCompletedTypedWordIfEligible(personalEntries)
         }
 
         val output = formatOutput(letterTransformed, settings)
@@ -505,11 +503,8 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        val expanded = applyPersonalShortcutIfNeeded(settings, personalEntries, appendSpace = true)
-        if (!expanded) {
-            recordCompletedTypedWordIfEligible(personalEntries)
-            target.commitText(" ")
-        }
+        recordCompletedTypedWordIfEligible(personalEntries)
+        target.commitText(" ")
         localContextValid = true
         clearLocalWordBuffer()
         applySuggestionResult(personalEntries)
@@ -534,14 +529,22 @@ class KeyboardController(
         }
     }
 
+    fun onNewlineTap(
+        settings: KeyboardSettings,
+        personalEntries: List<PersonalDictionaryEntry>
+    ) {
+        recordCompletedTypedWordIfEligible(personalEntries)
+        target.insertNewline()
+        localContextValid = true
+        clearLocalWordBuffer()
+        applySuggestionResult(personalEntries)
+    }
+
     fun onEnterTap(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        val expanded = applyPersonalShortcutIfNeeded(settings, personalEntries, appendSpace = false)
-        if (!expanded) {
-            recordCompletedTypedWordIfEligible(personalEntries)
-        }
+        recordCompletedTypedWordIfEligible(personalEntries)
         target.performEnterAction(enterActionType)
         localContextValid = true
         clearLocalWordBuffer()
@@ -832,41 +835,6 @@ class KeyboardController(
         if (primaryAutoCorrect != result.primaryAutoCorrect) {
             primaryAutoCorrect = result.primaryAutoCorrect
         }
-    }
-
-    private fun applyPersonalShortcutIfNeeded(
-        settings: KeyboardSettings,
-        personalEntries: List<PersonalDictionaryEntry>,
-        appendSpace: Boolean
-    ): Boolean {
-        if (isPasswordField) return false
-        val rawLen: Int
-        val currentWord: String
-        if (localContextValid) {
-            rawLen = localWordRawTotalLen
-            currentWord = localWordPlain.toString()
-        } else {
-            val pair = FontStyleConverter.extractCurrentWordRawAndPlain(target.getTextBeforeCursor(48))
-            rawLen = pair.first
-            currentWord = pair.second
-        }
-        if (currentWord.isEmpty() || rawLen == 0) return false
-
-        val matches = DictionaryEngine.findShortcutMatches(
-            currentWord = currentWord,
-            personalEntries = personalEntries,
-            personality = personalityStats
-        )
-        // If > 1 personal entries share this shortcut, keep typed text and let user pick from suggestion bar.
-        if (matches.size != 1) return false
-
-        val shortcutWord = matches.first()
-        val suffix = if (appendSpace) " " else ""
-        target.replaceWordBeforeCursor(rawLen, formatOutput(shortcutWord, settings) + suffix)
-        recordWordUsageInternal(shortcutWord, personalEntries, forceRecord = true)
-        clearLocalWordBuffer()
-        localContextValid = true
-        return true
     }
 
     companion object {

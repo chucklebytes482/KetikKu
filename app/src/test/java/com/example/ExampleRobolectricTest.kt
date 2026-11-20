@@ -1136,22 +1136,36 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        val symBounds = composeRule.onNodeWithTag("key_symbols").fetchSemanticsNode().boundsInRoot
         val ctrlBounds = composeRule.onNodeWithTag("key_ctrl").fetchSemanticsNode().boundsInRoot
+        val symBounds = composeRule.onNodeWithTag("key_symbols").fetchSemanticsNode().boundsInRoot
         val spaceBounds = composeRule.onNodeWithTag("key_spacebar").fetchSemanticsNode().boundsInRoot
         val periodBounds = composeRule.onNodeWithTag("key_.").fetchSemanticsNode().boundsInRoot
+        val newlineBounds = composeRule.onNodeWithTag("key_newline").fetchSemanticsNode().boundsInRoot
         val enterBounds = composeRule.onNodeWithTag("key_enter").fetchSemanticsNode().boundsInRoot
 
-        assertTrue(symBounds.right <= ctrlBounds.left + 1f)
-        assertTrue(ctrlBounds.right <= spaceBounds.left + 1f)
+        // Order: Ctrl | Ω | Space | . | ↵ | Enter
+        assertTrue(ctrlBounds.right <= symBounds.left + 1f)
+        assertTrue(symBounds.right <= spaceBounds.left + 1f)
         assertTrue(spaceBounds.right <= periodBounds.left + 1f)
-        assertTrue(periodBounds.right <= enterBounds.left + 1f)
+        assertTrue(periodBounds.right <= newlineBounds.left + 1f)
+        assertTrue(newlineBounds.right <= enterBounds.left + 1f)
         assertTrue(composeRule.onAllNodesWithText("Ω").fetchSemanticsNodes().isNotEmpty())
-        // Spacebar trimmed 20% from its left (~3.84f weight vs total ~9.85f) and Ctrl occupies freed width
-        assertTrue(ctrlBounds.width > symBounds.width)
-        val totalRowWidth = enterBounds.right - symBounds.left
+        composeRule.onNodeWithTag("key_newline").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithContentDescription("Baris baru").fetchSemanticsNodes().isNotEmpty())
+        // Ctrl and Ω share equal width proportion (1.705f each)
+        assertTrue(
+            "Expected Ctrl (${ctrlBounds.width}) and Ω (${symBounds.width}) to have equal widths",
+            abs(ctrlBounds.width - symBounds.width) <= 2f
+        )
+        // Spacebar trimmed to 2.84f weight (of ~9.85f total) to accommodate dedicated newline key
+        val totalRowWidth = enterBounds.right - ctrlBounds.left
         val spaceRatio = spaceBounds.width / totalRowWidth
-        assertTrue("Expected spacebar ratio ~0.39, got $spaceRatio", spaceRatio in 0.35f..0.43f)
+        assertTrue("Expected spacebar ratio ~0.29, got $spaceRatio", spaceRatio in 0.25f..0.33f)
+
+        // Tapping dedicated newline key inserts '\n'
+        composeRule.onNodeWithTag("key_newline").performClick()
+        composeRule.waitForIdle()
+        assertEquals("\n", value.text)
 
         // Open Symbol Panel 1 ('Ω'): 10 / 9 / 7 layout matching QWERTY
         composeRule.onNodeWithTag("key_symbols").performClick()
@@ -1186,11 +1200,12 @@ class ExampleRobolectricTest {
         assertTrue(r2First.bottom <= r3First.top + 1f)
         assertTrue(r3First.right < r3Last.left)
 
-        // Tap '1' and '@' in Panel 1
+        // Tap '1', '@', and '←' in Panel 1 — arrows remain literal symbols
         composeRule.onNodeWithTag("key_1").performClick()
         composeRule.onNodeWithTag("key_@").performClick()
+        composeRule.onNodeWithTag("key_←").performClick()
         composeRule.waitForIdle()
-        assertEquals("1@", value.text)
+        assertEquals("\n1@←", value.text)
 
         // Switch to Symbol Panel 2 via Row 3 toggle and verify 10/9/7 geometry + zero overlap with Panel 1, '.' / ',', or QWERTY long-press shortcuts
         composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
@@ -1221,7 +1236,7 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("key_{").performClick()
         composeRule.onNodeWithTag("key_≠").performClick()
         composeRule.waitForIdle()
-        assertEquals("1@✓Rp{≠", value.text)
+        assertEquals("\n1@←✓Rp{≠", value.text)
 
         // Toggle back to Panel 1 ('2/2' -> '1/2'), then bottom-left 'ABC' returns to QWERTY
         composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
@@ -1437,8 +1452,8 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun driveBackupConnectedContent_rendersSimpleLayoutWithoutExtraButtonsOrHistory() {
-        var autoSync = true
+    fun driveBackupConnectedContent_rendersOneLineStatusAndScheduleChipsWithoutAutoSyncSwitch() {
+        var selectedInterval = 15
         var syncClicks = 0
         var disconnectClicks = 0
 
@@ -1446,14 +1461,11 @@ class ExampleRobolectricTest {
             KetikKuTheme(darkTheme = false) {
                 com.example.ui.screens.DriveBackupConnectedContent(
                     userEmail = "pengguna@gmail.com",
-                    driveFolderName = "KetikKu",
-                    autoSyncEnabled = autoSync,
-                    isOnline = true,
-                    pendingChanges = false,
+                    selectedIntervalMinutes = selectedInterval,
                     statusHeadline = "Tersinkronisasi • Baru saja",
                     statusDotColor = androidx.compose.material3.MaterialTheme.colorScheme.secondary,
                     isSyncing = false,
-                    onToggleAutoSync = { autoSync = it },
+                    onSelectInterval = { selectedInterval = it },
                     onDisconnect = { disconnectClicks++ },
                     onSyncNow = { syncClicks++ }
                 )
@@ -1462,20 +1474,25 @@ class ExampleRobolectricTest {
 
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("drive_sync_status_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("drive_auto_sync_switch").assertIsDisplayed()
+        composeRule.onNodeWithTag("sync_interval_5").assertIsDisplayed()
+        composeRule.onNodeWithTag("sync_interval_15").assertIsDisplayed()
+        composeRule.onNodeWithTag("sync_interval_240").assertIsDisplayed()
+        composeRule.onNodeWithTag("sync_interval_1440").assertIsDisplayed()
         composeRule.onNodeWithTag("drive_disconnect_button").assertIsDisplayed()
         composeRule.onNodeWithTag("drive_sync_now_button").assertIsDisplayed()
-        assertTrue(composeRule.onAllNodesWithText("Folder Drive: KetikKu (Sinkron 2 arah)").fetchSemanticsNodes().isNotEmpty())
 
-        // Removed clutter must not appear
+        // Old switch & verbose clutter must not appear
+        assertTrue(composeRule.onAllNodesWithTag("drive_auto_sync_switch").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Pulihkan Drive").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Lihat JSON").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Riwayat Sinkron Kamus").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("(Ubah)", substring = true).fetchSemanticsNodes().isEmpty())
 
+        composeRule.onNodeWithTag("sync_interval_240").performClick()
         composeRule.onNodeWithTag("drive_sync_now_button").performClick()
         composeRule.onNodeWithTag("drive_disconnect_button").performClick()
         composeRule.waitForIdle()
+        assertEquals(240, selectedInterval)
         assertEquals(1, syncClicks)
         assertEquals(1, disconnectClicks)
     }
@@ -1514,7 +1531,7 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun settingsScreen_aiDictionaryPromptCardCopiesInstructionsToClipboard() {
+    fun settingsScreen_omitsAiDictionaryPromptCardAndShowsCompactHeaderLinks() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SettingsRepository(context)
         val mainViewModel = com.example.ui.MainViewModel(repo)
@@ -1532,20 +1549,13 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("copy_ai_dictionary_prompt_button"))
-        composeRule.onNodeWithTag("ai_dictionary_prompt_card").assertIsDisplayed()
-        val promptCardBounds = composeRule.onNodeWithTag("ai_dictionary_prompt_card").fetchSemanticsNode().boundsInRoot
-        val maxCompactPx = 130f * context.resources.displayMetrics.density
-        assertTrue("AI prompt box should be short and scrollable", promptCardBounds.height <= maxCompactPx)
-        composeRule.onNodeWithTag("copy_ai_dictionary_prompt_button").assertIsDisplayed()
-        composeRule.onNodeWithTag("copy_ai_dictionary_prompt_button").performClick()
-        composeRule.waitForIdle()
-
-        assertTrue(composeRule.onAllNodesWithText("Instruksi Tersalin!").fetchSemanticsNodes().isNotEmpty())
-        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        val copiedText = cm.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
-        assertTrue(copiedText.contains("ketikku_dictionary.json"))
-        assertTrue(copiedText.contains("Jangan sertakan field \"language\""))
+        // AI JSON prompt card has been moved to GitHub Pages and removed from Settings
+        assertTrue(composeRule.onAllNodesWithTag("ai_dictionary_prompt_card").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("copy_ai_dictionary_prompt_button").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithTag("open_drive_sync_sheet_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("open_website_button").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithText("Sinkronisasi").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Web Panduan").fetchSemanticsNodes().isNotEmpty())
     }
 
     @Test
@@ -1797,10 +1807,24 @@ class ExampleRobolectricTest {
 
         composeRule.waitForIdle()
 
-        // 1. Delete empty folder from 3-dot menu -> MUST show confirmation dialog, NOT delete immediately
+        // 1. Folder 3-dot menu must NOT show "Hapus Folder" (only "Ubah Nama" and "Pindahkan")
         composeRule.onNodeWithTag("folder_menu_FolderKosong").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("folder_delete_FolderKosong").performClick()
+        assertTrue(composeRule.onAllNodesWithText("Ubah Nama").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Pindahkan").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("folder_delete_FolderKosong").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Hapus Folder").fetchSemanticsNodes().isEmpty())
+
+        // Dismiss menu cleanly via Pindahkan dialog -> Batal
+        composeRule.onAllNodesWithText("Pindahkan")[0].performClick()
+        composeRule.waitForIdle()
+        composeRule.onAllNodesWithText("Batal")[0].performClick()
+        composeRule.waitForIdle()
+
+        // 2. Delete folder via multi-select -> MUST show confirmation dialog, NOT delete immediately
+        composeRule.onNodeWithTag("folder_item_FolderKosong").performTouchInput { longClick() }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("delete_selected_button").performClick()
         composeRule.waitForIdle()
 
         assertEquals(0, deletedCalls)
@@ -1812,10 +1836,8 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertEquals(0, deletedCalls)
 
-        // Confirm delete empty folder -> deletes after confirmation
-        composeRule.onNodeWithTag("folder_menu_FolderKosong").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("folder_delete_FolderKosong").performClick()
+        // Confirm delete folder -> deletes after confirmation
+        composeRule.onNodeWithTag("delete_selected_button").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("confirm_delete_items_button").performClick()
         composeRule.waitForIdle()
@@ -1824,7 +1846,7 @@ class ExampleRobolectricTest {
         assertEquals(setOf("FolderKosong"), lastDeletedFolders)
         assertTrue(lastDeletedEntries.isEmpty())
 
-        // 2. Delete entry via SelectionActionBar -> MUST show confirmation dialog
+        // 3. Delete entry via SelectionActionBar -> MUST show confirmation dialog
         composeRule.onNodeWithTag("dictionary_item_e1").performTouchInput { longClick() }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("delete_selected_button").performClick()
@@ -1837,7 +1859,116 @@ class ExampleRobolectricTest {
         assertEquals(setOf("e1"), lastDeletedEntries)
     }
 
+    @Test
+    @Config(qualifiers = "w411dp-h891dp")
+    fun dictionaryScreen_sortsShortcutBearingEntriesAbovePlainEntries() {
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "plain_a", word = "Alamat biasa", shortcut = "", folder = "", updatedAtMillis = 100L),
+            PersonalDictionaryEntry(id = "sc_z", word = "Zebra salam", shortcut = "zs", folder = "", updatedAtMillis = 10L),
+            PersonalDictionaryEntry(id = "plain_b", word = "Berkas umum", shortcut = "", folder = "", updatedAtMillis = 90L),
+            PersonalDictionaryEntry(id = "sc_a", word = "Atas perhatian", shortcut = "ap", folder = "", updatedAtMillis = 20L)
+        )
+
+        composeRule.setContent {
+            KetikKuTheme(darkTheme = false) {
+                DictionaryScreen(
+                    settings = KeyboardSettings(),
+                    dictionary = entries,
+                    folders = emptyList(),
+                    onUpsertEntry = { _, _, _, _, _ -> },
+                    onDeleteEntry = {}
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        val scABounds = composeRule.onNodeWithTag("dictionary_item_sc_a").fetchSemanticsNode().boundsInRoot
+        val scZBounds = composeRule.onNodeWithTag("dictionary_item_sc_z").fetchSemanticsNode().boundsInRoot
+        val plainABounds = composeRule.onNodeWithTag("dictionary_item_plain_a").fetchSemanticsNode().boundsInRoot
+        val plainBBounds = composeRule.onNodeWithTag("dictionary_item_plain_b").fetchSemanticsNode().boundsInRoot
+
+        assertTrue("Shortcut 'Atas perhatian' must be above shortcut 'Zebra salam'", scABounds.bottom <= scZBounds.top + 1f)
+        assertTrue("Shortcut 'Zebra salam' must be above plain 'Alamat biasa'", scZBounds.bottom <= plainABounds.top + 1f)
+        assertTrue("Plain 'Alamat biasa' must be above plain 'Berkas umum'", plainABounds.bottom <= plainBBounds.top + 1f)
+    }
+
+    @Test
+    fun inputConnectionImeTarget_reliableEnterAndNewlineFallbacks() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dummyView = android.view.View(context)
+        val sentKeyEvents = mutableListOf<android.view.KeyEvent>()
+        val committedTexts = mutableListOf<String>()
+        val editorActions = mutableListOf<Int>()
+        var performEditorActionResult = false
+        var sendKeyEventResult = true
+        var commitTextResult = true
+
+        val testIc = object : android.view.inputmethod.BaseInputConnection(dummyView, true) {
+            override fun performEditorAction(editorAction: Int): Boolean {
+                editorActions.add(editorAction)
+                return performEditorActionResult
+            }
+            override fun sendKeyEvent(event: android.view.KeyEvent?): Boolean {
+                if (event != null) sentKeyEvents.add(event)
+                return sendKeyEventResult
+            }
+            override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
+                committedTexts.add(text?.toString().orEmpty())
+                return commitTextResult
+            }
+        }
+
+        val target = com.example.ime.KetikKuImeService.InputConnectionImeTarget(
+            icProvider = { testIc },
+            onOpenSettings = {}
+        )
+
+        // 1. insertNewline on normal editor commits "\n"
+        target.onEditorStarted(isRawOrWebCodeEditor = false)
+        target.insertNewline()
+        assertEquals(listOf("\n"), committedTexts)
+        assertTrue(sentKeyEvents.isEmpty())
+
+        // 2. performEnterAction(SEARCH) when performEditorAction returns false -> falls back to hardware ENTER with non-zero uptimeMillis
+        committedTexts.clear()
+        target.performEnterAction(com.example.ime.EnterActionType.SEARCH)
+        assertEquals(listOf(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH), editorActions)
+        assertEquals(2, sentKeyEvents.size)
+        assertEquals(android.view.KeyEvent.KEYCODE_ENTER, sentKeyEvents[0].keyCode)
+        assertTrue("KeyEvent downTime must be non-zero uptimeMillis", sentKeyEvents[0].downTime > 0L)
+
+        // 3. When both performEditorAction and sendKeyEvent return false -> falls back to commitText("\n")
+        sentKeyEvents.clear()
+        committedTexts.clear()
+        sendKeyEventResult = false
+        target.performEnterAction(com.example.ime.EnterActionType.SEND)
+        assertEquals(listOf("\n"), committedTexts)
+
+        // 4. When performEditorAction succeeds -> does not send duplicate key events or "\n"
+        sentKeyEvents.clear()
+        committedTexts.clear()
+        performEditorActionResult = true
+        sendKeyEventResult = true
+        target.performEnterAction(com.example.ime.EnterActionType.GO)
+        assertTrue(sentKeyEvents.isEmpty())
+        assertTrue(committedTexts.isEmpty())
+    }
+
+    @Test
+    fun settingsRepository_syncIntervalMinutesRoundTripInBackupJson() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = SettingsRepository(context)
+
+        val defaultJson = repo.encodeSettingsBackupJson(KeyboardSettings())
+        val decodedDefault = repo.decodeSettingsBackupJson(defaultJson)
+        assertEquals(15, decodedDefault?.settings?.syncIntervalMinutes)
+
+        val customJson = repo.encodeSettingsBackupJson(KeyboardSettings(syncIntervalMinutes = 240))
+        val decodedCustom = repo.decodeSettingsBackupJson(customJson)
+        assertEquals(240, decodedCustom?.settings?.syncIntervalMinutes)
+    }
 }
+
 
 
 
