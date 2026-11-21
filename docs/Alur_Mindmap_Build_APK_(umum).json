@@ -1,33 +1,34 @@
 {
   "title": "Alur Pembuatan & Build APK Android (Umum)",
   "layoutMode": "top-down",
-  "nodeCount": 26,
+  "nodeCount": 27,
   "outline": [
     "Alur Pembuatan & Build APK Android (Umum)",
     "  - 1. Konsep, Identitas & Format Data",
     "    - Gunakan 1 kata Euskara 3 suku kata tanpa diakritik (com.aistudio.<kata>) & ikon adaptif kustom",
     "    - Gunakan Kotlin + Jetpack Compose + Material 3 dengan tema otomatis mengikuti sistem (tanpa pemilih tema)",
-    "    - Rancang skema data seragam (JSON \/ DataStore \/ Room) lengkap dengan updatedAtMillis",
-    "    - Wajib urutan prioritas utama: #1 Sinkronisasi dan #2 Web Panduan (GitHub Pages)",
+    "    - Rancang skema data seragam (JSON / DataStore / Room) lengkap dengan updatedAtMillis",
+    "    - Wajib urutan prioritas utama: #1 Status Akun dan #2 Web Panduan (GitHub Pages)",
     "  - 2. Penyimpanan & Sinkronisasi (Cloud atau Lokal)",
     "    - Sediakan Google Sign-In via Credential Manager & OAuth scope minimal (mis. drive.file)",
-    "    - Daftarkan SHA-1 & SHA-256 (debug dan release) ke Firebase \/ Google Cloud Console [https:\/\/console.cloud.google.com\/auth\/clients\/]",
-    "    - Gunakan sinkronisasi terjadwal 2 arah (5 mnt \/ 15 mnt [default] \/ 4 jam \/ 24 jam) dengan status 1 baris",
-    "    - Izinkan mode pakai langsung tanpa wajib login serta dukungan DataStore\/Room lokal",
+    "    - Daftarkan SHA-1 & SHA-256 (debug dan release) ke Firebase / Google Cloud Console",
+    "    - Gunakan sinkronisasi 2 arah manual per folder di kartu Beranda (tanpa jadwal & tanpa layanan latar belakang)",
+    "    - Izinkan mode pakai langsung tanpa wajib login serta dukungan DataStore/Room lokal",
+    "    - Otomatiskan setup teknis (OAuth, Firebase, SHA-1 debug) oleh AI; beri deep link Google Cloud ramah HP",
     "  - 3. Kurasi Fitur, UI Ringkas & Target Ukuran < 10 MB",
-    "    - Pangkas fitur opsional (termasuk pemilih tema), aset berat, dan dependensi Gradle tak terpakai",
+    "    - Pangkas fitur opsional (pemilih tema, layanan latar belakang, jadwal, kebijakan hapus), aset berat, & dependensi tak terpakai",
     "    - Hapus keterangan berlebih di dalam aplikasi; pindahkan seluruh penjelasan rinci hanya ke GitHub Pages",
-    "    - Gunakan gestur intuitif & mode pilih banyak (Pilih Semua, Pindahkan, Hapus) dalam 1 bilah aksi",
+    "    - Cukup pilih Sumber; nama pasangan & folder default perangkat (/Documents/<nama>) dibuat otomatis",
     "    - Sediakan bilah pencarian cepat di bagian atas layar untuk lompat langsung ke item",
     "  - 4. Pengujian, Kompresi R8 & Verifikasi Build",
     "    - Jalankan Unit Test & Robolectric UI Test untuk logika inti, serialisasi JSON, dan layar Compose",
     "    - Aktifkan R8 (isMinifyEnabled), resource shrinking (isShrinkResources), & ABI arm64-v8a (< 10 MB)",
-    "    - Simpan aturan ProGuard model data agar field JSON\/cloud tetap aman saat minifikasi",
+    "    - Simpan aturan ProGuard model data agar field JSON/cloud tetap aman saat minifikasi",
     "    - Bangun APK rilis lalu verifikasi tanda tangan apksigner dan SHA-256 checksum",
     "  - 5. Otomasi GitHub Release, Keamanan & Iterasi",
     "    - Simpan keystore, password, & google-services.json hanya di GitHub Secrets (bukan di repo)",
     "    - Jalankan GitHub Actions untuk mengunggah APK, CHECKSUMS, & CERT_FINGERPRINT ke GitHub Releases",
-    "    - Pusat seluruh panduan & keterangan rinci hanya di GitHub Pages (tanpa folder APK di repo) [https:\/\/docs.github.com\/en\/pages]",
+    "    - Pusat seluruh panduan & keterangan rinci hanya di GitHub Pages (tanpa folder APK di repo)",
     "    - Evaluasi UX dari penggunaan nyata & pertahankan arsitektur ringan pada setiap pembaruan"
   ],
   "tree": {
@@ -52,12 +53,12 @@
           },
           {
             "id": "a1b2c3d4-1300-4000-8000-000000000001",
-            "title": "Rancang skema data seragam (JSON \/ DataStore \/ Room) lengkap dengan updatedAtMillis",
+            "title": "Rancang skema data seragam (JSON / DataStore / Room) lengkap dengan updatedAtMillis",
             "color": "teal"
           },
           {
             "id": "a1b2c3d4-1400-4000-8000-000000000001",
-            "title": "Wajib urutan prioritas utama: #1 Sinkronisasi dan #2 Web Panduan (GitHub Pages)",
+            "title": "Wajib urutan prioritas utama: #1 Status Akun dan #2 Web Panduan (GitHub Pages)",
             "color": "teal"
           }
         ]
@@ -74,18 +75,23 @@
           },
           {
             "id": "a1b2c3d4-2200-4000-8000-000000000001",
-            "title": "Daftarkan SHA-1 & SHA-256 (debug dan release) ke Firebase \/ Google Cloud Console",
-            "link": "https:\/\/console.cloud.google.com\/auth\/clients\/",
+            "title": "Daftarkan SHA-1 & SHA-256 (debug dan release) ke Firebase / Google Cloud Console",
+            "link": "https://console.cloud.google.com/auth/clients/",
             "color": "cobalt"
           },
           {
             "id": "a1b2c3d4-2300-4000-8000-000000000001",
-            "title": "Gunakan sinkronisasi terjadwal 2 arah (5 mnt \/ 15 mnt [default] \/ 4 jam \/ 24 jam) dengan status 1 baris",
+            "title": "Gunakan sinkronisasi 2 arah manual per folder di kartu Beranda (tanpa jadwal & tanpa layanan latar belakang)",
             "color": "cobalt"
           },
           {
             "id": "a1b2c3d4-2400-4000-8000-000000000001",
-            "title": "Izinkan mode pakai langsung tanpa wajib login serta dukungan DataStore\/Room lokal",
+            "title": "Izinkan mode pakai langsung tanpa wajib login serta dukungan DataStore/Room lokal",
+            "color": "cobalt"
+          },
+          {
+            "id": "a1b2c3d4-2500-4000-8000-000000000001",
+            "title": "Otomatiskan setup teknis (OAuth, Firebase, SHA-1 debug) oleh AI; beri deep link Google Cloud ramah HP",
             "color": "cobalt"
           }
         ]
@@ -97,7 +103,7 @@
         "children": [
           {
             "id": "a1b2c3d4-3100-4000-8000-000000000001",
-            "title": "Pangkas fitur opsional (termasuk pemilih tema), aset berat, dan dependensi Gradle tak terpakai",
+            "title": "Pangkas fitur opsional (pemilih tema, layanan latar belakang, jadwal, kebijakan hapus), aset berat, & dependensi tak terpakai",
             "color": "sage"
           },
           {
@@ -107,7 +113,7 @@
           },
           {
             "id": "a1b2c3d4-3300-4000-8000-000000000001",
-            "title": "Gunakan gestur intuitif & mode pilih banyak (Pilih Semua, Pindahkan, Hapus) dalam 1 bilah aksi",
+            "title": "Cukup pilih Sumber; nama pasangan & folder default perangkat (/Documents/<nama>) dibuat otomatis",
             "color": "sage"
           },
           {
@@ -134,7 +140,7 @@
           },
           {
             "id": "a1b2c3d4-4300-4000-8000-000000000001",
-            "title": "Simpan aturan ProGuard model data agar field JSON\/cloud tetap aman saat minifikasi",
+            "title": "Simpan aturan ProGuard model data agar field JSON/cloud tetap aman saat minifikasi",
             "color": "coral"
           },
           {
@@ -162,7 +168,7 @@
           {
             "id": "a1b2c3d4-5300-4000-8000-000000000001",
             "title": "Pusat seluruh panduan & keterangan rinci hanya di GitHub Pages (tanpa folder APK di repo)",
-            "link": "https:\/\/docs.github.com\/en\/pages",
+            "link": "https://docs.github.com/en/pages",
             "color": "plum"
           },
           {
@@ -174,219 +180,5 @@
       }
     ]
   },
-  "id": "99688076-4cfd-3115-9727-251829985711",
-  "rootNodeId": "a1b2c3d4-0000-4000-8000-000000000001",
-  "createdAt": 1795175371663,
-  "updatedAt": 1795175371663,
-  "schemaVersion": 1,
-  "nodes": [
-    {
-      "id": "a1b2c3d4-0000-4000-8000-000000000001",
-      "parentId": null,
-      "title": "Alur Pembuatan & Build APK Android (Umum)",
-      "note": "",
-      "colorKey": "slate",
-      "orderIndex": 0
-    },
-    {
-      "id": "a1b2c3d4-1000-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-0000-4000-8000-000000000001",
-      "title": "1. Konsep, Identitas & Format Data",
-      "note": "",
-      "colorKey": "teal",
-      "orderIndex": 0
-    },
-    {
-      "id": "a1b2c3d4-1100-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-1000-4000-8000-000000000001",
-      "title": "Gunakan 1 kata Euskara 3 suku kata tanpa diakritik (com.aistudio.<kata>) & ikon adaptif kustom",
-      "note": "",
-      "colorKey": "teal",
-      "orderIndex": 0
-    },
-    {
-      "id": "a1b2c3d4-1200-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-1000-4000-8000-000000000001",
-      "title": "Gunakan Kotlin + Jetpack Compose + Material 3 dengan tema otomatis mengikuti sistem (tanpa pemilih tema)",
-      "note": "",
-      "colorKey": "teal",
-      "orderIndex": 1
-    },
-    {
-      "id": "a1b2c3d4-1300-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-1000-4000-8000-000000000001",
-      "title": "Rancang skema data seragam (JSON \/ DataStore \/ Room) lengkap dengan updatedAtMillis",
-      "note": "",
-      "colorKey": "teal",
-      "orderIndex": 2
-    },
-    {
-      "id": "a1b2c3d4-1400-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-1000-4000-8000-000000000001",
-      "title": "Wajib urutan prioritas utama: #1 Sinkronisasi dan #2 Web Panduan (GitHub Pages)",
-      "note": "",
-      "colorKey": "teal",
-      "orderIndex": 3
-    },
-    {
-      "id": "a1b2c3d4-2000-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-0000-4000-8000-000000000001",
-      "title": "2. Penyimpanan & Sinkronisasi (Cloud atau Lokal)",
-      "note": "",
-      "colorKey": "cobalt",
-      "orderIndex": 1
-    },
-    {
-      "id": "a1b2c3d4-2100-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-2000-4000-8000-000000000001",
-      "title": "Sediakan Google Sign-In via Credential Manager & OAuth scope minimal (mis. drive.file)",
-      "note": "",
-      "colorKey": "cobalt",
-      "orderIndex": 0
-    },
-    {
-      "id": "a1b2c3d4-2200-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-2000-4000-8000-000000000001",
-      "title": "Daftarkan SHA-1 & SHA-256 (debug dan release) ke Firebase \/ Google Cloud Console",
-      "note": "https:\/\/console.cloud.google.com\/auth\/clients\/",
-      "colorKey": "cobalt",
-      "orderIndex": 1
-    },
-    {
-      "id": "a1b2c3d4-2300-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-2000-4000-8000-000000000001",
-      "title": "Gunakan sinkronisasi terjadwal 2 arah (5 mnt \/ 15 mnt [default] \/ 4 jam \/ 24 jam) dengan status 1 baris",
-      "note": "",
-      "colorKey": "cobalt",
-      "orderIndex": 2
-    },
-    {
-      "id": "a1b2c3d4-2400-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-2000-4000-8000-000000000001",
-      "title": "Izinkan mode pakai langsung tanpa wajib login serta dukungan DataStore\/Room lokal",
-      "note": "",
-      "colorKey": "cobalt",
-      "orderIndex": 3
-    },
-    {
-      "id": "a1b2c3d4-3000-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-0000-4000-8000-000000000001",
-      "title": "3. Kurasi Fitur, UI Ringkas & Target Ukuran < 10 MB",
-      "note": "",
-      "colorKey": "sage",
-      "orderIndex": 2
-    },
-    {
-      "id": "a1b2c3d4-3100-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-3000-4000-8000-000000000001",
-      "title": "Pangkas fitur opsional (termasuk pemilih tema), aset berat, dan dependensi Gradle tak terpakai",
-      "note": "",
-      "colorKey": "sage",
-      "orderIndex": 0
-    },
-    {
-      "id": "a1b2c3d4-3200-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-3000-4000-8000-000000000001",
-      "title": "Hapus keterangan berlebih di dalam aplikasi; pindahkan seluruh penjelasan rinci hanya ke GitHub Pages",
-      "note": "",
-      "colorKey": "sage",
-      "orderIndex": 1
-    },
-    {
-      "id": "a1b2c3d4-3300-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-3000-4000-8000-000000000001",
-      "title": "Gunakan gestur intuitif & mode pilih banyak (Pilih Semua, Pindahkan, Hapus) dalam 1 bilah aksi",
-      "note": "",
-      "colorKey": "sage",
-      "orderIndex": 2
-    },
-    {
-      "id": "a1b2c3d4-3400-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-3000-4000-8000-000000000001",
-      "title": "Sediakan bilah pencarian cepat di bagian atas layar untuk lompat langsung ke item",
-      "note": "",
-      "colorKey": "sage",
-      "orderIndex": 3
-    },
-    {
-      "id": "a1b2c3d4-4000-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-0000-4000-8000-000000000001",
-      "title": "4. Pengujian, Kompresi R8 & Verifikasi Build",
-      "note": "",
-      "colorKey": "coral",
-      "orderIndex": 3
-    },
-    {
-      "id": "a1b2c3d4-4100-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-4000-4000-8000-000000000001",
-      "title": "Jalankan Unit Test & Robolectric UI Test untuk logika inti, serialisasi JSON, dan layar Compose",
-      "note": "",
-      "colorKey": "coral",
-      "orderIndex": 0
-    },
-    {
-      "id": "a1b2c3d4-4200-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-4000-4000-8000-000000000001",
-      "title": "Aktifkan R8 (isMinifyEnabled), resource shrinking (isShrinkResources), & ABI arm64-v8a (< 10 MB)",
-      "note": "",
-      "colorKey": "coral",
-      "orderIndex": 1
-    },
-    {
-      "id": "a1b2c3d4-4300-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-4000-4000-8000-000000000001",
-      "title": "Simpan aturan ProGuard model data agar field JSON\/cloud tetap aman saat minifikasi",
-      "note": "",
-      "colorKey": "coral",
-      "orderIndex": 2
-    },
-    {
-      "id": "a1b2c3d4-4400-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-4000-4000-8000-000000000001",
-      "title": "Bangun APK rilis lalu verifikasi tanda tangan apksigner dan SHA-256 checksum",
-      "note": "",
-      "colorKey": "coral",
-      "orderIndex": 3
-    },
-    {
-      "id": "a1b2c3d4-5000-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-0000-4000-8000-000000000001",
-      "title": "5. Otomasi GitHub Release, Keamanan & Iterasi",
-      "note": "",
-      "colorKey": "plum",
-      "orderIndex": 4
-    },
-    {
-      "id": "a1b2c3d4-5100-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-5000-4000-8000-000000000001",
-      "title": "Simpan keystore, password, & google-services.json hanya di GitHub Secrets (bukan di repo)",
-      "note": "",
-      "colorKey": "plum",
-      "orderIndex": 0
-    },
-    {
-      "id": "a1b2c3d4-5200-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-5000-4000-8000-000000000001",
-      "title": "Jalankan GitHub Actions untuk mengunggah APK, CHECKSUMS, & CERT_FINGERPRINT ke GitHub Releases",
-      "note": "",
-      "colorKey": "plum",
-      "orderIndex": 1
-    },
-    {
-      "id": "a1b2c3d4-5300-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-5000-4000-8000-000000000001",
-      "title": "Pusat seluruh panduan & keterangan rinci hanya di GitHub Pages (tanpa folder APK di repo)",
-      "note": "https:\/\/docs.github.com\/en\/pages",
-      "colorKey": "plum",
-      "orderIndex": 2
-    },
-    {
-      "id": "a1b2c3d4-5400-4000-8000-000000000001",
-      "parentId": "a1b2c3d4-5000-4000-8000-000000000001",
-      "title": "Evaluasi UX dari penggunaan nyata & pertahankan arsitektur ringan pada setiap pembaruan",
-      "note": "",
-      "colorKey": "plum",
-      "orderIndex": 3
-    }
-  ]
+  "schemaVersion": 1
 }

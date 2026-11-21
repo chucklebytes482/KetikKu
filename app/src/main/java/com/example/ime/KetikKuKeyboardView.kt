@@ -2023,21 +2023,8 @@ private fun BottomNavigationRow(
         horizontalArrangement = Arrangement.spacedBy(rowGap),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Ctrl key and Symbols key share equal width (1.705f each)
-        CtrlKey(
-            ctrlState = controller.ctrlState,
-            height = keyHeight,
-            palette = palette,
-            isFloating = isFloating,
-            pointerTracker = pointerTracker,
-            slotId = "bottom_ctrl",
-            onTap = {
-                onFeedback()
-                controller.onCtrlTap()
-            },
-            modifier = Modifier.weight(1.705f)
-        )
-
+        // Symbols key (leftmost) enlarged by trimming 20% from Ctrl (0.341f) and 10% from small newline arrow (0.10f)
+        // Weights: Symbols=2.146f, Ctrl=1.364f, Space=2.84f, Period=1.0f, Newline=0.90f, Enter=1.6f (Total=9.85f)
         SpecialActionKey(
             height = keyHeight,
             palette = palette,
@@ -2049,7 +2036,7 @@ private fun BottomNavigationRow(
             slotId = "bottom_symbols",
             onTap = onLeftModeTap,
             modifier = Modifier
-                .weight(1.705f)
+                .weight(2.146f)
                 .testTag("key_symbols")
         ) {
             Text(
@@ -2065,6 +2052,20 @@ private fun BottomNavigationRow(
                 fontStyle = keyFontStyle
             )
         }
+
+        CtrlKey(
+            ctrlState = controller.ctrlState,
+            height = keyHeight,
+            palette = palette,
+            isFloating = isFloating,
+            pointerTracker = pointerTracker,
+            slotId = "bottom_ctrl",
+            onTap = {
+                onFeedback()
+                controller.onCtrlTap()
+            },
+            modifier = Modifier.weight(1.364f)
+        )
 
         // Blank Spacebar trimmed to make room for dedicated newline key left of Enter
         SpacebarTrackpadKey(
@@ -2113,7 +2114,7 @@ private fun BottomNavigationRow(
             modifier = Modifier.weight(1.0f)
         )
 
-        // Dedicated newline arrow key (↵) left of Enter to always insert a line break
+        // Dedicated newline arrow key (↵) left of Enter, trimmed 10% (0.90f) to enlarge Symbols key
         SpecialActionKey(
             height = keyHeight,
             palette = palette,
@@ -2128,7 +2129,7 @@ private fun BottomNavigationRow(
                 controller.onNewlineTap(settings, personalEntries)
             },
             modifier = Modifier
-                .weight(1.0f)
+                .weight(0.90f)
                 .testTag("key_newline")
         ) {
             Icon(

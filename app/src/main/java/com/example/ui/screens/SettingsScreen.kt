@@ -143,14 +143,14 @@ fun SettingsScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.CloudDone,
-                                contentDescription = "Sinkronisasi",
+                                contentDescription = "Google Drive",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Sinkronisasi",
+                                text = "Google Drive",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -164,7 +164,7 @@ fun SettingsScreen(
                         }
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Buka Sinkronisasi",
+                            contentDescription = "Buka Google Drive",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }

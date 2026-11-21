@@ -711,14 +711,10 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
-    fun syncScheduleInterval_parsesValidIntervalsAndDefaultsTo15Minutes() {
-        assertEquals(15, com.example.model.SyncScheduleInterval.DEFAULT.minutes)
-        assertEquals(15, KeyboardSettings().syncIntervalMinutes)
-        assertEquals(com.example.model.SyncScheduleInterval.MINUTES_5, com.example.model.SyncScheduleInterval.fromMinutes(5))
-        assertEquals(com.example.model.SyncScheduleInterval.MINUTES_15, com.example.model.SyncScheduleInterval.fromMinutes(15))
-        assertEquals(com.example.model.SyncScheduleInterval.HOURS_4, com.example.model.SyncScheduleInterval.fromMinutes(240))
-        assertEquals(com.example.model.SyncScheduleInterval.HOURS_24, com.example.model.SyncScheduleInterval.fromMinutes(1440))
-        assertEquals(com.example.model.SyncScheduleInterval.DEFAULT, com.example.model.SyncScheduleInterval.fromMinutes(999))
+    fun keyboardSettings_defaultsDisableBackgroundAutoSync() {
+        val defaults = KeyboardSettings()
+        assertFalse(defaults.autoSyncDriveEnabled)
+        assertEquals("KetikKu", defaults.driveFolderName)
     }
 }
 

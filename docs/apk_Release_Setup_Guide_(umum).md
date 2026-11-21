@@ -4,7 +4,7 @@ Panduan umum ini menjelaskan cara menyiapkan **keystore release**, mengonfiguras
 
 > **Penting:** Panduan ini bersifat umum untuk aplikasi Android berbasis Gradle (Kotlin DSL `.gradle.kts`). Ganti placeholder bertanda `<...>` sesuai identitas proyek Anda.
 > **Penamaan `applicationId` (Euskara):** Gunakan 1 kata asli Euskara 3 suku kata tanpa diakritik dengan format `com.aistudio.<kata>` *(mis. `com.aistudio.lotura`)*. Bila mengganti `applicationId`, perbarui `app/build.gradle.kts`, `proguard-rules.pro`, lalu daftarkan ulang `applicationId` + SHA-1/SHA-256 (debug & release) dan perbarui `google-services.json`.
-> **Standar UI & Sinkronisasi Wajib:** Urutan prioritas utama aplikasi adalah **#1 Sinkronisasi** (jadwal `5 menit` / `15 menit` [default] / `4 jam` / `24 jam`, status 1 baris, tanpa tombol toggle auto-sync) dan **#2 Web Panduan (GitHub Pages)**. Dilarang menyediakan pemilih tema (tema otomatis mengikuti sistem) maupun keterangan berlebih di dalam aplikasi—seluruh dokumentasi rinci hanya ditempatkan di GitHub Pages. Pastikan aturan ProGuard untuk `CoroutineWorker` tetap dipertahankan di `app/proguard-rules.pro`.
+> **Standar UI & Sinkronisasi Wajib:** Urutan prioritas utama aplikasi adalah **#1 Status Akun** (tanpa jadwal & tanpa tombol sinkron global) dan **#2 Web Panduan (GitHub Pages)**, dengan sinkronisasi 2 arah manual per folder langsung pada kartu Beranda. Dilarang menyediakan pemilih tema (tema otomatis mengikuti sistem), layanan latar belakang/jadwal tak perlu, maupun keterangan berlebih di dalam aplikasi—seluruh dokumentasi rinci hanya ditempatkan di GitHub Pages.
 > **Otomasi Teknis (Ramah HP):** Seluruh konfigurasi teknis yang bisa dieksekusi AI (provisioning OAuth/Firebase, pembacaan & pendaftaran SHA-1/SHA-256 debug, `.gitignore`, Gradle R8, ProGuard, workflow CI/CD, dan skrip otomasi `.sh`) **wajib dikerjakan otomatis oleh AI**. Untuk langkah yang hanya bisa diklik dari akun pribadi di Google Cloud Console (yang di HP memerlukan **Mode Desktop / Situs Desktop** agar seluruh menu tampil), selalu gunakan **tautan langsung (*deep link*)** berparameter `?project=<project_id>` beserta nilai siap salin.
 
 ---
@@ -92,11 +92,13 @@ google-services.json
 app/google-services.json
 firebase-applet-config.json
 
-# Direktori output APK sementara
+# Direktori output APK & berkas sementara
 dist/
 releases/
 *.apk
 *.aab
+logs_*.zip
+public/assets/aistudio/
 ```
 
 ---
@@ -170,10 +172,10 @@ android {
 # Pertahankan model data agar serialisasi JSON / Gson / Moshi / Firestore tidak terhapus R8
 -keep class <com.contoh.aplikasi>.model.** { *; }
 
-# Pertahankan WorkManager CoroutineWorker untuk sinkronisasi terjadwal (5m / 15m default / 4j / 24j)
--keep class * extends androidx.work.CoroutineWorker {
-    public <init>(android.content.Context, androidx.work.WorkerParameters);
-}
+# (Opsional — hanya jika proyek menggunakan WorkManager)
+# -keep class * extends androidx.work.CoroutineWorker {
+#     public <init>(android.content.Context, androidx.work.WorkerParameters);
+# }
 
 # Jika memakai kotlinx.serialization
 -keepattributes *Annotation*, InnerClasses
@@ -219,12 +221,13 @@ Salin baris **SHA1** dan **SHA256**, lalu daftarkan ke:
 ## 6. Workflow GitHub Actions Siap Salin (`.github/workflows/release.yml`)
 
 Simpan file berikut sebagai `.github/workflows/release.yml`. Workflow ini:
-1. Menghitung `versionCode` dan `versionName` otomatis dari `baseVersionCode` / `baseVersionName` + `GITHUB_RUN_NUMBER`.
-2. Mendekode `RELEASE_KEYSTORE_BASE64` dan `GOOGLE_SERVICES_JSON_BASE64` (opsional bila tidak memakai Firebase) di runner sementara.
-3. Menjalankan Unit Test & Robolectric (`gradle :app:testDebugUnitTest`).
-4. Merakit APK R8 `arm64-v8a` (`gradle :app:assembleRelease`).
-5. Memverifikasi tanda tangan dengan `apksigner` serta membuat `CERT_FINGERPRINT.txt` & `CHECKSUMS.txt`.
-6. Mengunggah hasilnya ke **Workflow Artifacts** dan **GitHub Releases** tanpa menyimpan biner APK di repositori.
+1. Berjalan otomatis setiap `push` ke `main`/`master` **hanya saat ada perubahan berkas aplikasi** (`app/**`, `gradle/**`, konfigurasi Gradle, atau file workflow itu sendiri — sehingga perubahan dokumentasi di `docs/**` tidak memicu rilis kosong), serta tetap mendukung pemicu manual lewat **Run workflow** (`workflow_dispatch`).
+2. Menghitung `versionCode` dan `versionName` otomatis dari `baseVersionCode` / `baseVersionName`, `GITHUB_RUN_NUMBER`, dan tag versi terakhir agar selalu meningkat dan aman menimpa pemasangan sebelumnya.
+3. Mendekode `RELEASE_KEYSTORE_BASE64` dan `GOOGLE_SERVICES_JSON_BASE64` (opsional bila tidak memakai Firebase) di runner sementara.
+4. Menjalankan Unit Test & Robolectric (`gradle :app:testDebugUnitTest`).
+5. Merakit APK R8 `arm64-v8a` (`gradle :app:assembleRelease`).
+6. Memverifikasi tanda tangan dengan `apksigner` serta membuat `CERT_FINGERPRINT.txt` & `CHECKSUMS.txt`.
+7. Mengunggah hasilnya ke **Workflow Artifacts** dan **GitHub Releases** tanpa menyimpan biner APK di repositori.
 
 > **Catatan:** Ganti nilai `APP_SLUG` dan `APP_DISPLAY_NAME` pada blok `env:` di baris atas sesuai nama aplikasi Anda.
 
@@ -236,6 +239,14 @@ on:
     branches:
       - main
       - master
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.env.example'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
 
 permissions:
@@ -262,14 +273,28 @@ jobs:
       - name: Compute Automatic Version
         shell: bash
         run: |
+          set -euo pipefail
           BASE_CODE=$(grep -E 'baseVersionCode\s*=' app/build.gradle.kts | head -n1 | sed -E 's/[^0-9]*([0-9]+).*/\1/')
           BASE_NAME=$(grep -E 'baseVersionName\s*=' app/build.gradle.kts | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
           BASE_CODE="${BASE_CODE:-1}"
           BASE_NAME="${BASE_NAME:-1.0}"
           RUN_NUM="${GITHUB_RUN_NUMBER:-1}"
 
-          CI_VERSION_CODE=$((BASE_CODE + RUN_NUM))
-          CI_VERSION_NAME="${BASE_NAME}.${RUN_NUM}"
+          ESCAPED_BASE=$(printf '%s' "$BASE_NAME" | sed 's/\./\\./g')
+          MAX_TAG_NUM=$(git ls-remote --tags origin "refs/tags/v${BASE_NAME}.*" 2>/dev/null \
+            | sed -nE "s|.*refs/tags/v${ESCAPED_BASE}\.([0-9]+)$|\1|p" \
+            | sort -n \
+            | tail -n 1 || true)
+          MAX_TAG_NUM="${MAX_TAG_NUM:-0}"
+
+          if [ "$RUN_NUM" -le "$MAX_TAG_NUM" ]; then
+            NEXT_NUM=$((MAX_TAG_NUM + 1))
+          else
+            NEXT_NUM="$RUN_NUM"
+          fi
+
+          CI_VERSION_CODE=$((BASE_CODE + NEXT_NUM))
+          CI_VERSION_NAME="${BASE_NAME}.${NEXT_NUM}"
           VERSION_TAG="v${CI_VERSION_NAME}"
 
           echo "CI_VERSION_CODE=${CI_VERSION_CODE}" >> "$GITHUB_ENV"
@@ -293,7 +318,7 @@ jobs:
             exit 1
           fi
           (yes || true) | "$SDKMANAGER" --licenses >/dev/null
-          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "platforms;android-36.1" "build-tools;36.0.0"
           echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_DIR" >> "$GITHUB_ENV"
 
@@ -308,8 +333,19 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          if [ ! -f debug.keystore ] && [ -f debug.keystore.base64 ]; then
-            tr -d '[:space:]' < debug.keystore.base64 | base64 -d > debug.keystore
+          set -euo pipefail
+          umask 077
+          if [ ! -f debug.keystore ]; then
+            if [ -f debug.keystore.base64 ]; then
+              tr -d '[:space:]' < debug.keystore.base64 | base64 -d > debug.keystore
+            else
+              keytool -genkeypair \
+                -keystore debug.keystore \
+                -alias androiddebugkey \
+                -keyalg RSA -keysize 2048 -validity 10000 \
+                -storepass android -keypass android \
+                -dname "CN=Android Debug, O=Android, C=US" >/dev/null 2>&1
+            fi
           fi
 
           if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
@@ -413,6 +449,11 @@ jobs:
             dist/CHECKSUMS.txt
             dist/CERT_FINGERPRINT.txt
           generate_release_notes: true
+
+      - name: Clean Private Key on Runner
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/upload.jks"
 ```
 
 ---
