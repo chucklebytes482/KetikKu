@@ -461,14 +461,19 @@ class KeyboardController(
             rawChar
         }
 
-        val isWordChar = rawChar.length == 1 && (
+        val isUsedInPersonalShortcut = rawChar.length == 1 && !rawChar[0].isWhitespace() && personalEntries.any {
+            !it.deleted && it.shortcut.isNotBlank() && it.shortcut.contains(rawChar[0], ignoreCase = true)
+        }
+        val isWordChar = (rawChar.length == 1 && (
             rawChar[0].isLetterOrDigit() ||
                 rawChar[0] == '\'' ||
                 rawChar[0] == '@' ||
                 rawChar[0] == '_' ||
-                rawChar[0] == '+'
-            )
-        val isBoundaryPunctuation = rawChar.length == 1 && rawChar[0] in BOUNDARY_PUNCTUATION
+                rawChar[0] == '+' ||
+                rawChar[0] == '-' ||
+                rawChar[0] == '#'
+            )) || isUsedInPersonalShortcut
+        val isBoundaryPunctuation = !isUsedInPersonalShortcut && rawChar.length == 1 && rawChar[0] in BOUNDARY_PUNCTUATION
 
         if (isBoundaryPunctuation) {
             recordCompletedTypedWordIfEligible(personalEntries)
@@ -482,9 +487,26 @@ class KeyboardController(
         }
 
         if (isWordChar) {
-            if (!localContextValid) {
-                // Seed once after external cursor change, never on subsequent rapid characters
+            if (isPasswordField) {
+                // Password boxes mask or withhold getTextBeforeCursor(); track typed shortcut locally instead.
+                if (!localContextValid) {
+                    clearLocalWordBuffer()
+                    localContextValid = true
+                }
+                localWordPlain.append(letterTransformed)
+                localWordRawLengths.add(output.length)
+                localWordRawTotalLen += output.length
+                trimLocalWordBufferToLimit()
+            } else if (!localContextValid) {
+                // Seed once after external cursor change, never on subsequent rapid characters.
+                // If editor hides/masks/lags getTextBeforeCursor() (e.g. WebView/custom box), keep the typed char locally.
                 seedLocalWordFromTarget()
+                if (localWordPlain.isEmpty() || !localWordPlain.toString().endsWith(letterTransformed)) {
+                    localWordPlain.append(letterTransformed)
+                    localWordRawLengths.add(output.length)
+                    localWordRawTotalLen += output.length
+                    trimLocalWordBufferToLimit()
+                }
             } else {
                 localWordPlain.append(letterTransformed)
                 localWordRawLengths.add(output.length)
@@ -567,10 +589,11 @@ class KeyboardController(
             plainWord = pair.second
         }
         val styled = formatOutput(word, settings)
+        val commitValue = if (isPasswordField) styled else "$styled "
         if (plainWord.isNotEmpty() && rawLen > 0) {
-            target.replaceWordBeforeCursor(rawLen, "$styled ")
+            target.replaceWordBeforeCursor(rawLen, commitValue)
         } else {
-            target.commitText("$styled ")
+            target.commitText(commitValue)
         }
         recordWordUsageInternal(word, personalEntries, forceRecord = true)
         localContextValid = true
@@ -738,12 +761,7 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        if (isPasswordField) {
-            if (suggestions.isNotEmpty()) suggestions = emptyList()
-            if (primaryAutoCorrect != null) primaryAutoCorrect = null
-            return
-        }
-        if (!localContextValid) {
+        if (!isPasswordField && !localContextValid) {
             seedLocalWordFromTarget()
         }
         applySuggestionResult(personalEntries)
@@ -817,12 +835,12 @@ class KeyboardController(
     }
 
     private fun applySuggestionResult(personalEntries: List<PersonalDictionaryEntry>) {
-        if (isPasswordField) {
+        val currentWord = localWordPlain.toString()
+        if (isPasswordField && currentWord.isEmpty()) {
             if (suggestions.isNotEmpty()) suggestions = emptyList()
             if (primaryAutoCorrect != null) primaryAutoCorrect = null
             return
         }
-        val currentWord = localWordPlain.toString()
         val result = DictionaryEngine.getSuggestions(
             currentWord = currentWord,
             previousWord = "",

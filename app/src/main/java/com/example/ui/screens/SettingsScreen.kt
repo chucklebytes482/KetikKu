@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -27,9 +29,12 @@ import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
@@ -55,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,8 +72,35 @@ import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.theme.AmberPending
 import com.example.ui.theme.MintSynced
+import kotlinx.coroutines.delay
 
 internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/KetikKu/"
+
+internal const val KETIKKU_GENERAL_AI_PROMPT = """Bantu edit file JSON kamus KetikKu (ketikku_dictionary.json).
+Format wajib (setiap entri memiliki 6 field seragam tanpa field tambahan):
+{
+  "updatedAtMillis": <timestamp_ms_terbaru>,
+  "folders": ["Gmail", "Nomor", "Kerja"],
+  "entries": [
+    {
+      "id": "<id_unik>",
+      "word": "<kalimat_atau_frasa>",
+      "shortcut": "<pintasan_singkat_atau_kosong>",
+      "folder": "<nama_folder_atau_kosong>",
+      "updatedAtMillis": <timestamp_ms_terbaru>,
+      "deleted": false
+    }
+  ]
+}
+Aturan:
+1. Jangan sertakan field "language" atau field tambahan lain.
+2. Setiap entri wajib berisi 6 field: "id", "word", "shortcut", "folder", "updatedAtMillis", "deleted".
+3. Folder hanya 1 tingkat (tanpa subfolder dan tanpa "/"). Gunakan "" jika tanpa shortcut atau tanpa folder.
+4. Cantumkan semua nama folder yang dipakai di array "folders".
+5. Pertahankan entri & "id" lama, lalu kembalikan 1 blok kode JSON valid.
+
+Daftar kalimat, pintasan & folder yang ingin ditambahkan:
+- [tulis daftar data atau folder di sini]"""
 
 @Composable
 fun SettingsScreen(
@@ -325,7 +358,117 @@ fun SettingsScreen(
                 }
             }
 
+            // 6. 1 Prompt AI Umum untuk edit ketikku_dictionary.json
+            item {
+                GeneralAiPromptCard(context = context)
+            }
+
             item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun GeneralAiPromptCard(context: Context) {
+    var copied by remember { mutableStateOf(false) }
+
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(2000L)
+            copied = false
+        }
+    }
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
+            .testTag("ai_dictionary_prompt_card")
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "Prompt AI Umum",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Prompt AI Umum",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Salin instruksi umum untuk edit ketikku_dictionary.json dengan AI",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+            ) {
+                Text(
+                    text = KETIKKU_GENERAL_AI_PROMPT,
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 5,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(10.dp)
+                )
+            }
+
+            Button(
+                onClick = {
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                    cm?.setPrimaryClip(ClipData.newPlainText("Prompt AI KetikKu", KETIKKU_GENERAL_AI_PROMPT))
+                    copied = true
+                },
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .testTag("copy_ai_dictionary_prompt_button")
+            ) {
+                Icon(
+                    imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    text = if (copied) "Prompt Tersalin" else "Salin Prompt AI",
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }

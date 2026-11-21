@@ -108,7 +108,7 @@ fun DictionaryScreen(
         when {
             selectionMode -> clearSelection()
             currentFolderPath.isNotEmpty() -> {
-                currentFolderPath = currentFolderPath.substringBeforeLast('/', missingDelimiterValue = "")
+                currentFolderPath = ""
             }
         }
     }
@@ -123,15 +123,12 @@ fun DictionaryScreen(
     val q = dictSearchQuery.trim().lowercase()
     val isSearching = q.isNotEmpty()
 
-    // Direct child folders under currentFolderPath (order strictly preserved: Gmail, Nomor, newest custom folders first)
+    // Flat folders only: shown at Utama (root) or during global search; never nested inside another folder
     val visibleFolders = remember(allOrderedFolders, currentFolderPath, q, isSearching) {
-        if (isSearching) {
-            allOrderedFolders.filter { it.lowercase().contains(q) }
-        } else {
-            allOrderedFolders.filter { path ->
-                val parent = path.substringBeforeLast('/', missingDelimiterValue = "")
-                parent == currentFolderPath
-            }
+        when {
+            isSearching -> allOrderedFolders.filter { it.lowercase().contains(q) }
+            currentFolderPath.isEmpty() -> allOrderedFolders
+            else -> emptyList()
         }
     }
 
@@ -156,18 +153,11 @@ fun DictionaryScreen(
         }
     }
 
-    val folderStatsMap = remember(allOrderedFolders, activeEntriesAll) {
-        allOrderedFolders.associateWith { folderPath ->
-            val directSubfolders = allOrderedFolders.count { sub ->
-                sub.substringBeforeLast('/', missingDelimiterValue = "") == folderPath
+    val folderEntryCountMap = remember(allOrderedFolders, activeEntriesAll) {
+        allOrderedFolders.associateWith { folderName ->
+            activeEntriesAll.count {
+                SettingsRepository.normalizeFolderPath(it.folder) == folderName
             }
-            val directEntries = activeEntriesAll.count {
-                SettingsRepository.normalizeFolderPath(it.folder) == folderPath
-            }
-            val recursiveEntries = activeEntriesAll.count {
-                SettingsRepository.isSameOrDescendantFolder(it.folder, folderPath)
-            }
-            Triple(directSubfolders, directEntries, recursiveEntries)
         }
     }
 
@@ -265,7 +255,7 @@ fun DictionaryScreen(
                                 text = if (currentFolderPath.isEmpty()) {
                                     "$totalCount kata • ${allOrderedFolders.size} folder"
                                 } else {
-                                    "${visibleEntries.size} kata • ${visibleFolders.size} subfolder"
+                                    "${visibleEntries.size} kata"
                                 },
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onBackground,
@@ -296,17 +286,19 @@ fun DictionaryScreen(
                             }
                         }
 
-                        OutlinedButton(
-                            onClick = { showNewFolderDialog = true },
-                            shape = RoundedCornerShape(14.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                            modifier = Modifier
-                                .height(48.dp)
-                                .testTag("add_folder_button")
-                        ) {
-                            Icon(Icons.Default.CreateNewFolder, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Folder")
+                        if (currentFolderPath.isEmpty()) {
+                            OutlinedButton(
+                                onClick = { showNewFolderDialog = true },
+                                shape = RoundedCornerShape(14.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .testTag("add_folder_button")
+                            ) {
+                                Icon(Icons.Default.CreateNewFolder, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Folder")
+                            }
                         }
 
                         Button(
@@ -348,7 +340,7 @@ fun DictionaryScreen(
                             Text(
                                 text = when {
                                     isSearching -> "Tidak ada folder atau kata yang cocok dengan \"$dictSearchQuery\"."
-                                    currentFolderPath.isNotEmpty() -> "Folder \"$currentFolderPath\" masih kosong. Tambah subfolder atau kata di sini."
+                                    currentFolderPath.isNotEmpty() -> "Folder \"$currentFolderPath\" masih kosong. Tambah kata di sini."
                                     else -> "Kamus pribadi masih kosong. Tekan Kata atau Folder untuk memulai."
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
@@ -358,35 +350,33 @@ fun DictionaryScreen(
                     }
                 }
             } else {
-                // 1. Folder rows (Utama: Gmail -> Nomor -> Custom folders newest-first; Subfolder: child folders)
-                items(visibleFolders, key = { "folder:$it" }) { folderPath ->
-                    val stats = folderStatsMap[folderPath] ?: Triple(0, 0, 0)
-                    val isSelected = folderPath in selectedFolderPaths
+                // 1. Folder rows (Utama: Gmail -> Nomor -> Custom folders newest-first, single-level only)
+                items(visibleFolders, key = { "folder:$it" }) { folderName ->
+                    val entryCount = folderEntryCountMap[folderName] ?: 0
+                    val isSelected = folderName in selectedFolderPaths
                     FolderRowCard(
-                        folderPath = folderPath,
-                        displayLabel = if (isSearching) folderPath else folderPath.substringAfterLast('/'),
-                        subfolderCount = stats.first,
-                        recursiveEntryCount = stats.third,
+                        folderName = folderName,
+                        entryCount = entryCount,
                         selectionMode = selectionMode,
                         selected = isSelected,
                         onTap = {
                             if (selectionMode) {
                                 selectedFolderPaths = if (isSelected) {
-                                    selectedFolderPaths - folderPath
+                                    selectedFolderPaths - folderName
                                 } else {
-                                    selectedFolderPaths + folderPath
+                                    selectedFolderPaths + folderName
                                 }
                             } else {
                                 dictSearchQuery = ""
-                                currentFolderPath = folderPath
+                                currentFolderPath = folderName
                             }
                         },
                         onLongPress = {
                             selectionMode = true
-                            selectedFolderPaths = selectedFolderPaths + folderPath
+                            selectedFolderPaths = selectedFolderPaths + folderName
                         },
-                        onRename = { renamingFolderPath = folderPath },
-                        onMove = { moveRequest = emptySet<String>() to setOf(folderPath) }
+                        onRename = { renamingFolderPath = folderName },
+                        onMove = { moveRequest = emptySet<String>() to setOf(folderName) }
                     )
                 }
 
@@ -439,14 +429,13 @@ fun DictionaryScreen(
 
     if (showNewFolderDialog) {
         FolderNameDialog(
-            title = if (currentFolderPath.isEmpty()) "Buat Folder Baru" else "Buat Subfolder di $currentFolderPath",
+            title = "Buat Folder Baru",
             initialValue = "",
             confirmLabel = "Buat",
-            hint = "Nama folder (boleh pakai / untuk subfolder)",
+            hint = "Nama folder",
             onDismiss = { showNewFolderDialog = false },
             onConfirm = { rawName ->
-                val combined = if (currentFolderPath.isEmpty()) rawName else "$currentFolderPath/$rawName"
-                val norm = SettingsRepository.normalizeFolderPath(combined)
+                val norm = SettingsRepository.normalizeFolderPath(rawName)
                 if (norm.isNotEmpty()) {
                     onCreateFolder(norm)
                 }
@@ -458,25 +447,15 @@ fun DictionaryScreen(
     renamingFolderPath?.let { targetOldPath ->
         FolderNameDialog(
             title = "Ubah Nama Folder",
-            initialValue = targetOldPath.substringAfterLast('/'),
+            initialValue = targetOldPath,
             confirmLabel = "Simpan",
             hint = "Nama folder baru",
             onDismiss = { renamingFolderPath = null },
-            onConfirm = { newLeaf ->
-                onRenameFolder(targetOldPath, newLeaf)
-                if (SettingsRepository.isSameOrDescendantFolder(currentFolderPath, targetOldPath)) {
-                    val parent = targetOldPath.substringBeforeLast('/', missingDelimiterValue = "")
-                    val cleaned = newLeaf.replace('/', ' ').replace('\\', ' ').trim()
-                    val newPrefix = SettingsRepository.normalizeFolderPath(
-                        if (parent.isEmpty()) cleaned else "$parent/$cleaned"
-                    )
-                    if (newPrefix.isNotEmpty()) {
-                        currentFolderPath = SettingsRepository.rewriteFolderPrefix(
-                            currentFolderPath,
-                            targetOldPath,
-                            newPrefix
-                        )
-                    }
+            onConfirm = { newName ->
+                onRenameFolder(targetOldPath, newName)
+                val normalizedNew = SettingsRepository.normalizeFolderPath(newName)
+                if (currentFolderPath == targetOldPath && normalizedNew.isNotEmpty()) {
+                    currentFolderPath = normalizedNew
                 }
                 renamingFolderPath = null
             }
@@ -524,9 +503,6 @@ private fun FolderBreadcrumbBar(
     currentFolderPath: String,
     onNavigateToFolder: (String) -> Unit
 ) {
-    val segments = remember(currentFolderPath) {
-        currentFolderPath.split('/').filter { it.isNotBlank() }
-    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -563,34 +539,24 @@ private fun FolderBreadcrumbBar(
             }
         }
 
-        segments.forEachIndexed { idx, segment ->
-            val pathUpToHere = segments.subList(0, idx + 1).joinToString("/")
-            val isCurrent = idx == segments.lastIndex
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp)
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp)
+        )
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.clip(RoundedCornerShape(10.dp))
+        ) {
+            Text(
+                text = currentFolderPath,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
             )
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = if (isCurrent) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
-                },
-                modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable(enabled = !isCurrent) { onNavigateToFolder(pathUpToHere) }
-            ) {
-                Text(
-                    text = segment,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                )
-            }
         }
     }
 }
@@ -672,10 +638,8 @@ private fun SelectionActionBar(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FolderRowCard(
-    folderPath: String,
-    displayLabel: String,
-    subfolderCount: Int,
-    recursiveEntryCount: Int,
+    folderName: String,
+    entryCount: Int,
     selectionMode: Boolean,
     selected: Boolean,
     onTap: () -> Unit,
@@ -684,15 +648,11 @@ private fun FolderRowCard(
     onMove: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    val folderIcon = when (folderPath) {
+    val folderIcon = when (folderName) {
         SettingsRepository.FOLDER_GMAIL -> Icons.Default.Email
         SettingsRepository.FOLDER_NOMOR -> Icons.Default.Phone
         else -> Icons.Default.Folder
     }
-    val subtitle = buildList {
-        if (subfolderCount > 0) add("$subfolderCount subfolder")
-        add("$recursiveEntryCount kata")
-    }.joinToString(" • ")
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -709,7 +669,7 @@ private fun FolderRowCard(
                 onClick = onTap,
                 onLongClick = onLongPress
             )
-            .testTag("folder_item_${folderPath.replace('/', '_')}")
+            .testTag("folder_item_${folderName.replace('/', '_')}")
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -733,7 +693,7 @@ private fun FolderRowCard(
                 ) {
                     Icon(
                         imageVector = folderIcon,
-                        contentDescription = "Folder $displayLabel",
+                        contentDescription = "Folder $folderName",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(21.dp)
                     )
@@ -742,7 +702,7 @@ private fun FolderRowCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = displayLabel,
+                    text = folderName,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -750,7 +710,7 @@ private fun FolderRowCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = subtitle,
+                    text = "$entryCount kata",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -762,11 +722,11 @@ private fun FolderRowCard(
                         onClick = { menuExpanded = true },
                         modifier = Modifier
                             .size(48.dp)
-                            .testTag("folder_menu_${folderPath.replace('/', '_')}")
+                            .testTag("folder_menu_${folderName.replace('/', '_')}")
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Opsi folder $displayLabel",
+                            contentDescription = "Opsi folder $folderName",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }

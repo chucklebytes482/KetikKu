@@ -1476,17 +1476,18 @@ private val QWERTY_ROW_2 = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
 private val QWERTY_ROW_3 = listOf("z", "x", "c", "v", "b", "n", "m")
 
 // Same geometry as QWERTY: 10 / 9 / (1.45 + 7 + 1.45) slots.
+// Panel 1: angka, matematika, dan 4 tombol panah penggerak kursor (← → ↑ ↓).
 private val SYMBOLS_1_ROWS = listOf(
     listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
     listOf("@", "#", "$", "_", "&", "-", "+", "×", "÷"),
     listOf("=", "%", "/", "←", "→", "↑", "↓")
 )
 
-// Panel 2: simbol standar unik tanpa duplikat dari pintasan tekan lama QWERTY, baris bawah (.,), maupun Panel 1 (10 / 9 / 7).
+// Panel 2: simbol standar unik + simbol panah literal (← → ↑ ↓) tanpa simbol jarang dipakai (✗€£≠©®) maupun duplikat pintasan QWERTY (10 / 9 / 7).
 private val SYMBOLS_2_ROWS = listOf(
-    listOf("✓", "✗", "Rp", "€", "£", "^", "•", "`", "~", "|"),
+    listOf("✓", "Rp", "←", "→", "↑", "↓", "^", "•", "~", "|"),
     listOf("<", ">", "{", "}", "[", "]", "\\", "°", "±"),
-    listOf("≠", "©", "®", "😂", "😍", "👍", "🙏")
+    listOf("`", "…", "🔥", "😂", "😍", "👍", "🙏")
 )
 
 private val NUMPAD_ROWS = listOf(
@@ -1809,34 +1810,70 @@ private fun SymbolsKeyboardGrid(
                             }
                         }
                         rowSymbols.forEach { sym ->
-                            val symFontSize = if (sym.length > 1) {
-                                if (isFloating) 11.sp else 13.sp
-                            } else {
-                                baseFontSize
-                            }
-                            CharKey(
-                                label = sym,
-                                hint = null,
-                                height = keyHeight,
-                                palette = palette,
-                                bordered = true,
-                                fontFamily = keyFontFamily,
-                                fontStyle = keyFontStyle,
-                                fontSize = symFontSize,
-                                pointerTracker = pointerTracker,
-                                slotId = "sym_${if (isPageTwoSelected) 2 else 1}_$sym",
-                                onTap = {
-                                    onFeedback()
-                                    controller.onCharacterTap(
-                                        rawChar = sym,
-                                        settings = settings,
-                                        personalEntries = personalEntries,
-                                        onCopyResult = onCopySelectionToClipboard,
-                                        onPasteRequest = onRequestCtrlPaste
+                            val isPanel1CursorArrow = !isPageTwoSelected &&
+                                (sym == "←" || sym == "→" || sym == "↑" || sym == "↓")
+                            if (isPanel1CursorArrow) {
+                                val (dx, dy, arrowDesc) = when (sym) {
+                                    "←" -> Triple(-1, 0, "Geser kursor kiri")
+                                    "→" -> Triple(1, 0, "Geser kursor kanan")
+                                    "↑" -> Triple(0, -1, "Geser kursor atas")
+                                    else -> Triple(0, 1, "Geser kursor bawah")
+                                }
+                                SpecialActionKey(
+                                    height = keyHeight,
+                                    palette = palette,
+                                    bordered = true,
+                                    highlighted = false,
+                                    contentDescription = arrowDesc,
+                                    pointerTracker = pointerTracker,
+                                    slotId = "sym_cursor_$sym",
+                                    onTap = {
+                                        onFeedback()
+                                        controller.onArrowMove(dx, dy)
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("key_$sym")
+                                ) {
+                                    Text(
+                                        text = sym,
+                                        color = palette.keyText,
+                                        fontSize = baseFontSize,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontFamily = keyFontFamily,
+                                        fontStyle = keyFontStyle
                                     )
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
+                                }
+                            } else {
+                                val symFontSize = if (sym.length > 1) {
+                                    if (isFloating) 11.sp else 13.sp
+                                } else {
+                                    baseFontSize
+                                }
+                                CharKey(
+                                    label = sym,
+                                    hint = null,
+                                    height = keyHeight,
+                                    palette = palette,
+                                    bordered = true,
+                                    fontFamily = keyFontFamily,
+                                    fontStyle = keyFontStyle,
+                                    fontSize = symFontSize,
+                                    pointerTracker = pointerTracker,
+                                    slotId = "sym_${if (isPageTwoSelected) 2 else 1}_$sym",
+                                    onTap = {
+                                        onFeedback()
+                                        controller.onCharacterTap(
+                                            rawChar = sym,
+                                            settings = settings,
+                                            personalEntries = personalEntries,
+                                            onCopyResult = onCopySelectionToClipboard,
+                                            onPasteRequest = onRequestCtrlPaste
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
                         if (rowIndex == 2) {
                             BackspaceKey(
@@ -2019,8 +2056,8 @@ private fun BottomNavigationRow(
         horizontalArrangement = Arrangement.spacedBy(rowGap),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Symbols key (leftmost) enlarged by trimming 20% from Ctrl (0.341f) and 10% from small newline arrow (0.10f)
-        // Weights: Symbols=2.146f, Ctrl=1.364f, Space=2.84f, Period=1.0f, Newline=0.90f, Enter=1.6f (Total=9.85f)
+        // Spacebar enlarged by removing small newline arrow (0.90f) and trimming 10% from Symbols key (2.146f -> 1.931f, freeing 0.215f)
+        // Weights: Symbols=1.931f, Ctrl=1.364f, Space=3.955f, Period=1.0f, Enter=1.6f (Total=9.85f)
         SpecialActionKey(
             height = keyHeight,
             palette = palette,
@@ -2032,7 +2069,7 @@ private fun BottomNavigationRow(
             slotId = "bottom_symbols",
             onTap = onLeftModeTap,
             modifier = Modifier
-                .weight(2.146f)
+                .weight(1.931f)
                 .testTag("key_symbols")
         ) {
             Text(
@@ -2063,7 +2100,7 @@ private fun BottomNavigationRow(
             modifier = Modifier.weight(1.364f)
         )
 
-        // Blank Spacebar trimmed to make room for dedicated newline key left of Enter
+        // Enlarged Spacebar trackpad key
         SpacebarTrackpadKey(
             height = keyHeight,
             palette = palette,
@@ -2080,7 +2117,7 @@ private fun BottomNavigationRow(
                 onFeedback()
                 controller.onSpacebarTrackpadStep(step)
             },
-            modifier = Modifier.weight(2.84f)
+            modifier = Modifier.weight(3.955f)
         )
 
         // Combined period / comma key
@@ -2109,32 +2146,6 @@ private fun BottomNavigationRow(
             onLongPressCancel = onClearPopup,
             modifier = Modifier.weight(1.0f)
         )
-
-        // Dedicated newline arrow key (↵) left of Enter, trimmed 10% (0.90f) to enlarge Symbols key
-        SpecialActionKey(
-            height = keyHeight,
-            palette = palette,
-            bordered = true,
-            highlighted = false,
-            useAccentFill = false,
-            contentDescription = "Baris baru",
-            pointerTracker = pointerTracker,
-            slotId = "bottom_newline",
-            onTap = {
-                onFeedback()
-                controller.onNewlineTap(settings, personalEntries)
-            },
-            modifier = Modifier
-                .weight(0.90f)
-                .testTag("key_newline")
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
-                contentDescription = "Baris baru",
-                tint = palette.keyText,
-                modifier = Modifier.size(if (isFloating) 16.dp else 19.dp)
-            )
-        }
 
         SpecialActionKey(
             height = keyHeight,

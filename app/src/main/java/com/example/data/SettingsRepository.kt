@@ -313,12 +313,7 @@ class SettingsRepository(
     suspend fun renameFolder(oldPath: String, newNameOrPath: String) {
         val normOld = normalizeFolderPath(oldPath)
         if (normOld.isEmpty()) return
-        val parent = normOld.substringBeforeLast('/', missingDelimiterValue = "")
-        val cleanedLeaf = newNameOrPath.replace('/', ' ').replace('\\', ' ').trim()
-        if (cleanedLeaf.isEmpty()) return
-        val normNew = normalizeFolderPath(
-            if (parent.isEmpty()) cleanedLeaf else "$parent/$cleanedLeaf"
-        )
+        val normNew = normalizeFolderPath(newNameOrPath)
         if (normNew.isEmpty() || normNew == normOld) return
 
         val now = System.currentTimeMillis()
@@ -352,7 +347,7 @@ class SettingsRepository(
         targetFolderPath: String
     ) {
         val normTarget = normalizeFolderPath(targetFolderPath)
-        val normSources = folderPaths.map(::normalizeFolderPath).filter { it.isNotEmpty() }
+        val normSources = folderPaths.map(::normalizeFolderPath).filter { it.isNotEmpty() }.toSet()
         if (entryIds.isEmpty() && normSources.isEmpty()) return
 
         val now = System.currentTimeMillis()
@@ -363,51 +358,22 @@ class SettingsRepository(
                 entries = currentEntries
             )
 
-            // Build top-level folder move mapping (skip moving a folder into itself or its descendant)
-            val topMoves = normSources
-                .filter { src ->
-                    normTarget != src && !normTarget.startsWith("$src/")
-                }
-                .map { src ->
-                    val leaf = src.substringAfterLast('/')
-                    val dest = normalizeFolderPath(if (normTarget.isEmpty()) leaf else "$normTarget/$leaf")
-                    src to dest
-                }
-                .filter { (src, dest) -> dest.isNotEmpty() && src != dest }
-
+            // Flat folders only: moving entries or merging a folder moves matching entries directly into normTarget.
+            val foldersToMerge = normSources.filter { it != normTarget }.toSet()
             val updatedEntries = currentEntries.map { entry ->
-                var nextFolder = entry.folder
-                var changed = false
-                if (entry.id in entryIds && entry.folder != normTarget) {
-                    nextFolder = normTarget
-                    changed = true
+                val normEntryFolder = normalizeFolderPath(entry.folder)
+                val shouldMove = entry.id in entryIds || normEntryFolder in foldersToMerge
+                if (shouldMove && normEntryFolder != normTarget) {
+                    entry.copy(folder = normTarget, updatedAtMillis = now)
+                } else {
+                    entry
                 }
-                for ((src, dest) in topMoves) {
-                    val shifted = rewriteFolderPrefix(nextFolder, src, dest)
-                    if (shifted != nextFolder) {
-                        nextFolder = shifted
-                        changed = true
-                    }
-                }
-                if (changed) entry.copy(folder = nextFolder, updatedAtMillis = now) else entry
             }
 
-            val updatedFoldersRaw = currentFolders.map { folderPath ->
-                var next = folderPath
-                for ((src, dest) in topMoves) {
-                    val shifted = rewriteFolderPrefix(next, src, dest)
-                    if (shifted != next) {
-                        next = shifted
-                    }
-                }
-                next
-            }
-            val addedFolders = buildList {
-                if (normTarget.isNotEmpty()) add(normTarget)
-                topMoves.forEach { (_, dest) -> add(dest) }
-            }
+            val remainingFolders = currentFolders.filterNot { it in foldersToMerge }
+            val addedFolders = if (normTarget.isNotEmpty()) listOf(normTarget) else emptyList()
             val finalFolders = prependFoldersToStorage(
-                existingFolders = updatedFoldersRaw,
+                existingFolders = remainingFolders,
                 newFolderPaths = addedFolders,
                 entries = updatedEntries
             )
@@ -906,35 +872,28 @@ class SettingsRepository(
 
         fun normalizeFolderPath(raw: String?): String {
             if (raw.isNullOrBlank()) return ""
-            val segments = raw.replace('\\', '/')
-                .split('/')
-                .map { it.trim() }
-                .filter { it.isNotEmpty() && it != "." && it != ".." }
-            if (segments.isEmpty()) return ""
-            val adjusted = segments.toMutableList()
-            when {
-                adjusted[0].equals(FOLDER_GMAIL, ignoreCase = true) -> adjusted[0] = FOLDER_GMAIL
-                adjusted[0].equals(FOLDER_NOMOR, ignoreCase = true) -> adjusted[0] = FOLDER_NOMOR
+            val cleaned = raw.replace('\\', ' ')
+                .replace('/', ' ')
+                .trim()
+                .replace(Regex("\\s+"), " ")
+            if (cleaned.isEmpty() || cleaned == "." || cleaned == "..") return ""
+            return when {
+                cleaned.equals(FOLDER_GMAIL, ignoreCase = true) -> FOLDER_GMAIL
+                cleaned.equals(FOLDER_NOMOR, ignoreCase = true) -> FOLDER_NOMOR
+                else -> cleaned
             }
-            return adjusted.joinToString("/")
         }
 
         fun expandFolderAncestors(path: String): List<String> {
             val normalized = normalizeFolderPath(path)
-            if (normalized.isEmpty()) return emptyList()
-            val parts = normalized.split('/')
-            return buildList(parts.size) {
-                for (i in 1..parts.size) {
-                    add(parts.subList(0, i).joinToString("/"))
-                }
-            }
+            return if (normalized.isEmpty()) emptyList() else listOf(normalized)
         }
 
         fun isSameOrDescendantFolder(path: String, parent: String): Boolean {
             val normPath = normalizeFolderPath(path)
             val normParent = normalizeFolderPath(parent)
             if (normParent.isEmpty()) return false
-            return normPath == normParent || normPath.startsWith("$normParent/")
+            return normPath == normParent
         }
 
         fun rewriteFolderPrefix(path: String, oldPrefix: String, newPrefix: String): String {
@@ -942,18 +901,13 @@ class SettingsRepository(
             val normOld = normalizeFolderPath(oldPrefix)
             val normNew = normalizeFolderPath(newPrefix)
             if (normOld.isEmpty() || normNew.isEmpty()) return normPath
-            return when {
-                normPath == normOld -> normNew
-                normPath.startsWith("$normOld/") -> "$normNew/${normPath.removePrefix("$normOld/")}"
-                else -> normPath
-            }
+            return if (normPath == normOld) normNew else normPath
         }
 
         /**
-         * Preserves ordered folder list:
-         * - Root auto-folders pinned at top in exact order: "Gmail", then "Nomor" (if present).
+         * Preserves ordered single-level folder list (no subfolders):
+         * - Auto-folders pinned at top in exact order: "Gmail", then "Nomor" (if present).
          * - All other custom folders preserve existing order (newest-first on creation).
-         * - Ancestors for active entry folders are automatically ensured.
          */
         fun normalizeOrderedFolders(
             explicitFolders: List<String>,
@@ -961,11 +915,13 @@ class SettingsRepository(
         ): List<String> {
             val orderedAll = linkedSetOf<String>()
             explicitFolders.forEach { raw ->
-                expandFolderAncestors(raw).forEach { orderedAll.add(it) }
+                val norm = normalizeFolderPath(raw)
+                if (norm.isNotEmpty()) orderedAll.add(norm)
             }
             entries.forEach { entry ->
                 if (!entry.deleted && entry.folder.isNotBlank()) {
-                    expandFolderAncestors(entry.folder).forEach { orderedAll.add(it) }
+                    val norm = normalizeFolderPath(entry.folder)
+                    if (norm.isNotEmpty()) orderedAll.add(norm)
                 }
             }
 
@@ -989,10 +945,9 @@ class SettingsRepository(
             val existingSet = existingNorm.toHashSet()
             val addedInOrder = linkedSetOf<String>()
             newFolderPaths.asReversed().forEach { raw ->
-                expandFolderAncestors(raw).forEach { ancestor ->
-                    if (!existingSet.contains(ancestor)) {
-                        addedInOrder.add(ancestor)
-                    }
+                val norm = normalizeFolderPath(raw)
+                if (norm.isNotEmpty() && !existingSet.contains(norm)) {
+                    addedInOrder.add(norm)
                 }
             }
             // Newly created custom folders go before existing custom folders (Gmail & Nomor stay pinned first via normalizeOrderedFolders)

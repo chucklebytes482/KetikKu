@@ -619,7 +619,7 @@ class KeyboardEngineUnitTest {
     @Test
     fun folderedPersonalDictionaryEntries_remainActiveForShortcutsAndPrefixSuggestions() {
         val folderedEntries = listOf(
-            PersonalDictionaryEntry(id = "f1", word = "CS siap membantu kakak!", shortcut = "csok", folder = "Kerja/CS", updatedAtMillis = 10L),
+            PersonalDictionaryEntry(id = "f1", word = "CS siap membantu kakak!", shortcut = "csok", folder = "Kerja", updatedAtMillis = 10L),
             PersonalDictionaryEntry(id = "f2", word = "csresmi2026@gmail.com", shortcut = "", folder = "Gmail", updatedAtMillis = 11L),
             PersonalDictionaryEntry(id = "f3", word = "081234567890", shortcut = "", folder = "Nomor", updatedAtMillis = 12L)
         )
@@ -722,6 +722,77 @@ class KeyboardEngineUnitTest {
         val defaults = KeyboardSettings()
         assertFalse(defaults.autoSyncDriveEnabled)
         assertEquals("KetikKu", defaults.driveFolderName)
+    }
+
+    @Test
+    fun settingsRepository_normalizeFolderPathFlattensSubfolders() {
+        assertEquals("Kerja CS", SettingsRepository.normalizeFolderPath("Kerja/CS"))
+        assertEquals("Kerja CS", SettingsRepository.normalizeFolderPath("  Kerja \\ CS  "))
+        assertEquals("Gmail", SettingsRepository.normalizeFolderPath("gmail"))
+        assertEquals("Nomor", SettingsRepository.normalizeFolderPath("nomor"))
+        assertEquals("", SettingsRepository.normalizeFolderPath("///"))
+        assertFalse(SettingsRepository.normalizeFolderPath("A/B/C").contains('/'))
+    }
+
+    @Test
+    fun keyboardController_personalShortcutsWorkInPasswordAndMaskedFieldsWithoutTrailingSpace() {
+        var committedText = ""
+        val maskedTarget = object : com.example.ime.ImeTarget {
+            override fun getTextBeforeCursor(n: Int): String = ""
+            override fun getSelectedText(): String = ""
+            override fun commitText(text: String) {
+                committedText += text
+            }
+            override fun deleteBeforeCursor(count: Int) {
+                committedText = committedText.dropLast(count.coerceAtMost(committedText.length))
+            }
+            override fun replaceWordBeforeCursor(oldWordLength: Int, newText: String) {
+                committedText = committedText.dropLast(oldWordLength.coerceAtMost(committedText.length)) + newText
+            }
+            override fun moveCursor(delta: Int, extendSelection: Boolean) {}
+            override fun moveCursorVertical(deltaLines: Int) {}
+            override fun moveCursorToEdge(toStart: Boolean) {}
+            override fun selectAll() {}
+            override fun performEnterAction(actionType: com.example.ime.EnterActionType) {}
+        }
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "p1", word = "KunciRahasia#99", shortcut = "kr", updatedAtMillis = 1L),
+            PersonalDictionaryEntry(id = "p2", word = "admin@contoh.id", shortcut = ";em", updatedAtMillis = 2L)
+        )
+        val settings = KeyboardSettings()
+        val controller = KeyboardController(maskedTarget)
+
+        // 1. Password field with hidden getTextBeforeCursor()
+        controller.configureForEditor(
+            isNumeric = false,
+            isPassword = true,
+            actionType = com.example.ime.EnterActionType.DONE,
+            settings = settings,
+            personalEntries = entries
+        )
+        assertTrue(controller.suggestions.isEmpty())
+        controller.onCharacterTap("k", settings, entries)
+        controller.onCharacterTap("r", settings, entries)
+        assertTrue(controller.suggestions.contains("KunciRahasia#99"))
+        controller.onSuggestionTap("KunciRahasia#99", settings, entries)
+        assertEquals("KunciRahasia#99", committedText)
+        assertTrue(controller.getPersonalitySnapshot().isEmpty())
+
+        // 2. Non-password WebView/masked field (empty getTextBeforeCursor) + symbol-prefixed shortcut ";em"
+        committedText = ""
+        controller.configureForEditor(
+            isNumeric = false,
+            isPassword = false,
+            actionType = com.example.ime.EnterActionType.SEARCH,
+            settings = settings,
+            personalEntries = entries
+        )
+        controller.onCharacterTap(";", settings, entries)
+        controller.onCharacterTap("e", settings, entries)
+        controller.onCharacterTap("m", settings, entries)
+        assertTrue(controller.suggestions.contains("admin@contoh.id"))
+        controller.onSuggestionTap("admin@contoh.id", settings, entries)
+        assertEquals("admin@contoh.id ", committedText)
     }
 }
 

@@ -19,6 +19,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
@@ -26,6 +27,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import kotlin.math.abs
 import androidx.test.core.app.ApplicationProvider
@@ -119,13 +121,14 @@ class ExampleRobolectricTest {
             setOf("id", "word", "shortcut", "folder", "updatedAtMillis", "deleted"),
             firstEntryJson.keys().asSequence().toSet()
         )
-        assertEquals("Kerja/CS", firstEntryJson.getString("folder"))
+        // Subfolder paths with '/' are flattened to single-level folder names
+        assertEquals("Kerja CS", firstEntryJson.getString("folder"))
         assertEquals(false, firstEntryJson.getBoolean("deleted"))
         val decodedDict = repo.decodeDictionaryBackupJson(dictJson)
         assertEquals(1, decodedDict?.entries?.size)
         assertEquals("KetikKu Offline", decodedDict?.entries?.first()?.word)
-        assertEquals("Kerja/CS", decodedDict?.entries?.first()?.folder)
-        assertTrue(decodedDict?.folders?.contains("Kerja/CS") == true)
+        assertEquals("Kerja CS", decodedDict?.entries?.first()?.folder)
+        assertTrue(decodedDict?.folders?.contains("Kerja CS") == true)
 
         // Tolerant decode for AI-edited JSON missing id / updatedAtMillis / language
         val aiEditedJson = """
@@ -1154,38 +1157,25 @@ class ExampleRobolectricTest {
         val symBounds = composeRule.onNodeWithTag("key_symbols").fetchSemanticsNode().boundsInRoot
         val spaceBounds = composeRule.onNodeWithTag("key_spacebar").fetchSemanticsNode().boundsInRoot
         val periodBounds = composeRule.onNodeWithTag("key_.").fetchSemanticsNode().boundsInRoot
-        val newlineBounds = composeRule.onNodeWithTag("key_newline").fetchSemanticsNode().boundsInRoot
         val enterBounds = composeRule.onNodeWithTag("key_enter").fetchSemanticsNode().boundsInRoot
 
-        // Order: Ω | Ctrl | Space | . | ↵ | Enter
+        // Order: Ω | Ctrl | Space | . | Enter (small newline arrow removed)
+        assertTrue(composeRule.onAllNodesWithTag("key_newline").fetchSemanticsNodes().isEmpty())
         assertTrue(symBounds.right <= ctrlBounds.left + 1f)
         assertTrue(ctrlBounds.right <= spaceBounds.left + 1f)
         assertTrue(spaceBounds.right <= periodBounds.left + 1f)
-        assertTrue(periodBounds.right <= newlineBounds.left + 1f)
-        assertTrue(newlineBounds.right <= enterBounds.left + 1f)
+        assertTrue(periodBounds.right <= enterBounds.left + 1f)
         assertTrue(composeRule.onAllNodesWithText("Ω").fetchSemanticsNodes().isNotEmpty())
-        composeRule.onNodeWithTag("key_newline").assertIsDisplayed()
-        assertTrue(composeRule.onAllNodesWithContentDescription("Baris baru").fetchSemanticsNodes().isNotEmpty())
-        // Symbols key (2.146f) enlarged by trimming 20% from Ctrl (1.364f) and 10% from small newline arrow (0.90f)
+        // Symbols key trimmed 10% (2.146f -> 1.931f) vs Ctrl (1.364f) => ratio ~1.42
         val symToCtrlRatio = symBounds.width / ctrlBounds.width
         assertTrue(
-            "Expected Ω/Ctrl width ratio ~1.57 (2.146/1.364), got $symToCtrlRatio (Ω=${symBounds.width}, Ctrl=${ctrlBounds.width})",
-            symToCtrlRatio in 1.45f..1.70f
+            "Expected Ω/Ctrl width ratio ~1.42 (1.931/1.364), got $symToCtrlRatio (Ω=${symBounds.width}, Ctrl=${ctrlBounds.width})",
+            symToCtrlRatio in 1.30f..1.55f
         )
-        val newlineToPeriodRatio = newlineBounds.width / periodBounds.width
-        assertTrue(
-            "Expected ↵/. width ratio ~0.90 (0.90/1.0), got $newlineToPeriodRatio (↵=${newlineBounds.width}, .=${periodBounds.width})",
-            newlineToPeriodRatio in 0.82f..0.96f
-        )
-        // Spacebar retains 2.84f weight (of 9.85f total)
+        // Spacebar enlarged to 3.955f (of 9.85f total => ~0.40)
         val totalRowWidth = enterBounds.right - symBounds.left
         val spaceRatio = spaceBounds.width / totalRowWidth
-        assertTrue("Expected spacebar ratio ~0.29, got $spaceRatio", spaceRatio in 0.25f..0.33f)
-
-        // Tapping dedicated newline key inserts '\n'
-        composeRule.onNodeWithTag("key_newline").performClick()
-        composeRule.waitForIdle()
-        assertEquals("\n", value.text)
+        assertTrue("Expected enlarged spacebar ratio ~0.40, got $spaceRatio", spaceRatio in 0.36f..0.44f)
 
         // Open Symbol Panel 1 ('Ω'): 10 / 9 / 7 layout matching QWERTY
         composeRule.onNodeWithTag("key_symbols").performClick()
@@ -1220,14 +1210,24 @@ class ExampleRobolectricTest {
         assertTrue(r2First.bottom <= r3First.top + 1f)
         assertTrue(r3First.right < r3Last.left)
 
-        // Tap '1', '@', and '←' in Panel 1 — arrows remain literal symbols
+        // Tap '1', '@', then Panel 1 '←' and '→' — arrows move cursor instead of inserting characters
         composeRule.onNodeWithTag("key_1").performClick()
         composeRule.onNodeWithTag("key_@").performClick()
+        composeRule.waitForIdle()
+        assertEquals("1@", value.text)
+        assertEquals(TextRange(2), value.selection)
+
         composeRule.onNodeWithTag("key_←").performClick()
         composeRule.waitForIdle()
-        assertEquals("\n1@←", value.text)
+        assertEquals("1@", value.text)
+        assertEquals(TextRange(1), value.selection)
 
-        // Switch to Symbol Panel 2 via Row 3 toggle and verify 10/9/7 geometry + zero overlap with Panel 1, '.' / ',', or QWERTY long-press shortcuts
+        composeRule.onNodeWithTag("key_→").performClick()
+        composeRule.waitForIdle()
+        assertEquals("1@", value.text)
+        assertEquals(TextRange(2), value.selection)
+
+        // Switch to Symbol Panel 2 via Row 3 toggle and verify 10/9/7 geometry, removed rare symbols, and literal arrow insertion
         composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("2/2").fetchSemanticsNodes().isNotEmpty())
@@ -1236,27 +1236,33 @@ class ExampleRobolectricTest {
             "@", "#", "$", "_", "&", "-", "+", "(", ")", "/",
             "*", "\"", "'", ":", ";", "!", "?", ".", ","
         )
-        val p2Row1 = listOf("✓", "✗", "Rp", "€", "£", "^", "•", "`", "~", "|")
+        val removedRareSymbols = setOf("✗", "€", "£", "≠", "©", "®")
+        val panel1NonArrows = (panel1All - setOf("←", "→", "↑", "↓")).toSet()
+        val p2Row1 = listOf("✓", "Rp", "←", "→", "↑", "↓", "^", "•", "~", "|")
         val p2Row2 = listOf("<", ">", "{", "}", "[", "]", "\\", "°", "±")
-        val p2Row3 = listOf("≠", "©", "®", "😂", "😍", "👍", "🙏")
+        val p2Row3 = listOf("`", "…", "🔥", "😂", "😍", "👍", "🙏")
         assertEquals(10, p2Row1.size)
         assertEquals(9, p2Row2.size)
         assertEquals(7, p2Row3.size)
         val panel2All = p2Row1 + p2Row2 + p2Row3
         assertEquals(26, panel2All.distinct().size)
         assertTrue(
-            "Panel 2 symbols must not duplicate Panel 1, bottom punctuation, or QWERTY long-press shortcuts",
-            panel2All.none { it in panel1All || it in qwertyShortcuts }
+            "Panel 2 must exclude ✗€£≠©® and avoid duplicating Panel 1 non-arrow symbols or QWERTY shortcuts",
+            panel2All.none { it in removedRareSymbols || it in panel1NonArrows || it in qwertyShortcuts }
         )
+        removedRareSymbols.forEach { rare ->
+            assertTrue("Removed symbol $rare must not appear in Panel 2", composeRule.onAllNodesWithTag("key_$rare").fetchSemanticsNodes().isEmpty())
+        }
         panel2All.forEach { sym ->
             composeRule.onNodeWithTag("key_$sym").assertIsDisplayed()
         }
         composeRule.onNodeWithTag("key_✓").performClick()
         composeRule.onNodeWithTag("key_Rp").performClick()
+        composeRule.onNodeWithTag("key_←").performClick()
+        composeRule.onNodeWithTag("key_→").performClick()
         composeRule.onNodeWithTag("key_{").performClick()
-        composeRule.onNodeWithTag("key_≠").performClick()
         composeRule.waitForIdle()
-        assertEquals("\n1@←✓Rp{≠", value.text)
+        assertEquals("1@✓Rp←→{", value.text)
 
         // Toggle back to Panel 1 ('2/2' -> '1/2'), then bottom-left 'ABC' returns to QWERTY
         composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
@@ -1545,7 +1551,7 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun settingsScreen_omitsAiDictionaryPromptCardAndShowsCompactHeaderLinks() {
+    fun settingsScreen_showsGeneralAiDictionaryPromptCardAndCompactHeaderLinks() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SettingsRepository(context)
         val mainViewModel = com.example.ui.MainViewModel(repo)
@@ -1563,13 +1569,23 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        // AI JSON prompt card has been moved to GitHub Pages and removed from Settings
-        assertTrue(composeRule.onAllNodesWithTag("ai_dictionary_prompt_card").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithTag("copy_ai_dictionary_prompt_button").fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithTag("open_drive_sync_sheet_button").assertIsDisplayed()
         composeRule.onNodeWithTag("open_website_button").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithText("Google Drive").fetchSemanticsNodes().isNotEmpty())
         assertTrue(composeRule.onAllNodesWithText("Web Panduan").fetchSemanticsNodes().isNotEmpty())
+
+        // Scroll to bottom and verify 1 General AI Prompt card is displayed and copies flat-folder prompt
+        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("ai_dictionary_prompt_card"))
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("ai_dictionary_prompt_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("copy_ai_dictionary_prompt_button").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val copiedText = cm.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
+        assertTrue(copiedText.contains("ketikku_dictionary.json"))
+        assertTrue(copiedText.contains("tanpa subfolder"))
+        assertFalse(copiedText.contains("Kerja/CS"))
     }
 
     @Test
@@ -1609,14 +1625,14 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun dictionaryScreen_simpleFileManagerSortsFoldersCreatesSubfoldersSelectsMovesAndDeletes() {
+    fun dictionaryScreen_simpleFileManagerFlatFoldersOnlySelectsMovesAndDeletes() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "e_root", word = "Salam hangat", shortcut = "sh", folder = "", updatedAtMillis = 10L),
             PersonalDictionaryEntry(id = "e_gmail", word = "adminsuperpanjang@gmail.com", shortcut = "", folder = "Gmail", updatedAtMillis = 11L),
             PersonalDictionaryEntry(id = "e_nomor", word = "081234567890", shortcut = "", folder = "Nomor", updatedAtMillis = 12L),
-            PersonalDictionaryEntry(id = "e_sub", word = "Mohon ditunggu sebentar", shortcut = "mds", folder = "Kerja/CS", updatedAtMillis = 13L)
+            PersonalDictionaryEntry(id = "e_kerja", word = "Mohon ditunggu sebentar", shortcut = "mds", folder = "Kerja", updatedAtMillis = 13L)
         )
-        val folders = listOf("Kerja", "Kerja/CS", "Gmail", "Nomor")
+        val folders = listOf("Kerja", "Gmail", "Nomor")
         var movedEntries = emptySet<String>()
         var movedFolders = emptySet<String>()
         var movedTarget = ""
@@ -1647,14 +1663,14 @@ class ExampleRobolectricTest {
         assertTrue("Gmail must be above Nomor", gmailBounds.bottom <= nomorBounds.top + 1f)
         assertTrue("Nomor must be above custom folders", nomorBounds.bottom <= kerjaBounds.top + 1f)
         assertTrue("Custom folders must be above unfoldered entries", kerjaBounds.bottom <= rootEntryBounds.top + 1f)
+        composeRule.onNodeWithTag("add_folder_button").assertIsDisplayed()
 
-        // Open Kerja -> shows breadcrumb & Kerja/CS subfolder
+        // Open Kerja -> shows breadcrumb & entries only; subfolder creation button is hidden
         composeRule.onNodeWithTag("folder_item_Kerja").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("folder_breadcrumb_bar").assertIsDisplayed()
-        composeRule.onNodeWithTag("folder_item_Kerja_CS").assertIsDisplayed().performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("dictionary_item_e_sub").assertIsDisplayed()
+        composeRule.onNodeWithTag("dictionary_item_e_kerja").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithTag("add_folder_button").fetchSemanticsNodes().isEmpty())
 
         // Navigate back to Utama
         composeRule.onNodeWithTag("breadcrumb_root").performClick()
@@ -1681,6 +1697,71 @@ class ExampleRobolectricTest {
         assertTrue(movedEntries.contains("e_root"))
         assertTrue(movedFolders.contains("Kerja"))
         assertEquals("Gmail", movedTarget)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp")
+    fun keyboardView_showsPersonalShortcutInPasswordFieldAndCommitsWithoutTrailingSpace() {
+        var buffer = ""
+        // Simulated password field: getTextBeforeCursor always returns empty string (masked/hidden)
+        val maskedPasswordTarget = object : com.example.ime.ImeTarget {
+            override fun getTextBeforeCursor(n: Int): String = ""
+            override fun getSelectedText(): String = ""
+            override fun commitText(text: String) {
+                buffer += text
+            }
+            override fun deleteBeforeCursor(count: Int) {
+                buffer = buffer.dropLast(count.coerceAtMost(buffer.length))
+            }
+            override fun replaceWordBeforeCursor(oldWordLength: Int, newText: String) {
+                buffer = buffer.dropLast(oldWordLength.coerceAtMost(buffer.length)) + newText
+            }
+            override fun moveCursor(delta: Int, extendSelection: Boolean) {}
+            override fun moveCursorVertical(deltaLines: Int) {}
+            override fun moveCursorToEdge(toStart: Boolean) {}
+            override fun selectAll() {}
+            override fun performEnterAction(actionType: com.example.ime.EnterActionType) {}
+        }
+        val personal = listOf(
+            PersonalDictionaryEntry(id = "pw1", word = "Rahasia!2026", shortcut = "pw", updatedAtMillis = 10L)
+        )
+        val controller = KeyboardController(maskedPasswordTarget)
+        controller.configureForEditor(
+            isNumeric = false,
+            isPassword = true,
+            actionType = com.example.ime.EnterActionType.DONE,
+            settings = KeyboardSettings(),
+            personalEntries = personal
+        )
+
+        composeRule.setContent {
+            KetikKuTheme {
+                KetikKuKeyboardView(
+                    controller = controller,
+                    settings = KeyboardSettings(),
+                    personalEntries = personal,
+                    clipboardItems = emptyList(),
+                    onPasteClipboard = {},
+                    onCopySelectionToClipboard = {}
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        // Empty password field shows no idle suggestions
+        assertEquals(0, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
+
+        // Type shortcut "pw" into password box -> personal dictionary suggestion chip appears!
+        composeRule.onNodeWithTag("key_p").performClick()
+        composeRule.onNodeWithTag("key_w").performClick()
+        composeRule.waitForIdle()
+        assertEquals("pw", buffer)
+        composeRule.onNodeWithText("Rahasia!2026").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+
+        // Replaces "pw" cleanly with NO trailing space and does NOT record into personality stats
+        assertEquals("Rahasia!2026", buffer)
+        assertTrue(controller.getPersonalitySnapshot().isEmpty())
     }
 
     @Test

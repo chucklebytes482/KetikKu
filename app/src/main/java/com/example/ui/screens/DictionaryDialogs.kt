@@ -182,14 +182,14 @@ internal fun MoveToFolderDialog(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Pilih folder tujuan atau tulis path folder baru:",
+                    text = "Pilih folder tujuan atau tulis nama folder baru:",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OutlinedTextField(
                     value = customNewFolder,
                     onValueChange = { customNewFolder = it },
-                    label = { Text("Atau buat tujuan baru (mis: Kerja/CS)") },
+                    label = { Text("Atau buat folder baru (mis: Kerja)") },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()

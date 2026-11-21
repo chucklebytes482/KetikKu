@@ -390,10 +390,10 @@
         <div class="subcard">
           <h3>Kamus Pribadi (Simple File Manager)</h3>
           <ul>
-            <li>Kelola kamus layaknya file manager: buat <strong>Folder</strong> &amp; <strong>Subfolder</strong> (pakai <kbd>/</kbd>, mis. <code>Kerja/CS</code>), ubah nama &amp; pindahkan lewat menu titik tiga (<kbd>⋮</kbd>), serta gunakan mode pilih banyak (<kbd>Pilih Semua</kbd>, <kbd>Pindahkan</kbd>, <kbd>Hapus</kbd> dengan konfirmasi).</li>
+            <li>Kelola kamus layaknya file manager satu tingkat: buat <strong>Folder</strong>, ubah nama &amp; pindahkan isi lewat menu titik tiga (<kbd>⋮</kbd>), serta gunakan mode pilih banyak (<kbd>Pilih Semua</kbd>, <kbd>Pindahkan</kbd>, <kbd>Hapus</kbd> dengan konfirmasi).</li>
             <li>Di halaman utama, folder otomatis <strong>Gmail</strong> &amp; <strong>Nomor</strong> selalu di atas, diikuti folder baru. Entri yang memiliki <strong>pintasan</strong> diurutkan paling atas di dalam daftar sekaligus diprioritaskan pada personalisasi saran teks.</li>
-            <li>Mengetik pintasan <strong>tidak mengganti teks secara otomatis</strong> saat menekan Spasi/Enter — entri kamus muncul di bilah saran atas dan baru masuk ketika Anda mengetuk chip sarannya.</li>
-            <li><strong>Semua entri di setiap folder/subfolder tetap aktif</strong> untuk pintasan &amp; saran keyboard.</li>
+            <li>Mengetik pintasan <strong>tidak mengganti teks secara otomatis</strong> saat menekan Spasi/Enter — entri kamus muncul di bilah saran atas di <strong>semua kolom teks (termasuk kolom kata sandi/password)</strong> dan baru masuk ketika Anda mengetuk chip sarannya.</li>
+            <li><strong>Semua entri di setiap folder tetap aktif</strong> untuk pintasan &amp; saran keyboard.</li>
           </ul>
         </div>
 
@@ -409,8 +409,7 @@
         <div class="subcard">
           <h3>Mode Floating, Tekan Tahan &amp; Baris Bawah</h3>
           <ul>
-            <li>Susunan baris bawah: tombol simbol <kbd>Ω</kbd> berada paling kiri dengan ukuran diperbesar, diikuti <kbd>Ctrl</kbd>, <kbd>Spasi</kbd>, tombol titik/koma (<kbd>.</kbd> / tahan <kbd>,</kbd>), tombol baris baru (<kbd>↵</kbd>) tepat di kiri <kbd>Enter</kbd>, dan tombol <kbd>Enter</kbd> aksi editor.</li>
-            <li>Tombol <kbd>↵</kbd> di kiri <kbd>Enter</kbd> selalu menyisipkan baris baru, sedangkan <kbd>Enter</kbd> menjalankan aksi editor (Kirim, Cari, Lanjut, Selesai, atau Enter).</li>
+            <li>Susunan baris bawah: tombol simbol <kbd>Ω</kbd> di paling kiri, diikuti <kbd>Ctrl</kbd>, tombol <kbd>Spasi</kbd> ekstra lega, tombol titik/koma (<kbd>.</kbd> / tahan <kbd>,</kbd>), dan tombol <kbd>Enter</kbd> aksi editor.</li>
             <li>Aktifkan <strong>Mode Melayang (Floating)</strong> dari ikon bilah alat atas dan geser pegangan untuk memindahkan posisi keyboard.</li>
             <li>Tekan tahan huruf (seperti <kbd>q</kbd>–<kbd>p</kbd>, <kbd>a</kbd>–<kbd>l</kbd>, <kbd>z</kbd>–<kbd>m</kbd>) untuk menyisipkan angka dan simbol cepat dengan petunjuk sudut tombol 20% lebih besar.</li>
           </ul>
@@ -487,19 +486,19 @@
       </p>
       <div class="grid-2">
         <div class="subcard">
-          <h3>Panel 1 Simbol (Angka, Matematika &amp; Panah)</h3>
+          <h3>Panel 1 Simbol (Angka, Matematika &amp; Penggerak Kursor)</h3>
           <ul>
             <li><strong>Baris 1:</strong> <code>1 2 3 4 5 6 7 8 9 0</code></li>
             <li><strong>Baris 2:</strong> <code>@ # $ _ &amp; - + × ÷</code></li>
-            <li><strong>Baris 3:</strong> <code>= % / ← → ↑ ↓</code></li>
+            <li><strong>Baris 3:</strong> <code>= % /</code> + panah penggerak kursor <code>← → ↑ ↓</code></li>
           </ul>
         </div>
         <div class="subcard">
-          <h3>Panel 2 Simbol (Standar Unik Tanpa Duplikat Pintasan)</h3>
+          <h3>Panel 2 Simbol (Standar Unik &amp; Simbol Panah Literal)</h3>
           <ul>
-            <li><strong>Baris 1:</strong> <code>✓ ✗ Rp € £ ^ • ` ~ |</code></li>
+            <li><strong>Baris 1:</strong> <code>✓ Rp ← → ↑ ↓ ^ • ~ |</code></li>
             <li><strong>Baris 2:</strong> <code>&lt; &gt; { } [ ] \ ° ±</code></li>
-            <li><strong>Baris 3:</strong> <code>≠ © ® 😂 😍 👍 🙏</code></li>
+            <li><strong>Baris 3:</strong> <code>` … 🔥 😂 😍 👍 🙏</code></li>
           </ul>
         </div>
       </div>
@@ -543,18 +542,18 @@
             <h3 class="prompt-title">Variasi 1 — Tambah Banyak Kalimat, Pintasan &amp; Folder (Umum)</h3>
             <button class="copy-btn" type="button" data-copy-target="prompt-1">Salin Instruksi</button>
           </div>
-          <p class="prompt-note">Format wajib seragam dengan 6 field pasti pada setiap entri dan dukungan folder/subfolder.</p>
+          <p class="prompt-note">Format wajib seragam dengan 6 field pasti pada setiap entri dan folder satu tingkat (tanpa subfolder).</p>
           <pre id="prompt-1" class="prompt-box" title="Klik untuk menyalin">Bantu edit file JSON kamus KetikKu (ketikku_dictionary.json).
-Format wajib (setiap entri memiliki 6 field seragam tanpa field opsional):
+Format wajib (setiap entri memiliki 6 field seragam tanpa field tambahan):
 {
   "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
-  "folders": ["Gmail", "Nomor", "Kerja", "Kerja/CS"],
+  "folders": ["Gmail", "Nomor", "Kerja"],
   "entries": [
     {
       "id": "&lt;id_unik&gt;",
       "word": "&lt;kalimat_atau_frasa&gt;",
       "shortcut": "&lt;pintasan_singkat_atau_kosong&gt;",
-      "folder": "&lt;path_folder_atau_kosong&gt;",
+      "folder": "&lt;nama_folder_atau_kosong&gt;",
       "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
       "deleted": false
     }
@@ -563,8 +562,8 @@ Format wajib (setiap entri memiliki 6 field seragam tanpa field opsional):
 Aturan:
 1. Jangan sertakan field "language" atau field tambahan lain.
 2. Setiap objek di "entries" wajib berisi keenam field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
-3. Gunakan "" jika tidak ada shortcut atau tidak masuk folder, dan pakai "/" untuk subfolder (mis. "Kerja/CS").
-4. Cantumkan seluruh path folder &amp; subfolder di array "folders".
+3. Folder hanya 1 tingkat (tanpa subfolder dan tanpa "/"). Gunakan "" jika tidak ada shortcut atau tidak masuk folder.
+4. Cantumkan seluruh nama folder yang dipakai di array "folders".
 5. Pertahankan entri &amp; "id" lama, lalu kembalikan 1 blok kode JSON valid.
 
 Daftar kalimat, pintasan &amp; folder yang ingin ditambahkan:
@@ -576,13 +575,13 @@ Daftar kalimat, pintasan &amp; folder yang ingin ditambahkan:
             <h3 class="prompt-title">Variasi 2 — Template Chat Kerja, Bisnis &amp; Customer Service</h3>
             <button class="copy-btn" type="button" data-copy-target="prompt-2">Salin Instruksi</button>
           </div>
-          <p class="prompt-note">Meminta AI merapikan template balasan pelanggan ke dalam folder/subfolder seperti Kerja/CS dan Kerja/Order.</p>
+          <p class="prompt-note">Meminta AI merapikan template balasan pelanggan ke dalam folder seperti Kerja, CS, atau Order.</p>
           <pre id="prompt-2" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan file ketikku_dictionary.json. Tolong tambahkan daftar template balasan kerja/CS di bawah ke dalam array "entries" dan kelola foldernya tanpa menghapus entri lama.
 Ketentuan format JSON:
 - Root wajib: { "updatedAtMillis": &lt;epoch_ms&gt;, "folders": [...], "entries": [...] }
 - Setiap entri wajib punya TEPAT 6 field ini (tanpa field opsional/tambahan dan tanpa "language"):
   { "id": "...", "word": "...", "shortcut": "...", "folder": "...", "updatedAtMillis": &lt;epoch_ms&gt;, "deleted": false }
-- Masukkan template ke folder terstruktur misalnya "Kerja/CS", "Kerja/Order", atau "" jika umum, lalu daftarkan folder tersebut di array "folders".
+- Masukkan template ke folder 1 tingkat (tanpa subfolder dan tanpa "/") misalnya "CS", "Order", "Kerja", atau "" jika umum, lalu daftarkan folder tersebut di array "folders".
 - Buatkan "shortcut" singkat 2-4 huruf kecil tanpa spasi (mis. "slm", "inv", "rek", "kfm").
 - Berikan output hanya berupa 1 blok JSON valid siap pakai.
 
@@ -599,12 +598,12 @@ Topik/kalimat balasan yang saya butuhkan:
           <pre id="prompt-3" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan dokumen/catatan dan file ketikku_dictionary.json.
 Tugas Anda:
 1. Ekstrak maksimal 25 kalimat, istilah penting, nomor/kode referensi, atau template frasa yang paling sering dipakai dari dokumen tersebut.
-2. Tambahkan hasilnya ke "entries" pada ketikku_dictionary.json ke dalam folder yang relevan (mis. "Materi" atau "Materi/Istilah") tanpa mengubah entri lama.
+2. Tambahkan hasilnya ke "entries" pada ketikku_dictionary.json ke dalam folder 1 tingkat yang relevan (mis. "Materi" atau "Istilah", tanpa subfolder dan tanpa "/") tanpa mengubah entri lama.
 3. Setiap entri wajib memiliki keenam field seragam:
    - "id": unik (mis. "doc_001")
    - "word": teks bersih siap tempel
    - "shortcut": huruf kecil 2-5 karakter atau ""
-   - "folder": path folder/subfolder atau ""
+   - "folder": nama folder atau ""
    - "updatedAtMillis": timestamp milidetik terbaru
    - "deleted": false
 4. Daftarkan folder yang dipakai di array "folders", jangan sertakan field "language", dan kembalikan JSON valid.</pre>
@@ -620,27 +619,27 @@ Tugas Anda:
 1. Hapus entri duplikat yang isi "word"-nya persis sama (pertahankan yang "updatedAtMillis"-nya paling baru beserta "id" dan "folder"-nya).
 2. Hapus field "language" dan "schemaVersion" jika masih ada.
 3. Seragamkan setiap entri agar selalu memiliki 6 field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
-4. Sinkronkan array "folders" tingkat atas agar berisi "Gmail", "Nomor" (jika ada), serta seluruh path folder dan induk subfolder yang dipakai oleh entri aktif.
+4. Pastikan semua folder 1 tingkat (tanpa subfolder dan tanpa "/"), lalu sinkronkan array "folders" tingkat atas agar berisi "Gmail", "Nomor" (jika ada), serta seluruh nama folder aktif.
 5. Perbarui "updatedAtMillis" tingkat atas dan kembalikan 1 blok JSON valid.</pre>
         </article>
 
         <article class="prompt-item">
           <div class="prompt-header">
-            <h3 class="prompt-title">Variasi 5 — Kelompokkan &amp; Folderisasi Banyak Kamus ke Folder / Subfolder</h3>
+            <h3 class="prompt-title">Variasi 5 — Kelompokkan &amp; Folderisasi Banyak Kamus ke Folder</h3>
             <button class="copy-btn" type="button" data-copy-target="prompt-5">Salin Instruksi</button>
           </div>
-          <p class="prompt-note">Khusus untuk menyusun ulang atau menggabungkan ratusan kata, email, nomor, kode, atau banyak kategori ke struktur Folder &amp; Subfolder rapi.</p>
-          <pre id="prompt-5" class="prompt-box" title="Klik untuk menyalin">Tolong kelompokkan dan atur seluruh isi file ketikku_dictionary.json (serta daftar tambahan di bawah) ke dalam struktur Folder &amp; Subfolder yang terorganisir rapi.
+          <p class="prompt-note">Khusus untuk menyusun ulang atau menggabungkan ratusan kata, email, nomor, kode, atau banyak kategori ke struktur Folder satu tingkat yang rapi.</p>
+          <pre id="prompt-5" class="prompt-box" title="Klik untuk menyalin">Tolong kelompokkan dan atur seluruh isi file ketikku_dictionary.json (serta daftar tambahan di bawah) ke dalam struktur Folder 1 tingkat yang terorganisir rapi.
 Aturan pemfolderan:
-1. Pertahankan/pisahkan alamat @gmail.com ke folder "Gmail" dan nomor telepon/rekening ke folder "Nomor".
-2. Kelompokkan entri lain ke folder/subfolder bertema jelas memakai "/" (contoh: "Kerja/CS", "Kerja/Penawaran", "Pribadi/Alamat", "Belajar/Istilah").
-3. Urutkan array "folders" dengan "Gmail" dan "Nomor" paling atas (jika ada), lalu folder/subfolder terbaru di atas entri tanpa folder.
+1. Pertahankan/pisahkan alamat @gmail.com ke folder "Gmail" dan nomor telepon berawalan +62/62/08 ke folder "Nomor".
+2. Kelompokkan entri lain ke folder bertema jelas tanpa subfolder dan tanpa "/" (contoh: "Kerja", "CS", "Alamat", "Belajar").
+3. Urutkan array "folders" dengan "Gmail" dan "Nomor" paling atas (jika ada), lalu folder lainnya di atas entri tanpa folder.
 4. Wajib pakai format seragam 6 field di setiap entri tanpa field opsional dan tanpa "language":
    {
      "id": "&lt;pertahankan_id_lama_atau_buat_unik&gt;",
      "word": "&lt;teks_kamus&gt;",
      "shortcut": "&lt;pintasan_huruf_kecil_atau_kosong&gt;",
-     "folder": "&lt;path_folder_atau_kosong&gt;",
+     "folder": "&lt;nama_folder_atau_kosong&gt;",
      "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
      "deleted": false
    }

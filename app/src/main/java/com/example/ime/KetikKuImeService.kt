@@ -455,7 +455,7 @@ class KetikKuImeService : InputMethodService() {
                 pendingSelfEdits--
                 true
             } else {
-                val recentSelf = SystemClock.uptimeMillis() - lastSelfEditUptimeMs < 140L
+                val recentSelf = SystemClock.uptimeMillis() - lastSelfEditUptimeMs < 300L
                 recentSelf && newSelStart == newSelEnd
             }
             if (!likelySelfEdit) {
@@ -556,8 +556,23 @@ class KetikKuImeService : InputMethodService() {
                 -1
             }
             markSelfEdit(newExpectedEnd = nextEnd)
+            if (oldWordLength <= 0) {
+                ic.commitText(newText, 1)
+                return
+            }
+            if (isRawOrWebCodeEditor) {
+                repeat(oldWordLength) { dispatchHardwareDel(ic) }
+                ic.commitText(newText, 1)
+                return
+            }
             ic.beginBatchEdit()
-            ic.deleteSurroundingText(oldWordLength, 0)
+            val deleted = runCatching { ic.deleteSurroundingText(oldWordLength, 0) }.getOrDefault(false)
+            if (!deleted) {
+                ic.endBatchEdit()
+                repeat(oldWordLength) { dispatchHardwareDel(ic) }
+                ic.commitText(newText, 1)
+                return
+            }
             ic.commitText(newText, 1)
             ic.endBatchEdit()
         }
