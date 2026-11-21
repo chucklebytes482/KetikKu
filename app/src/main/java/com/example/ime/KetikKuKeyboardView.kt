@@ -1086,10 +1086,6 @@ private fun KeyboardBodyContent(
                 onClearAll = {
                     onFeedback()
                     onClearAllClipboard()
-                },
-                onClose = {
-                    onFeedback()
-                    controller.closeUtilityPanel()
                 }
             )
         }
@@ -2736,8 +2732,7 @@ private fun ClipboardPanel(
     statusMessage: String?,
     height: Dp,
     onPasteItem: (ClipboardItem) -> Unit,
-    onClearAll: () -> Unit,
-    onClose: () -> Unit = {}
+    onClearAll: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -2767,39 +2762,18 @@ private fun ClipboardPanel(
                     )
                 }
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (items.isNotEmpty()) {
-                    Text(
-                        text = "Bersihkan semua",
-                        color = palette.accentBg,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onClearAll)
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                            .testTag("clipboard_clear_all")
-                    )
-                }
-                Box(
+            if (items.isNotEmpty()) {
+                Text(
+                    text = "Bersihkan semua",
+                    color = palette.accentBg,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(palette.chipBg)
-                        .clickable(onClick = onClose)
-                        .semantics { contentDescription = "Tutup Papan Klip" },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Tutup",
-                        tint = palette.keyText,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onClearAll)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .testTag("clipboard_clear_all")
+                )
             }
         }
         Spacer(Modifier.height(6.dp))

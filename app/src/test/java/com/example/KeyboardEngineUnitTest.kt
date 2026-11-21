@@ -267,11 +267,18 @@ class KeyboardEngineUnitTest {
             SettingsRepository.extractAutoSavableEntries("alamatemailsuper@gmail.com")
         )
 
-        // Numbers: 10 digits ignored, 11+ digits saved; email containing 12 digits only saves the email
+        // Numbers: must start with +62, 62, or 08 AND have 11+ digits; other prefixes or <11 digits ignored
         assertEquals(emptyList<String>(), SettingsRepository.extractAutoSavableEntries("0812345678"))
+        assertEquals(emptyList<String>(), SettingsRepository.extractAutoSavableEntries("123456789012"))
+        assertEquals(emptyList<String>(), SettingsRepository.extractAutoSavableEntries("0215551234567"))
+        assertEquals(emptyList<String>(), SettingsRepository.extractAutoSavableEntries("+14155551234"))
         assertEquals(
             listOf("08123456789"),
             SettingsRepository.extractAutoSavableEntries("08123456789")
+        )
+        assertEquals(
+            listOf("628123456789"),
+            SettingsRepository.extractAutoSavableEntries("Nomor WA: 628123456789")
         )
         assertEquals(
             listOf("+6281234567890"),

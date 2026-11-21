@@ -1049,13 +1049,13 @@ class SettingsRepository(
             RegexOption.IGNORE_CASE
         )
         private val NUMBER_REGEX = Regex(
-            "(?<![A-Za-z0-9._%+-@])(\\+?\\d[\\d\\s-]{9,30}\\d)(?![A-Za-z0-9._%+-@])"
+            "(?<![A-Za-z0-9._%+@-])((?:\\+62|62|08)[\\d\\s-]{8,30}\\d)(?![A-Za-z0-9._%+@-])"
         )
 
         /**
          * Mengekstrak kandidat yang otomatis disimpan ke Kamus Pribadi (beserta folder otomatisnya):
          * 1. Alamat email berakhiran @gmail.com (>= 20 karakter) -> folder "Gmail".
-         * 2. Nomor (angka telepon/rekening/identitas, >= 11 digit) -> folder "Nomor".
+         * 2. Nomor telepon berawalan +62, 62, atau 08 (>= 11 digit) -> folder "Nomor".
          */
         fun extractAutoSavableCategorizedEntries(rawText: String): List<AutoSavableCandidate> {
             val (start, end) = TextChunker.trimmedBounds(rawText)
@@ -1080,8 +1080,11 @@ class SettingsRepository(
                 }
                 if (overlapsEmail) return@forEach
                 val rawNumber = match.value.trim()
+                val hasValidPrefix = rawNumber.startsWith("+62") ||
+                    rawNumber.startsWith("62") ||
+                    rawNumber.startsWith("08")
                 val digitCount = rawNumber.count { it.isDigit() }
-                if (digitCount >= 11 && rawNumber.length >= 11) {
+                if (hasValidPrefix && digitCount >= 11 && rawNumber.length >= 11) {
                     results.putIfAbsent(rawNumber.lowercase(Locale.ROOT), AutoSavableCandidate(rawNumber, FOLDER_NOMOR))
                 }
             }
