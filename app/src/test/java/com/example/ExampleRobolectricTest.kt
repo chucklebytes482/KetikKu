@@ -953,21 +953,33 @@ class ExampleRobolectricTest {
 
         repo.addClipboardText("short@gmail.com")
         repo.addClipboardText("0812345678")
+        repo.addClipboardText("1234567890123")
+        repo.addClipboardText("+14155551234")
         val dictBefore = repo.getCurrentDictionary()
         assertTrue(dictBefore.none { it.word == "short@gmail.com" })
         assertTrue(dictBefore.none { it.word == "0812345678" })
+        assertTrue(dictBefore.none { it.word == "1234567890123" })
+        assertTrue(dictBefore.none { it.word == "+14155551234" })
 
         repo.addClipboardText("penggunapanjang2026@gmail.com")
         repo.addClipboardText("081234567890")
+        repo.addClipboardText("6281234567891")
+        repo.addClipboardText("+6281234567892")
         repo.addClipboardText("penggunapanjang2026@gmail.com")
 
         val dictAfter = repo.getCurrentDictionary()
         val gmailEntry = dictAfter.firstOrNull { !it.deleted && it.word == "penggunapanjang2026@gmail.com" }
-        val nomorEntry = dictAfter.firstOrNull { !it.deleted && it.word == "081234567890" }
+        val nomor08 = dictAfter.firstOrNull { !it.deleted && it.word == "081234567890" }
+        val nomor62 = dictAfter.firstOrNull { !it.deleted && it.word == "6281234567891" }
+        val nomorPlus62 = dictAfter.firstOrNull { !it.deleted && it.word == "+6281234567892" }
         assertNotNull(gmailEntry)
-        assertNotNull(nomorEntry)
+        assertNotNull(nomor08)
+        assertNotNull(nomor62)
+        assertNotNull(nomorPlus62)
         assertEquals(SettingsRepository.FOLDER_GMAIL, gmailEntry?.folder)
-        assertEquals(SettingsRepository.FOLDER_NOMOR, nomorEntry?.folder)
+        assertEquals(SettingsRepository.FOLDER_NOMOR, nomor08?.folder)
+        assertEquals(SettingsRepository.FOLDER_NOMOR, nomor62?.folder)
+        assertEquals(SettingsRepository.FOLDER_NOMOR, nomorPlus62?.folder)
         assertEquals(1, dictAfter.count { !it.deleted && it.word == "penggunapanjang2026@gmail.com" })
         assertEquals(1, dictAfter.count { !it.deleted && it.word == "081234567890" })
         val foldersAfter = repo.getCurrentFolders()
@@ -1039,11 +1051,13 @@ class ExampleRobolectricTest {
             composeRule.onAllNodesWithTag("recent_clipboard_suggestion_chip").fetchSemanticsNodes().isEmpty()
         )
 
-        // Item remains accessible inside Papan Klip panel
+        // Item remains accessible inside Papan Klip panel (without redundant X close button; toolbar icon toggles closed)
         composeRule.onNodeWithTag("ime_clipboard_button").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("clipboard_item_clip_1_duplicate").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Tutup").performClick()
+        assertTrue(composeRule.onAllNodesWithContentDescription("Tutup Papan Klip").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithContentDescription("Tutup").fetchSemanticsNodes().isEmpty())
+        composeRule.onNodeWithTag("ime_clipboard_button").performClick()
         composeRule.waitForIdle()
 
         // Newly copied DIFFERENT text appears in the suggestion column and tapping it pastes & dismisses
