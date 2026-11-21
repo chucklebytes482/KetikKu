@@ -6,7 +6,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -19,7 +18,6 @@ import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SettingsBackupEnvelope
 import com.example.model.SyncLocalState
-import com.example.model.SyncScheduleInterval
 import com.example.model.WordPersonalityStat
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -74,7 +72,6 @@ class SettingsRepository(
         val SWAP_PERIOD_COMMA = booleanPreferencesKey("swap_period_comma")
         val SWAP_SYMBOL_PANELS = booleanPreferencesKey("swap_symbol_panels")
         val AUTO_SYNC_DRIVE = booleanPreferencesKey("auto_sync_drive")
-        val SYNC_INTERVAL_MINUTES = intPreferencesKey("sync_interval_minutes")
         val DRIVE_FOLDER_NAME = stringPreferencesKey("drive_folder_name")
         val DRIVE_SHORTCUT_FOLDER_ID = stringPreferencesKey("drive_shortcut_folder_id")
         val SETTINGS_UPDATED_AT = longPreferencesKey("settings_updated_at")
@@ -109,10 +106,7 @@ class SettingsRepository(
                 serifMiringEnabled = prefs[Keys.SERIF_MIRING_ENABLED] ?: false,
                 swapPeriodCommaEnabled = prefs[Keys.SWAP_PERIOD_COMMA] ?: false,
                 swapSymbolPanelsEnabled = prefs[Keys.SWAP_SYMBOL_PANELS] ?: false,
-                autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: true,
-                syncIntervalMinutes = SyncScheduleInterval.fromMinutes(
-                    prefs[Keys.SYNC_INTERVAL_MINUTES] ?: SyncScheduleInterval.DEFAULT.minutes
-                ).minutes,
+                autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: false,
                 driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
                 driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
                 updatedAtMillis = prefs[Keys.SETTINGS_UPDATED_AT] ?: 0L
@@ -227,10 +221,7 @@ class SettingsRepository(
                 serifMiringEnabled = prefs[Keys.SERIF_MIRING_ENABLED] ?: false,
                 swapPeriodCommaEnabled = prefs[Keys.SWAP_PERIOD_COMMA] ?: false,
                 swapSymbolPanelsEnabled = prefs[Keys.SWAP_SYMBOL_PANELS] ?: false,
-                autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: true,
-                syncIntervalMinutes = SyncScheduleInterval.fromMinutes(
-                    prefs[Keys.SYNC_INTERVAL_MINUTES] ?: SyncScheduleInterval.DEFAULT.minutes
-                ).minutes,
+                autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: false,
                 driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
                 driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
                 updatedAtMillis = prefs[Keys.SETTINGS_UPDATED_AT] ?: 0L
@@ -664,7 +655,6 @@ class SettingsRepository(
             put("swapPeriodCommaEnabled", settings.swapPeriodCommaEnabled)
             put("swapSymbolPanelsEnabled", settings.swapSymbolPanelsEnabled)
             put("autoSyncDriveEnabled", settings.autoSyncDriveEnabled)
-            put("syncIntervalMinutes", SyncScheduleInterval.fromMinutes(settings.syncIntervalMinutes).minutes)
             put("driveFolderName", settings.driveFolderName.ifBlank { "KetikKu" })
             if (settings.driveShortcutFolderId.isNotBlank()) {
                 put("driveShortcutFolderId", settings.driveShortcutFolderId)
@@ -708,10 +698,7 @@ class SettingsRepository(
                 serifMiringEnabled = sObj.optBoolean("serifMiringEnabled", false),
                 swapPeriodCommaEnabled = sObj.optBoolean("swapPeriodCommaEnabled", false),
                 swapSymbolPanelsEnabled = sObj.optBoolean("swapSymbolPanelsEnabled", false),
-                autoSyncDriveEnabled = sObj.optBoolean("autoSyncDriveEnabled", true),
-                syncIntervalMinutes = SyncScheduleInterval.fromMinutes(
-                    sObj.optInt("syncIntervalMinutes", SyncScheduleInterval.DEFAULT.minutes)
-                ).minutes,
+                autoSyncDriveEnabled = sObj.optBoolean("autoSyncDriveEnabled", false),
                 driveFolderName = sObj.optString("driveFolderName", "KetikKu").ifBlank { "KetikKu" },
                 driveShortcutFolderId = sObj.optString("driveShortcutFolderId", ""),
                 updatedAtMillis = effectiveUpdatedAt
@@ -902,7 +889,6 @@ class SettingsRepository(
         prefs[Keys.SWAP_PERIOD_COMMA] = s.swapPeriodCommaEnabled
         prefs[Keys.SWAP_SYMBOL_PANELS] = s.swapSymbolPanelsEnabled
         prefs[Keys.AUTO_SYNC_DRIVE] = s.autoSyncDriveEnabled
-        prefs[Keys.SYNC_INTERVAL_MINUTES] = SyncScheduleInterval.fromMinutes(s.syncIntervalMinutes).minutes
         prefs[Keys.DRIVE_FOLDER_NAME] = s.driveFolderName.ifBlank { "KetikKu" }
         prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] = s.driveShortcutFolderId
         prefs[Keys.SETTINGS_UPDATED_AT] = s.updatedAtMillis

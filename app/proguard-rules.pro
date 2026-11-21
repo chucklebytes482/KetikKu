@@ -28,20 +28,21 @@
     @com.squareup.moshi.FromJson <methods>;
     @com.squareup.moshi.ToJson <methods>;
 }
--keep class * extends androidx.room.RoomDatabase {
-    <init>(...);
-    *;
-}
--keep class androidx.work.impl.WorkDatabase_Impl { *; }
--keep class * extends androidx.work.ListenableWorker {
-    public <init>(android.content.Context, androidx.work.WorkerParameters);
-}
--keep class * extends androidx.work.CoroutineWorker {
-    public <init>(android.content.Context, androidx.work.WorkerParameters);
-}
--keep class * extends androidx.work.InputMerger {
-    public <init>();
-}
+# (Opsional — hanya jika proyek menggunakan WorkManager)
+# -keep class * extends androidx.room.RoomDatabase {
+#     <init>(...);
+#     *;
+# }
+# -keep class androidx.work.impl.WorkDatabase_Impl { *; }
+# -keep class * extends androidx.work.ListenableWorker {
+#     public <init>(android.content.Context, androidx.work.WorkerParameters);
+# }
+# -keep class * extends androidx.work.CoroutineWorker {
+#     public <init>(android.content.Context, androidx.work.WorkerParameters);
+# }
+# -keep class * extends androidx.work.InputMerger {
+#     public <init>();
+# }
 -keep class * extends androidx.startup.Initializer {
     public <init>();
 }

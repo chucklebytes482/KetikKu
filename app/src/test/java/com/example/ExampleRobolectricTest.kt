@@ -1143,22 +1143,28 @@ class ExampleRobolectricTest {
         val newlineBounds = composeRule.onNodeWithTag("key_newline").fetchSemanticsNode().boundsInRoot
         val enterBounds = composeRule.onNodeWithTag("key_enter").fetchSemanticsNode().boundsInRoot
 
-        // Order: Ctrl | Ω | Space | . | ↵ | Enter
-        assertTrue(ctrlBounds.right <= symBounds.left + 1f)
-        assertTrue(symBounds.right <= spaceBounds.left + 1f)
+        // Order: Ω | Ctrl | Space | . | ↵ | Enter
+        assertTrue(symBounds.right <= ctrlBounds.left + 1f)
+        assertTrue(ctrlBounds.right <= spaceBounds.left + 1f)
         assertTrue(spaceBounds.right <= periodBounds.left + 1f)
         assertTrue(periodBounds.right <= newlineBounds.left + 1f)
         assertTrue(newlineBounds.right <= enterBounds.left + 1f)
         assertTrue(composeRule.onAllNodesWithText("Ω").fetchSemanticsNodes().isNotEmpty())
         composeRule.onNodeWithTag("key_newline").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithContentDescription("Baris baru").fetchSemanticsNodes().isNotEmpty())
-        // Ctrl and Ω share equal width proportion (1.705f each)
+        // Symbols key (2.146f) enlarged by trimming 20% from Ctrl (1.364f) and 10% from small newline arrow (0.90f)
+        val symToCtrlRatio = symBounds.width / ctrlBounds.width
         assertTrue(
-            "Expected Ctrl (${ctrlBounds.width}) and Ω (${symBounds.width}) to have equal widths",
-            abs(ctrlBounds.width - symBounds.width) <= 2f
+            "Expected Ω/Ctrl width ratio ~1.57 (2.146/1.364), got $symToCtrlRatio (Ω=${symBounds.width}, Ctrl=${ctrlBounds.width})",
+            symToCtrlRatio in 1.45f..1.70f
         )
-        // Spacebar trimmed to 2.84f weight (of ~9.85f total) to accommodate dedicated newline key
-        val totalRowWidth = enterBounds.right - ctrlBounds.left
+        val newlineToPeriodRatio = newlineBounds.width / periodBounds.width
+        assertTrue(
+            "Expected ↵/. width ratio ~0.90 (0.90/1.0), got $newlineToPeriodRatio (↵=${newlineBounds.width}, .=${periodBounds.width})",
+            newlineToPeriodRatio in 0.82f..0.96f
+        )
+        // Spacebar retains 2.84f weight (of 9.85f total)
+        val totalRowWidth = enterBounds.right - symBounds.left
         val spaceRatio = spaceBounds.width / totalRowWidth
         assertTrue("Expected spacebar ratio ~0.29, got $spaceRatio", spaceRatio in 0.25f..0.33f)
 
@@ -1452,8 +1458,7 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun driveBackupConnectedContent_rendersOneLineStatusAndScheduleChipsWithoutAutoSyncSwitch() {
-        var selectedInterval = 15
+    fun driveBackupConnectedContent_rendersOneLineStatusAndManualSyncWithoutScheduleChips() {
         var syncClicks = 0
         var disconnectClicks = 0
 
@@ -1461,11 +1466,9 @@ class ExampleRobolectricTest {
             KetikKuTheme(darkTheme = false) {
                 com.example.ui.screens.DriveBackupConnectedContent(
                     userEmail = "pengguna@gmail.com",
-                    selectedIntervalMinutes = selectedInterval,
                     statusHeadline = "Tersinkronisasi • Baru saja",
                     statusDotColor = androidx.compose.material3.MaterialTheme.colorScheme.secondary,
                     isSyncing = false,
-                    onSelectInterval = { selectedInterval = it },
                     onDisconnect = { disconnectClicks++ },
                     onSyncNow = { syncClicks++ }
                 )
@@ -1474,25 +1477,22 @@ class ExampleRobolectricTest {
 
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("drive_sync_status_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("sync_interval_5").assertIsDisplayed()
-        composeRule.onNodeWithTag("sync_interval_15").assertIsDisplayed()
-        composeRule.onNodeWithTag("sync_interval_240").assertIsDisplayed()
-        composeRule.onNodeWithTag("sync_interval_1440").assertIsDisplayed()
         composeRule.onNodeWithTag("drive_disconnect_button").assertIsDisplayed()
         composeRule.onNodeWithTag("drive_sync_now_button").assertIsDisplayed()
 
-        // Old switch & verbose clutter must not appear
+        // Background schedule chips & verbose clutter must not appear
+        assertTrue(composeRule.onAllNodesWithTag("sync_interval_5").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("sync_interval_15").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("sync_interval_240").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("sync_interval_1440").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("drive_auto_sync_switch").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Jadwal Sinkronisasi").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Pulihkan Drive").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Lihat JSON").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Riwayat Sinkron Kamus").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("(Ubah)", substring = true).fetchSemanticsNodes().isEmpty())
 
-        composeRule.onNodeWithTag("sync_interval_240").performClick()
         composeRule.onNodeWithTag("drive_sync_now_button").performClick()
         composeRule.onNodeWithTag("drive_disconnect_button").performClick()
         composeRule.waitForIdle()
-        assertEquals(240, selectedInterval)
         assertEquals(1, syncClicks)
         assertEquals(1, disconnectClicks)
     }
@@ -1554,7 +1554,7 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithTag("copy_ai_dictionary_prompt_button").fetchSemanticsNodes().isEmpty())
         composeRule.onNodeWithTag("open_drive_sync_sheet_button").assertIsDisplayed()
         composeRule.onNodeWithTag("open_website_button").assertIsDisplayed()
-        assertTrue(composeRule.onAllNodesWithText("Sinkronisasi").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Google Drive").fetchSemanticsNodes().isNotEmpty())
         assertTrue(composeRule.onAllNodesWithText("Web Panduan").fetchSemanticsNodes().isNotEmpty())
     }
 
@@ -1955,17 +1955,29 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun settingsRepository_syncIntervalMinutesRoundTripInBackupJson() {
+    fun settingsRepository_decodesLegacySettingsJsonIgnoringRemovedSyncInterval() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SettingsRepository(context)
 
-        val defaultJson = repo.encodeSettingsBackupJson(KeyboardSettings())
-        val decodedDefault = repo.decodeSettingsBackupJson(defaultJson)
-        assertEquals(15, decodedDefault?.settings?.syncIntervalMinutes)
+        val encoded = repo.encodeSettingsBackupJson(KeyboardSettings(floatingModeEnabled = true, driveFolderName = "KetikKu"))
+        assertFalse("Encoded settings JSON should not contain removed syncIntervalMinutes", encoded.contains("syncIntervalMinutes"))
 
-        val customJson = repo.encodeSettingsBackupJson(KeyboardSettings(syncIntervalMinutes = 240))
-        val decodedCustom = repo.decodeSettingsBackupJson(customJson)
-        assertEquals(240, decodedCustom?.settings?.syncIntervalMinutes)
+        val legacyJson = """
+            {
+              "updatedAtMillis": 1700000000000,
+              "settings": {
+                "floatingModeEnabled": true,
+                "hapticEnabled": false,
+                "syncIntervalMinutes": 240,
+                "driveFolderName": "KetikKu"
+              }
+            }
+        """.trimIndent()
+        val decoded = repo.decodeSettingsBackupJson(legacyJson)
+        assertNotNull(decoded)
+        assertEquals(true, decoded?.settings?.floatingModeEnabled)
+        assertEquals(false, decoded?.settings?.hapticEnabled)
+        assertEquals("KetikKu", decoded?.settings?.driveFolderName)
     }
 
     @Test

@@ -8,8 +8,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,7 +27,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -59,7 +56,6 @@ import com.example.data.SyncDirection
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
-import com.example.model.SyncScheduleInterval
 import com.example.ui.AuthHelper
 import com.example.ui.CloudSyncViewModel
 import com.example.ui.MainViewModel
@@ -106,14 +102,14 @@ fun DriveBackupUnauthenticatedSheetContent(
             ) {
                 Icon(
                     imageVector = Icons.Default.CloudDone,
-                    contentDescription = "Sinkronisasi",
+                    contentDescription = "Google Drive",
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(26.dp)
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Sinkronisasi",
+                    text = "Google Drive",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -273,14 +269,9 @@ fun DriveBackupSheetContent(
 
     DriveBackupConnectedContent(
         userEmail = userEmail,
-        selectedIntervalMinutes = settings.syncIntervalEnum.minutes,
         statusHeadline = statusHeadline,
         statusDotColor = statusDotColor,
         isSyncing = isSyncing,
-        onSelectInterval = { intervalMinutes ->
-            mainViewModel.updateSettings { it.copy(syncIntervalMinutes = intervalMinutes) }
-            cloudViewModel.updateSyncSchedule(intervalMinutes)
-        },
         onDisconnect = {
             cloudViewModel.clearCachedDriveToken()
             AuthHelper.signOut(credentialManager, scope) {
@@ -292,15 +283,12 @@ fun DriveBackupSheetContent(
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun DriveBackupConnectedContent(
     userEmail: String,
-    selectedIntervalMinutes: Int,
     statusHeadline: String,
     statusDotColor: Color,
     isSyncing: Boolean,
-    onSelectInterval: (Int) -> Unit,
     onDisconnect: () -> Unit,
     onSyncNow: () -> Unit,
     modifier: Modifier = Modifier
@@ -327,14 +315,14 @@ internal fun DriveBackupConnectedContent(
             ) {
                 Icon(
                     imageVector = Icons.Default.CloudDone,
-                    contentDescription = "Sinkronisasi",
+                    contentDescription = "Google Drive",
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(26.dp)
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Sinkronisasi",
+                    text = "Google Drive",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -380,37 +368,6 @@ internal fun DriveBackupConnectedContent(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-        }
-
-        // Jadwal sinkronisasi (5 menit / 15 menit [default] / 4 jam / 24 jam)
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = "Jadwal Sinkronisasi",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                SyncScheduleInterval.entries.forEach { interval ->
-                    val isSelected = selectedIntervalMinutes == interval.minutes
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { onSelectInterval(interval.minutes) },
-                        label = {
-                            Text(
-                                text = interval.label,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                            )
-                        },
-                        modifier = Modifier
-                            .heightIn(min = 48.dp)
-                            .testTag("sync_interval_${interval.minutes}")
-                    )
-                }
             }
         }
 

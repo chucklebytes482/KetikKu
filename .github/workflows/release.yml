@@ -5,6 +5,14 @@ on:
     branches:
       - main
       - master
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.env.example'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
 
 permissions:
@@ -13,6 +21,11 @@ permissions:
 concurrency:
   group: ketikku-release-${{ github.ref }}
   cancel-in-progress: false
+
+env:
+  APP_SLUG: "KetikKu"
+  APP_DISPLAY_NAME: "KetikKu"
+  REQUIRE_GOOGLE_SERVICES: "true"
 
 jobs:
   build-release:
@@ -26,14 +39,28 @@ jobs:
       - name: Compute Automatic Version
         shell: bash
         run: |
+          set -euo pipefail
           BASE_CODE=$(grep -E 'baseVersionCode\s*=' app/build.gradle.kts | head -n1 | sed -E 's/[^0-9]*([0-9]+).*/\1/')
           BASE_NAME=$(grep -E 'baseVersionName\s*=' app/build.gradle.kts | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
           BASE_CODE="${BASE_CODE:-2}"
           BASE_NAME="${BASE_NAME:-1.1}"
           RUN_NUM="${GITHUB_RUN_NUMBER:-1}"
 
-          CI_VERSION_CODE=$((BASE_CODE + 10 + RUN_NUM))
-          CI_VERSION_NAME="${BASE_NAME}.${RUN_NUM}"
+          ESCAPED_BASE=$(printf '%s' "$BASE_NAME" | sed 's/\./\\./g')
+          MAX_TAG_NUM=$(git ls-remote --tags origin "refs/tags/v${BASE_NAME}.*" 2>/dev/null \
+            | sed -nE "s|.*refs/tags/v${ESCAPED_BASE}\.([0-9]+)$|\1|p" \
+            | sort -n \
+            | tail -n 1 || true)
+          MAX_TAG_NUM="${MAX_TAG_NUM:-0}"
+
+          if [ "$RUN_NUM" -le "$MAX_TAG_NUM" ]; then
+            NEXT_NUM=$((MAX_TAG_NUM + 1))
+          else
+            NEXT_NUM="$RUN_NUM"
+          fi
+
+          CI_VERSION_CODE=$((BASE_CODE + 10 + NEXT_NUM))
+          CI_VERSION_NAME="${BASE_NAME}.${NEXT_NUM}"
           VERSION_TAG="v${CI_VERSION_NAME}"
 
           echo "CI_VERSION_CODE=${CI_VERSION_CODE}" >> "$GITHUB_ENV"
@@ -57,7 +84,7 @@ jobs:
             exit 1
           fi
           (yes || true) | "$SDKMANAGER" --licenses >/dev/null
-          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "platforms;android-36.1" "build-tools;36.0.0"
           echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_DIR" >> "$GITHUB_ENV"
 
@@ -74,8 +101,19 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          if [ ! -f debug.keystore ] && [ -f debug.keystore.base64 ]; then
-            tr -d '[:space:]' < debug.keystore.base64 | base64 -d > debug.keystore
+          set -euo pipefail
+          umask 077
+          if [ ! -f debug.keystore ]; then
+            if [ -f debug.keystore.base64 ]; then
+              tr -d '[:space:]' < debug.keystore.base64 | base64 -d > debug.keystore
+            else
+              keytool -genkeypair \
+                -keystore debug.keystore \
+                -alias androiddebugkey \
+                -keyalg RSA -keysize 2048 -validity 10000 \
+                -storepass android -keypass android \
+                -dname "CN=Android Debug, O=Android, C=US" >/dev/null 2>&1
+            fi
           fi
 
           if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
@@ -119,7 +157,7 @@ jobs:
               -alias upload \
               -keyalg RSA -keysize 2048 -validity 10000 \
               -storepass "$PASS" -keypass "$PASS" \
-              -dname "CN=KetikKu Release, OU=Android, O=KetikKu, L=Jakarta, ST=Jakarta, C=ID"
+              -dname "CN=${APP_DISPLAY_NAME} Release, OU=Android, O=${APP_DISPLAY_NAME}, L=Jakarta, ST=Jakarta, C=ID"
             echo "KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
             echo "STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
             echo "KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
@@ -133,13 +171,15 @@ jobs:
           if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
             printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | tr -d '[:space:]' | base64 -d > app/google-services.json
           fi
-          if [ ! -f app/google-services.json ]; then
-            echo "::error::app/google-services.json not found in repository. Push app/google-services.json to GitHub or add GOOGLE_SERVICES_JSON_BASE64 secret."
-            exit 1
-          fi
-          if ! grep -Eq '"client_type"[[:space:]]*:[[:space:]]*3' app/google-services.json; then
-            echo "::error::app/google-services.json is missing OAuth Web client (client_type: 3) required for default_web_client_id."
-            exit 1
+          if [ "$REQUIRE_GOOGLE_SERVICES" = "true" ]; then
+            if [ ! -f app/google-services.json ]; then
+              echo "::error::app/google-services.json not found in repository. Push app/google-services.json to GitHub or add GOOGLE_SERVICES_JSON_BASE64 secret."
+              exit 1
+            fi
+            if ! grep -Eq '"client_type"[[:space:]]*:[[:space:]]*3' app/google-services.json; then
+              echo "::error::app/google-services.json is missing OAuth Web client (client_type: 3) required for default_web_client_id."
+              exit 1
+            fi
           fi
 
       - name: Run Unit & Robolectric Tests
@@ -153,7 +193,7 @@ jobs:
         run: |
           mkdir -p dist
           APK_SRC="app/build/outputs/apk/release/app-release.apk"
-          APK_OUT="dist/KetikKu-${VERSION_TAG}-arm64-v8a-release.apk"
+          APK_OUT="dist/${APP_SLUG}-${VERSION_TAG}-arm64-v8a-release.apk"
           cp "$APK_SRC" "$APK_OUT"
 
           SDK_DIR="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
@@ -175,9 +215,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION_TAG }}
-          name: KetikKu ${{ env.VERSION_TAG }}
+          name: ${{ env.APP_DISPLAY_NAME }} ${{ env.VERSION_TAG }}
           files: |
             dist/*.apk
             dist/CHECKSUMS.txt
             dist/CERT_FINGERPRINT.txt
           generate_release_notes: true
+
+      - name: Clean Private Key on Runner
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/upload.jks"
