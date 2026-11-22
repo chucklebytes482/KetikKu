@@ -88,6 +88,7 @@ class SettingsRepository(
         val DRIVE_FOLDER_ID = stringPreferencesKey("drive_folder_id")
         val DRIVE_SETTINGS_FILE_ID = stringPreferencesKey("drive_settings_file_id")
         val DRIVE_DICT_FILE_ID = stringPreferencesKey("drive_dict_file_id")
+        val DEVICE_BACKUP_TREE_URI = stringPreferencesKey("device_backup_tree_uri")
         val PENDING_CHANGES = booleanPreferencesKey("pending_changes")
     }
 
@@ -176,6 +177,7 @@ class SettingsRepository(
                 driveFolderId = prefs[Keys.DRIVE_FOLDER_ID] ?: "",
                 driveSettingsFileId = prefs[Keys.DRIVE_SETTINGS_FILE_ID] ?: "",
                 driveDictFileId = prefs[Keys.DRIVE_DICT_FILE_ID] ?: "",
+                deviceBackupTreeUri = prefs[Keys.DEVICE_BACKUP_TREE_URI] ?: "",
                 pendingChanges = prefs[Keys.PENDING_CHANGES] ?: false
             )
         }
@@ -186,6 +188,8 @@ class SettingsRepository(
     suspend fun getCurrentDictionary(): List<PersonalDictionaryEntry> = dictionaryFlow.first()
 
     suspend fun getCurrentFolders(): List<String> = foldersFlow.first()
+
+    suspend fun getCurrentSyncLocalState(): SyncLocalState = syncLocalStateFlow.first()
 
     private fun parseDictionaryList(raw: String?): List<PersonalDictionaryEntry> {
         val list = if (raw.isNullOrBlank()) {
@@ -231,9 +235,6 @@ class SettingsRepository(
             )
             result = updated
             writeSettingsToPrefs(prefs, updated)
-            if (markPendingSync) {
-                prefs[Keys.PENDING_CHANGES] = true
-            }
         }
         return result
     }
@@ -440,6 +441,23 @@ class SettingsRepository(
         return mergedResult
     }
 
+    suspend fun replaceDictionaryAndFolders(
+        entries: List<PersonalDictionaryEntry>,
+        folders: List<String> = emptyList()
+    ): Pair<List<PersonalDictionaryEntry>, List<String>> {
+        val normalizedEntries = entries.map { entry ->
+            val normFolder = normalizeFolderPath(entry.folder)
+            if (normFolder == entry.folder) entry else entry.copy(folder = normFolder)
+        }
+        val normalizedFolders = normalizeOrderedFolders(folders, normalizedEntries)
+        dataStore.edit { prefs ->
+            prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(normalizedEntries)
+            prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(normalizedFolders)
+            prefs[Keys.PENDING_CHANGES] = false
+        }
+        return normalizedEntries to normalizedFolders
+    }
+
     suspend fun recordWordUsage(word: String, countDelta: Int = 1) {
         val clean = word.trim()
         if (clean.isEmpty() || countDelta <= 0) return
@@ -603,6 +621,12 @@ class SettingsRepository(
             if (driveSettingsFileId != null) prefs[Keys.DRIVE_SETTINGS_FILE_ID] = driveSettingsFileId
             if (driveDictFileId != null) prefs[Keys.DRIVE_DICT_FILE_ID] = driveDictFileId
             prefs[Keys.PENDING_CHANGES] = pendingChanges
+        }
+    }
+
+    suspend fun saveDeviceBackupTreeUri(treeUri: String) {
+        dataStore.edit { prefs ->
+            prefs[Keys.DEVICE_BACKUP_TREE_URI] = treeUri.trim()
         }
     }
 

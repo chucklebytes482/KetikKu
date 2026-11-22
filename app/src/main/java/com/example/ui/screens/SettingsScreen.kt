@@ -33,8 +33,8 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
+import com.example.ui.DeviceSyncUiState
 import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.theme.AmberPending
@@ -104,9 +105,9 @@ fun SettingsScreen(
     dictionary: List<PersonalDictionaryEntry>,
     imeStatus: ImeActivationStatus,
     onOpenDictionary: () -> Unit,
-    onOpenDriveSyncSheet: () -> Unit = {},
-    connectedUserEmail: String? = null,
+    onOpenDeviceBackupSheet: () -> Unit = {},
     syncLocalState: SyncLocalState = SyncLocalState(),
+    deviceSyncUiState: DeviceSyncUiState = DeviceSyncUiState.Idle,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -135,17 +136,17 @@ fun SettingsScreen(
                 .testTag("settings_list"),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 1. Paling atas: Sinkronisasi Google Drive (ModalBottomSheet)
+            // 1. Paling atas: Cadangan Perangkat Otomatis (ModalBottomSheet)
             item {
-                val driveSubtitle = if (!connectedUserEmail.isNullOrBlank()) {
-                    val statusPart = if (syncLocalState.lastSyncedAtMillis > 0L) {
-                        "Tersinkronisasi"
+                val backupSubtitle = when (deviceSyncUiState) {
+                    is DeviceSyncUiState.Syncing -> "Documents/KetikKu • Menyinkronkan..."
+                    is DeviceSyncUiState.NeedsFolderAccess -> "Documents/KetikKu • Perlu izin folder"
+                    is DeviceSyncUiState.Error -> "Documents/KetikKu • Gagal sinkronisasi"
+                    is DeviceSyncUiState.Idle -> if (syncLocalState.lastSyncedAtMillis > 0L) {
+                        "Documents/KetikKu • Tersinkronisasi"
                     } else {
-                        "Belum disinkronkan"
+                        "Documents/KetikKu • Otomatis saat dibuka"
                     }
-                    "$connectedUserEmail • $statusPart"
-                } else {
-                    "Belum terhubung"
                 }
                 Surface(
                     shape = RoundedCornerShape(18.dp),
@@ -154,8 +155,8 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
                         .clip(RoundedCornerShape(18.dp))
-                        .clickable(onClick = onOpenDriveSyncSheet)
-                        .testTag("open_drive_sync_sheet_button")
+                        .clickable(onClick = onOpenDeviceBackupSheet)
+                        .testTag("open_device_backup_sheet_button")
                 ) {
                     Row(
                         modifier = Modifier.padding(14.dp),
@@ -170,20 +171,20 @@ fun SettingsScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.CloudDone,
-                                contentDescription = "Google Drive",
+                                imageVector = Icons.Default.Folder,
+                                contentDescription = "Cadangan Perangkat",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Google Drive",
+                                text = "Cadangan Perangkat",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = driveSubtitle,
+                                text = backupSubtitle,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -192,7 +193,7 @@ fun SettingsScreen(
                         }
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Buka Google Drive",
+                            contentDescription = "Buka Cadangan Perangkat",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -411,7 +412,7 @@ private fun GeneralAiPromptCard(context: Context) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Referensi struktur ketikku_dictionary.json (tanpa permintaan tugas)",
+                        text = "Referensi struktur Documents/KetikKu/ketikku_dictionary.json",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,

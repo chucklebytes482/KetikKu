@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>KetikKu — Panduan Penggunaan, Pintasan Ctrl &amp; Instruksi AI Kamus JSON</title>
-  <meta name="description" content="Panduan lengkap penggunaan keyboard Android KetikKu, daftar pintasan Ctrl, sinkronisasi 2 file Google Drive, dan variasi instruksi AI untuk mengedit ketikku_dictionary.json." />
+  <meta name="description" content="Panduan lengkap penggunaan keyboard Android KetikKu, daftar pintasan Ctrl, cadangan otomatis kamus pribadi ke perangkat, dan variasi instruksi AI untuk mengedit ketikku_dictionary.json." />
   <style>
     :root {
       --bg: #f4f7f8;
@@ -352,7 +352,7 @@
       <h1>KetikKu — Panduan Resmi &amp; Prompt AI</h1>
       <p>
         Keyboard cepat dan ringan dengan tombol <strong>Ctrl</strong> penuh, papan klip pintar,
-        kamus pribadi berbasis <em>personality</em>, serta sinkronisasi 2 file Google Drive yang mudah diedit dengan AI.
+        kamus pribadi berbasis <em>personality</em>, serta cadangan otomatis kamus pribadi ke perangkat yang mudah diedit dengan AI.
       </p>
       <div class="hero-actions">
         <a class="btn btn-white" href="https://github.com/chucklebytes482/KetikKu/releases/latest" target="_blank" rel="noopener">
@@ -366,7 +366,7 @@
       <a href="#cara-penggunaan">1. Cara Penggunaan</a>
       <a href="#pintasan-ctrl">2. Pintasan Ctrl</a>
       <a href="#panel-simbol">3. Panel Simbol &amp; Gestur</a>
-      <a href="#sinkronisasi-drive">4. Sinkronisasi 2 File Drive</a>
+      <a href="#sinkronisasi-perangkat">4. Cadangan Perangkat</a>
       <a href="#instruksi-ai">5. Variasi Instruksi AI</a>
     </nav>
 
@@ -509,22 +509,22 @@
       </div>
     </section>
 
-    <section id="sinkronisasi-drive" class="card">
-      <h2>4. Sinkronisasi Manual 2 File Google Drive</h2>
+    <section id="sinkronisasi-perangkat" class="card">
+      <h2>4. Sinkronisasi Otomatis Kamus Pribadi ke Perangkat</h2>
       <p class="section-desc">
-        Buka kartu <strong>Google Drive</strong> di bagian paling atas Setelan lalu tekan <strong>Sinkron Sekarang</strong> untuk mencadangkan dan menyinkronkan data dua arah secara manual ke folder <code>KetikKu</code> — tanpa layanan latar belakang dan tanpa jadwal otomatis sehingga hemat baterai dan memori.
+        Setiap kali aplikasi <strong>KetikKu</strong> dibuka, kamus pribadi disinkronkan secara otomatis dua arah ke perangkat di jalur <code>/storage/emulated/0/Documents/KetikKu/ketikku_dictionary.json</code> — hanya 1 berkas konsisten yang selalu menimpa cadangan sebelumnya tanpa membuat salinan ganda, tanpa akun Google, dan tanpa layanan latar belakang.
       </p>
       <div class="grid-2">
         <div class="subcard">
-          <h3>1. <code>ketikku_dictionary.json</code></h3>
+          <h3>1 Berkas Tunggal: <code>ketikku_dictionary.json</code></h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Menyimpan daftar <code>"folders"</code> serta array <code>"entries"</code> dengan 6 field seragam (<code>id</code>, <code>word</code>, <code>shortcut</code>, <code>folder</code>, <code>updatedAtMillis</code>, <code>deleted</code>) tanpa field <code>"language"</code>.
+            Hanya mencadangkan <strong>Kamus Pribadi</strong>: daftar <code>"folders"</code> serta array <code>"entries"</code> dengan 6 field seragam (<code>id</code>, <code>word</code>, <code>shortcut</code>, <code>folder</code>, <code>updatedAtMillis</code>, <code>deleted</code>) tanpa field <code>"language"</code>.
           </p>
         </div>
         <div class="subcard">
-          <h3>2. <code>ketikku_settings.json</code></h3>
+          <h3>Sinkron Dua Arah Otomatis</h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Menyimpan pengaturan keyboard (mode melayang, posisi, getaran, papan klip, dan nama folder Drive).
+            Jika kamus lokal kosong atau berkas di <code>Documents/KetikKu</code> lebih baru (misalnya setelah diedit dengan AI), KetikKu otomatis memulihkannya saat aplikasi dibuka. Anda juga dapat menekan <strong>Sinkron Sekarang</strong> di kartu <strong>Cadangan Perangkat</strong>.
           </p>
         </div>
       </div>
@@ -533,7 +533,7 @@
     <section id="instruksi-ai" class="card">
       <h2>5. Variasi Instruksi AI untuk Edit Kamus JSON</h2>
       <p class="section-desc">
-        Pilih variasi instruksi di bawah, klik tombol <strong>Salin Instruksi</strong> (atau klik langsung kotak kodenya), lalu kirim bersama file <code>ketikku_dictionary.json</code> dari Google Drive ke AI pilihan Anda.
+        Pilih variasi instruksi di bawah, klik tombol <strong>Salin Instruksi</strong> (atau klik langsung kotak kodenya), lalu kirim bersama file <code>ketikku_dictionary.json</code> dari <code>/storage/emulated/0/Documents/KetikKu</code> ke AI pilihan Anda.
       </p>
 
       <div class="prompt-list">
@@ -642,7 +642,7 @@ Aturan pemfolderan:
      "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
      "deleted": false
    }
-5. Kembalikan hanya 1 blok kode JSON valid siap unggah ke Google Drive folder KetikKu.
+5. Kembalikan hanya 1 blok kode JSON valid siap simpan ke /storage/emulated/0/Documents/KetikKu/ketikku_dictionary.json.
 
 Kategori folder atau daftar kamus tambahan yang ingin difolderkan:
 - [tulis pembagian kategori/folder atau tempel beberapa daftar kamus di sini]</pre>

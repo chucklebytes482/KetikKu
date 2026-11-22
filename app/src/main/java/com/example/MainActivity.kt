@@ -26,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,20 +46,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.data.FirestoreSyncRepository
-import com.example.data.GoogleDriveClient
+import com.example.data.AndroidDeviceBackupStorage
+import com.example.data.DeviceDictionaryBackupManager
 import com.example.data.SettingsRepository
-import com.example.ui.CloudSyncViewModel
+import com.example.ui.DeviceSyncUiState
+import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
+import com.example.ui.screens.DeviceBackupSheetContent
 import com.example.ui.screens.DictionaryScreen
-import com.example.ui.screens.DriveBackupSheetContent
-import com.example.ui.screens.DriveBackupUnauthenticatedSheetContent
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.KetikKuTheme
-import com.google.firebase.Firebase
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.auth
 
 const val ROUTE_SETTINGS = "settings"
 const val ROUTE_DICTIONARY = "dictionary"
@@ -123,7 +118,15 @@ private fun KetikKuMainScaffold(
         factory = viewModelFactory {
             initializer {
                 val app = checkNotNull(this[APPLICATION_KEY])
-                MainViewModel(SettingsRepository(app))
+                val repo = SettingsRepository(app)
+                val backupManager = DeviceDictionaryBackupManager(
+                    settingsRepository = repo,
+                    storage = AndroidDeviceBackupStorage(app)
+                )
+                MainViewModel(
+                    settingsRepository = repo,
+                    deviceBackupManager = backupManager
+                )
             }
         }
     )
@@ -131,39 +134,26 @@ private fun KetikKuMainScaffold(
     val settings by mainViewModel.settings.collectAsStateWithLifecycle()
     val dictionary by mainViewModel.dictionary.collectAsStateWithLifecycle()
     val folders by mainViewModel.folders.collectAsStateWithLifecycle()
-    val clipboard by mainViewModel.clipboard.collectAsStateWithLifecycle()
-    val dismissedClipboardId by mainViewModel.dismissedClipboardId.collectAsStateWithLifecycle()
     val syncLocalState by mainViewModel.syncLocalState.collectAsStateWithLifecycle()
+    val deviceSyncUiState by mainViewModel.deviceSyncUiState.collectAsStateWithLifecycle()
     val imeStatus by mainViewModel.imeStatus.collectAsStateWithLifecycle()
 
-    var currentUser by remember {
-        mutableStateOf<FirebaseUser?>(runCatching { Firebase.auth.currentUser }.getOrNull())
-    }
-    var showDriveSyncSheet by remember { mutableStateOf(false) }
+    var showDeviceBackupSheet by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner) {
         mainViewModel.refreshImeStatus(context)
         mainViewModel.syncSystemClipboardFromDevice(context)
+        mainViewModel.syncDictionaryWithDevice(force = false)
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 mainViewModel.refreshImeStatus(context)
                 mainViewModel.syncSystemClipboardFromDevice(context)
+                mainViewModel.syncDictionaryWithDevice(force = false)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    DisposableEffect(Unit) {
-        val auth = runCatching { Firebase.auth }.getOrNull()
-        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-            currentUser = firebaseAuth.currentUser
-        }
-        auth?.addAuthStateListener(listener)
-        onDispose {
-            auth?.removeAuthStateListener(listener)
         }
     }
 
@@ -234,67 +224,33 @@ private fun KetikKuMainScaffold(
             KetikKuNavHost(
                 navController = navController,
                 mainViewModel = mainViewModel,
-                currentUser = currentUser,
-                onOpenDriveSyncSheet = { showDriveSyncSheet = true },
+                onOpenDeviceBackupSheet = { showDeviceBackupSheet = true },
                 settings = settings,
                 dictionary = dictionary,
                 folders = folders,
-                clipboard = clipboard,
-                dismissedClipboardId = dismissedClipboardId,
                 syncLocalState = syncLocalState,
+                deviceSyncUiState = deviceSyncUiState,
                 imeStatus = imeStatus
             )
         }
     }
 
-    if (showDriveSyncSheet) {
+    if (showDeviceBackupSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
-            onDismissRequest = { showDriveSyncSheet = false },
+            onDismissRequest = { showDeviceBackupSheet = false },
             sheetState = sheetState,
             containerColor = MaterialTheme.colorScheme.surface
         ) {
-            val signedInUser = currentUser
-            if (signedInUser == null) {
-                DriveBackupUnauthenticatedSheetContent(
-                    settings = settings,
-                    dictionary = dictionary,
-                    onAuthSuccess = {
-                        currentUser = runCatching { Firebase.auth.currentUser }.getOrNull()
-                    }
-                )
-            } else {
-                val uid = signedInUser.uid
-                key(uid) {
-                    val cloudViewModel: CloudSyncViewModel = viewModel(
-                        key = uid,
-                        factory = viewModelFactory {
-                            initializer {
-                                val app = checkNotNull(this[APPLICATION_KEY])
-                                CloudSyncViewModel(
-                                    currentUserId = uid,
-                                    userEmail = signedInUser.email.orEmpty(),
-                                    settingsRepository = SettingsRepository(app),
-                                    firestoreRepo = FirestoreSyncRepository(app),
-                                    driveClient = GoogleDriveClient(),
-                                    appContext = app
-                                )
-                            }
-                        }
-                    )
-                    DriveBackupSheetContent(
-                        userEmail = signedInUser.email.orEmpty(),
-                        mainViewModel = mainViewModel,
-                        cloudViewModel = cloudViewModel,
-                        settings = settings,
-                        dictionary = dictionary,
-                        syncLocalState = syncLocalState,
-                        onSignedOut = {
-                            currentUser = runCatching { Firebase.auth.currentUser }.getOrNull()
-                        }
-                    )
+            DeviceBackupSheetContent(
+                dictionary = dictionary,
+                syncLocalState = syncLocalState,
+                deviceSyncUiState = deviceSyncUiState,
+                onSyncNow = { mainViewModel.syncDictionaryWithDevice(force = true) },
+                onFolderAuthorized = { uriString ->
+                    mainViewModel.onDeviceBackupFolderGranted(uriString)
                 }
-            }
+            )
         }
     }
 }
@@ -303,15 +259,13 @@ private fun KetikKuMainScaffold(
 private fun KetikKuNavHost(
     navController: NavHostController,
     mainViewModel: MainViewModel,
-    currentUser: FirebaseUser?,
-    onOpenDriveSyncSheet: () -> Unit,
+    onOpenDeviceBackupSheet: () -> Unit,
     settings: com.example.model.KeyboardSettings,
     dictionary: List<com.example.model.PersonalDictionaryEntry>,
     folders: List<String>,
-    clipboard: List<com.example.model.ClipboardItem>,
-    dismissedClipboardId: String?,
     syncLocalState: com.example.model.SyncLocalState,
-    imeStatus: com.example.ui.ImeActivationStatus
+    deviceSyncUiState: DeviceSyncUiState,
+    imeStatus: ImeActivationStatus
 ) {
     NavHost(
         navController = navController,
@@ -328,9 +282,9 @@ private fun KetikKuNavHost(
                         launchSingleTop = true
                     }
                 },
-                onOpenDriveSyncSheet = onOpenDriveSyncSheet,
-                connectedUserEmail = currentUser?.email,
-                syncLocalState = syncLocalState
+                onOpenDeviceBackupSheet = onOpenDeviceBackupSheet,
+                syncLocalState = syncLocalState,
+                deviceSyncUiState = deviceSyncUiState
             )
         }
 

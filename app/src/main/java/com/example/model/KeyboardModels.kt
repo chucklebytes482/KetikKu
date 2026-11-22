@@ -118,6 +118,7 @@ data class SyncLocalState(
     val driveFolderId: String = "",
     val driveSettingsFileId: String = "",
     val driveDictFileId: String = "",
+    val deviceBackupTreeUri: String = "",
     val pendingChanges: Boolean = false
 )
 

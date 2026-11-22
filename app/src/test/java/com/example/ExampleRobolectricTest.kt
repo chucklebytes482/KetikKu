@@ -1,8 +1,6 @@
 package com.example
 
 import android.content.Context
-import android.content.ContextWrapper
-import android.view.ContextThemeWrapper
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -56,9 +54,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import com.example.ui.findActivity
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertSame
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -204,14 +200,18 @@ class ExampleRobolectricTest {
             PersonalDictionaryEntry(id = "s2", word = "Terima kasih", shortcut = "tk", updatedAtMillis = 2L),
             PersonalDictionaryEntry(id = "s3", word = "Mohon tunggu", shortcut = "mt", updatedAtMillis = 3L)
         )
-        // Without personal entries, top suggestion chips remain empty
+        // Without personal entries, top suggestion chips remain empty while both thin | dividers stay stably visible
         assertEquals(0, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
+        composeRule.onNodeWithTag("suggestion_divider_1").assertIsDisplayed()
+        composeRule.onNodeWithTag("suggestion_divider_2").assertIsDisplayed()
 
-        // When personal entries exist, refreshing populates 2 equal-width suggestion chips + 3rd live preview slot next to toolbar
+        // When personal entries exist, refreshing populates 2 equal-width borderless suggestion slots + 3rd live preview slot separated by | dividers
         controller.refreshState(settings, personalSample)
         composeRule.waitForIdle()
         val chipNodes = composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes()
         assertEquals(2, chipNodes.size)
+        val divider1Bounds = composeRule.onNodeWithTag("suggestion_divider_1").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val divider2Bounds = composeRule.onNodeWithTag("suggestion_divider_2").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val previewSlotBounds = composeRule.onNodeWithTag("typed_preview_slot").fetchSemanticsNode().boundsInRoot
         val chipWidths = chipNodes.map { it.boundsInRoot.width }
         assertTrue(
@@ -219,8 +219,11 @@ class ExampleRobolectricTest {
             abs(chipWidths[0] - chipWidths[1]) < 2f && abs(chipWidths[1] - previewSlotBounds.width) < 2f
         )
         assertTrue(
-            "3rd column (typed_preview_slot) must sit directly to the left of the toolbar",
-            chipNodes[1].boundsInRoot.right <= previewSlotBounds.left + 1f &&
+            "Dividers must sit cleanly between Col1 | Col2 | Col3 directly left of toolbar",
+            chipNodes[0].boundsInRoot.right <= divider1Bounds.left + 1f &&
+                divider1Bounds.right <= chipNodes[1].boundsInRoot.left + 1f &&
+                chipNodes[1].boundsInRoot.right <= divider2Bounds.left + 1f &&
+                divider2Bounds.right <= previewSlotBounds.left + 1f &&
                 previewSlotBounds.right <= clipToolbarBounds.left + 1f
         )
 
@@ -523,7 +526,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun settingsScreen_showsOnlyImeStatusDictionaryAndDriveAndOmitsRemovedSections() {
+    fun settingsScreen_showsOnlyImeStatusDictionaryAndDeviceBackupAndOmitsRemovedSections() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val vm = MainViewModel(SettingsRepository(context))
 
@@ -535,13 +538,14 @@ class ExampleRobolectricTest {
                     dictionary = emptyList(),
                     imeStatus = ImeActivationStatus.ACTIVE_DEFAULT,
                     onOpenDictionary = {},
-                    onOpenDriveSyncSheet = {}
+                    onOpenDeviceBackupSheet = {}
                 )
             }
         }
 
         composeRule.waitForIdle()
         val removedLabels = listOf(
+            "Google Drive",
             "Tata Letak Keyboard",
             "Tinggi Keyboard",
             "Mode Mengambang",
@@ -565,13 +569,14 @@ class ExampleRobolectricTest {
                 composeRule.onAllNodesWithText(label, substring = true).fetchSemanticsNodes().isEmpty()
             )
         }
+        assertTrue(composeRule.onAllNodesWithTag("open_drive_sync_sheet_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("height_chip_normal").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("toggle_floating_mode").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("toggle_clipboard_history").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("toggle_haptic").fetchSemanticsNodes().isEmpty())
 
         assertTrue(composeRule.onAllNodesWithTag("open_playground_button").fetchSemanticsNodes().isEmpty())
-        composeRule.onNodeWithTag("open_drive_sync_sheet_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("open_device_backup_sheet_button").assertIsDisplayed()
         composeRule.onNodeWithTag("open_website_button").assertIsDisplayed()
         composeRule.onNodeWithTag("enable_ime_button").assertIsDisplayed()
         composeRule.onNodeWithTag("select_ime_button").assertIsDisplayed()
@@ -732,7 +737,7 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun appRoot_displaysSingleSimpleSettingsScreenAndDriveBottomSheetWithoutLogin() {
+    fun appRoot_displaysSingleSimpleSettingsScreenAndDeviceBackupBottomSheetWithoutLogin() {
         composeRule.setContent {
             KetikKuTheme {
                 KetikKuAppRoot()
@@ -740,13 +745,14 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        // No bottom navigation tabs and no mandatory login gate on initial screen
+        // No bottom navigation tabs, no Google Drive menu, and no login gate
         assertTrue(composeRule.onAllNodesWithTag("nav_playground").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("nav_settings").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("nav_backup").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("open_drive_sync_sheet_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("drive_connect_google_button").fetchSemanticsNodes().isEmpty())
 
-        composeRule.onNodeWithTag("open_drive_sync_sheet_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("open_device_backup_sheet_button").assertIsDisplayed()
         composeRule.onNodeWithTag("enable_ime_button").assertIsDisplayed()
         composeRule.onNodeWithTag("select_ime_button").assertIsDisplayed()
         composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("open_dictionary_menu_button"))
@@ -758,10 +764,13 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithTag("toggle_clipboard_history").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("toggle_haptic").fetchSemanticsNodes().isEmpty())
 
-        // Tapping Drive sync card opens ModalBottomSheet with optional Google sign-in & no Method 2 local backup
-        composeRule.onNodeWithTag("open_drive_sync_sheet_button").performClick()
+        // Tapping Device Backup card opens ModalBottomSheet showing status, single-file path, and Sync Now
+        composeRule.onNodeWithTag("open_device_backup_sheet_button").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("drive_connect_google_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("device_sync_now_button").assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithTag("drive_connect_google_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("local_export_json_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("local_import_json_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Metode 2", substring = true).fetchSemanticsNodes().isEmpty())
@@ -853,113 +862,83 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun googleDriveClient_syncsDictionaryAndSettingsTwoWayFilesWithoutLanguageField() = runTest {
+    fun deviceDictionaryBackupManager_twoWaySyncsOnlyDictionaryAndAlwaysReplacesSingleFile() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SettingsRepository(context)
-        val seenUploadPayloads = mutableListOf<String>()
+        val tempDir = java.io.File(context.cacheDir, "ketikku_backup_test_${System.nanoTime()}").apply {
+            mkdirs()
+        }
+        try {
+            val storage = com.example.data.DirectoryDeviceBackupStorage(tempDir)
+            val manager = com.example.data.DeviceDictionaryBackupManager(repo, storage)
 
-        val remoteDictJson = repo.encodeDictionaryBackupJson(
-            entries = listOf(
-                PersonalDictionaryEntry(
-                    id = "remote_1",
-                    word = "Salam Drive",
-                    shortcut = "sdr",
-                    updatedAtMillis = 5000L
-                )
-            ),
-            updatedAtMillis = 5000L
-        )
-        val remoteSettingsJson = repo.encodeSettingsBackupJson(
-            KeyboardSettings(
-                floatingModeEnabled = true,
-                hapticEnabled = false,
-                serifMiringEnabled = true,
-                updatedAtMillis = 5000L
+            // 1. Seed local dictionary + custom folder + clipboard + settings change
+            repo.replaceDictionaryAndFolders(emptyList(), emptyList())
+            repo.updateSettings { it.copy(floatingModeEnabled = true, hapticEnabled = false) }
+            repo.addClipboardText("Teks rahasia clipboard")
+            repo.createFolder("Kerja")
+            repo.upsertDictionaryEntry("Halo Perangkat", "hp", KeyboardLanguage.INDONESIAN.code, existingId = "local_1", folder = "Kerja")
+
+            val firstSync = manager.syncNow()
+            assertTrue("Expected Synced result, got $firstSync", firstSync is com.example.data.DeviceSyncResult.Synced)
+            val filesAfterFirst = tempDir.listFiles()?.toList().orEmpty()
+            assertEquals("Strictly 1 backup file must exist", 1, filesAfterFirst.size)
+            assertEquals(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_NAME, filesAfterFirst.first().name)
+
+            val firstContent = storage.backupFile.readText(Charsets.UTF_8)
+            val firstJson = org.json.JSONObject(firstContent)
+            assertTrue(firstJson.has("entries"))
+            assertTrue(firstJson.has("folders"))
+            // Only Personal Dictionary is backed up (no settings, no clipboard, no language)
+            assertFalse(firstJson.has("settings"))
+            assertFalse(firstJson.has("clipboard"))
+            assertFalse(firstContent.contains("Teks rahasia clipboard"))
+            assertFalse(firstContent.contains("floatingModeEnabled"))
+            assertFalse(firstContent.contains("\"language\""))
+
+            // 2. Edit dictionary locally & sync again -> strictly overwrites the exact same single file
+            repo.upsertDictionaryEntry("Balasan Cepat Baru", "bcb", KeyboardLanguage.INDONESIAN.code, existingId = "local_2", folder = SettingsRepository.FOLDER_BALASAN_CEPAT)
+            val secondSync = manager.syncNow()
+            assertTrue(secondSync is com.example.data.DeviceSyncResult.Synced)
+            val filesAfterSecond = tempDir.listFiles()?.toList().orEmpty()
+            assertEquals("Re-sync must overwrite in-place without duplicates", 1, filesAfterSecond.size)
+            val secondContent = storage.backupFile.readText(Charsets.UTF_8)
+            assertTrue(secondContent.contains("Halo Perangkat"))
+            assertTrue(secondContent.contains("Balasan Cepat Baru"))
+
+            // 3. External edit to ketikku_dictionary.json (newer timestamp, no local pending edits) -> auto-pulls on sync
+            val futureTs = System.currentTimeMillis() + 60_000L
+            val externalJson = repo.encodeDictionaryBackupJson(
+                entries = listOf(
+                    PersonalDictionaryEntry(id = "local_1", word = "Halo Perangkat", shortcut = "hp", folder = "Kerja", updatedAtMillis = futureTs - 10L),
+                    PersonalDictionaryEntry(id = "ext_ai_1", word = "Template AI Terbaru", shortcut = "ai", folder = "AI", updatedAtMillis = futureTs)
+                ),
+                updatedAtMillis = futureTs,
+                folders = listOf("Kerja", "AI")
             )
-        )
+            storage.backupFile.writeText(externalJson, Charsets.UTF_8)
+            storage.backupFile.setLastModified(futureTs)
 
-        val mockHttp = okhttp3.OkHttpClient.Builder()
-            .addInterceptor { chain ->
-                val req = chain.request()
-                val url = req.url.toString()
-                val (code, body) = when {
-                    req.method == "GET" && url.contains("q=name") -> {
-                        200 to """{"files":[{"id":"folder_1","name":"KetikKu","mimeType":"application/vnd.google-apps.folder"}]}"""
-                    }
-                    req.method == "GET" && url.contains("in+parents") -> {
-                        200 to """{"files":[{"id":"dict_file_1","name":"ketikku_dictionary.json","mimeType":"application/json"},{"id":"settings_file_1","name":"ketikku_settings.json","mimeType":"application/json"}]}"""
-                    }
-                    req.method == "GET" && url.contains("/dict_file_1?alt=media") -> {
-                        200 to remoteDictJson
-                    }
-                    req.method == "GET" && url.contains("/settings_file_1?alt=media") -> {
-                        200 to remoteSettingsJson
-                    }
-                    req.method == "PATCH" || req.method == "POST" -> {
-                        val buffer = okio.Buffer()
-                        req.body?.writeTo(buffer)
-                        val bodyText = buffer.readUtf8()
-                        seenUploadPayloads.add(bodyText)
-                        val id = if (bodyText.contains("ketikku_settings.json")) "settings_file_1" else "dict_file_1"
-                        200 to """{"id":"$id"}"""
-                    }
-                    else -> 404 to "{}"
-                }
-                okhttp3.Response.Builder()
-                    .request(req)
-                    .protocol(okhttp3.Protocol.HTTP_1_1)
-                    .code(code)
-                    .message("OK")
-                    .body(with(okhttp3.ResponseBody.Companion) { body.toResponseBody(null) })
-                    .build()
-            }
-            .build()
+            val thirdSync = manager.syncNow()
+            assertTrue(thirdSync is com.example.data.DeviceSyncResult.Synced)
+            assertTrue((thirdSync as com.example.data.DeviceSyncResult.Synced).restoredFromFile)
+            val dictAfterPull = repo.getCurrentDictionary()
+            assertTrue(dictAfterPull.any { !it.deleted && it.word == "Template AI Terbaru" && it.folder == "AI" })
+            assertTrue(repo.getCurrentFolders().contains("AI"))
+            assertEquals(1, tempDir.listFiles()?.size ?: 0)
 
-        val client = com.example.data.GoogleDriveClient(mockHttp)
-        val localSettings = KeyboardSettings(
-            heightPreset = KeyboardHeightPreset.NORMAL.name,
-            serifMiringEnabled = false,
-            updatedAtMillis = 999L
-        )
-        repo.upsertDictionaryEntry("Halo Lokal", "hl", KeyboardLanguage.INDONESIAN.code, existingId = "local_2")
-        val localDict = repo.getCurrentDictionary()
-
-        val outcome = client.syncTwoWay(
-            accessToken = "fake-token",
-            folderName = "KetikKu",
-            shortcutFolderIdOverride = "",
-            localSettings = localSettings,
-            localDictionary = localDict,
-            settingsRepository = repo
-        ).getOrThrow()
-
-        // Remote settings (updatedAtMillis=5000L) win over older local settings (999L)
-        assertTrue(outcome.syncedSettings.floatingModeEnabled)
-        assertFalse(outcome.syncedSettings.hapticEnabled)
-        assertTrue(outcome.syncedSettings.serifMiringEnabled)
-        assertEquals("settings_file_1", outcome.settingsFileId)
-        assertEquals("dict_file_1", outcome.dictionaryFileId)
-        assertTrue(outcome.syncedDictionary.any { it.id == "remote_1" && it.word == "Salam Drive" })
-        assertTrue(outcome.syncedDictionary.any { it.id == "local_2" && it.word == "Halo Lokal" })
-        assertTrue(seenUploadPayloads.any { it.contains("ketikku_dictionary.json") })
-        assertTrue(seenUploadPayloads.none { it.contains("\"language\"") })
-
-        // Now local settings change newer than remote -> uploads ketikku_settings.json
-        val newerLocalSettings = outcome.syncedSettings.copy(
-            hapticEnabled = true,
-            updatedAtMillis = 9000L
-        )
-        seenUploadPayloads.clear()
-        val outcome2 = client.syncTwoWay(
-            accessToken = "fake-token",
-            folderName = "KetikKu",
-            shortcutFolderIdOverride = "",
-            localSettings = newerLocalSettings,
-            localDictionary = outcome.syncedDictionary,
-            settingsRepository = repo
-        ).getOrThrow()
-        assertEquals(com.example.data.SyncDirection.UPLOADED, outcome2.direction)
-        assertTrue(seenUploadPayloads.any { it.contains("ketikku_settings.json") })
+            // 4. Empty local dictionary (simulating reinstall) -> auto-restores from existing file
+            repo.replaceDictionaryAndFolders(emptyList(), emptyList())
+            assertTrue(repo.getCurrentDictionary().isEmpty())
+            val restoreSync = manager.syncNow()
+            assertTrue(restoreSync is com.example.data.DeviceSyncResult.Synced)
+            assertTrue((restoreSync as com.example.data.DeviceSyncResult.Synced).restoredFromFile)
+            val restoredEntries = repo.getCurrentDictionary()
+            assertTrue(restoredEntries.any { !it.deleted && it.word == "Template AI Terbaru" })
+            assertEquals(1, tempDir.listFiles()?.size ?: 0)
+        } finally {
+            tempDir.deleteRecursively()
+        }
     }
 
     @Test
@@ -1452,56 +1431,52 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun findActivity_unwrapsNestedContextWrappersAndReturnsNullForApplication() {
-        val activity = Robolectric.buildActivity(MainActivity::class.java).create().get()
-        val themedWrapper = ContextThemeWrapper(activity, android.R.style.Theme_DeviceDefault)
-        val nestedWrapper = ContextWrapper(themedWrapper)
-
-        assertSame(activity, activity.findActivity())
-        assertSame(activity, themedWrapper.findActivity())
-        assertSame(activity, nestedWrapper.findActivity())
-        assertNull(ApplicationProvider.getApplicationContext<Context>().findActivity())
-    }
-
-    @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun driveBackupConnectedContent_rendersOneLineStatusAndManualSyncWithoutScheduleChips() {
+    fun deviceBackupSheetBody_rendersStatusPathSyncAndConditionalFolderAccessButton() {
         var syncClicks = 0
-        var disconnectClicks = 0
+        var folderClicks = 0
+        var needsAccess by mutableStateOf(false)
 
         composeRule.setContent {
             KetikKuTheme(darkTheme = false) {
-                com.example.ui.screens.DriveBackupConnectedContent(
-                    userEmail = "pengguna@gmail.com",
+                com.example.ui.screens.DeviceBackupSheetBody(
+                    activeWordCount = 12,
                     statusHeadline = "Tersinkronisasi • Baru saja",
                     statusDotColor = androidx.compose.material3.MaterialTheme.colorScheme.secondary,
                     isSyncing = false,
-                    onDisconnect = { disconnectClicks++ },
-                    onSyncNow = { syncClicks++ }
+                    needsFolderAccess = needsAccess,
+                    onSyncNow = { syncClicks++ },
+                    onRequestFolderAccess = { folderClicks++ }
                 )
             }
         }
 
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("drive_sync_status_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("drive_disconnect_button").assertIsDisplayed()
-        composeRule.onNodeWithTag("drive_sync_now_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("device_sync_now_button").assertIsDisplayed()
+        composeRule.onNodeWithText(
+            com.example.data.DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH,
+            substring = true
+        ).assertIsDisplayed()
 
-        // Background schedule chips & verbose clutter must not appear
-        assertTrue(composeRule.onAllNodesWithTag("sync_interval_5").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithTag("sync_interval_15").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithTag("sync_interval_240").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithTag("sync_interval_1440").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithTag("drive_auto_sync_switch").fetchSemanticsNodes().isEmpty())
+        // No Google Drive login / disconnect / background schedule clutter
+        assertTrue(composeRule.onAllNodesWithTag("device_grant_folder_button").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("drive_disconnect_button").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("drive_connect_google_button").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Google Drive", substring = true).fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Jadwal Sinkronisasi").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Pulihkan Drive").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Lihat JSON").fetchSemanticsNodes().isEmpty())
 
-        composeRule.onNodeWithTag("drive_sync_now_button").performClick()
-        composeRule.onNodeWithTag("drive_disconnect_button").performClick()
+        composeRule.onNodeWithTag("device_sync_now_button").performClick()
         composeRule.waitForIdle()
         assertEquals(1, syncClicks)
-        assertEquals(1, disconnectClicks)
+
+        // When folder access is required (e.g., cross-install existing file), show grant folder button
+        needsAccess = true
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("device_grant_folder_button").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, folderClicks)
     }
 
     @Test
@@ -1556,9 +1531,10 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("open_drive_sync_sheet_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("open_device_backup_sheet_button").assertIsDisplayed()
         composeRule.onNodeWithTag("open_website_button").assertIsDisplayed()
-        assertTrue(composeRule.onAllNodesWithText("Google Drive").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Cadangan Perangkat").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Google Drive").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Web Panduan").fetchSemanticsNodes().isNotEmpty())
 
         // Scroll to bottom and verify 1 General AI Prompt card is displayed and copies flat-folder prompt
@@ -1579,7 +1555,7 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun settingsScreen_ordersDriveFirstWebsiteSecondAndOmitsPersonalizationSection() = runTest {
+    fun settingsScreen_ordersDeviceBackupFirstWebsiteSecondAndOmitsPersonalizationSection() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SettingsRepository(context)
         val vm = MainViewModel(repo)
@@ -1593,16 +1569,16 @@ class ExampleRobolectricTest {
                     dictionary = emptyList(),
                     imeStatus = ImeActivationStatus.ACTIVE_DEFAULT,
                     onOpenDictionary = {},
-                    onOpenDriveSyncSheet = {}
+                    onOpenDeviceBackupSheet = {}
                 )
             }
         }
 
         composeRule.waitForIdle()
-        val driveBounds = composeRule.onNodeWithTag("open_drive_sync_sheet_button").fetchSemanticsNode().boundsInRoot
+        val backupBounds = composeRule.onNodeWithTag("open_device_backup_sheet_button").fetchSemanticsNode().boundsInRoot
         val websiteBounds = composeRule.onNodeWithTag("open_website_button").fetchSemanticsNode().boundsInRoot
         val enableBounds = composeRule.onNodeWithTag("enable_ime_button").fetchSemanticsNode().boundsInRoot
-        assertTrue("Google Drive sync must be #1 at top", driveBounds.bottom <= websiteBounds.top + 1f)
+        assertTrue("Device Backup card must be #1 at top", backupBounds.bottom <= websiteBounds.top + 1f)
         assertTrue("Website must be #2 above IME status", websiteBounds.bottom <= enableBounds.top + 1f)
 
         // Personalization card and swap switches must NOT exist in Settings

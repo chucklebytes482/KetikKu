@@ -9,6 +9,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.DeviceDictionaryBackupManager
+import com.example.data.DeviceSyncResult
 import com.example.data.SettingsRepository
 import com.example.ime.KeyboardController
 import com.example.ime.TextFieldImeTarget
@@ -30,8 +32,16 @@ enum class ImeActivationStatus {
     ACTIVE_DEFAULT
 }
 
+sealed interface DeviceSyncUiState {
+    data object Idle : DeviceSyncUiState
+    data object Syncing : DeviceSyncUiState
+    data class NeedsFolderAccess(val message: String) : DeviceSyncUiState
+    data class Error(val message: String) : DeviceSyncUiState
+}
+
 class MainViewModel(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val deviceBackupManager: DeviceDictionaryBackupManager? = null
 ) : ViewModel() {
 
     val settings: StateFlow<KeyboardSettings> = settingsRepository.settingsFlow
@@ -57,6 +67,12 @@ class MainViewModel(
 
     val syncLocalState: StateFlow<SyncLocalState> = settingsRepository.syncLocalStateFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), SyncLocalState())
+
+    private val _deviceSyncUiState = MutableStateFlow<DeviceSyncUiState>(DeviceSyncUiState.Idle)
+    val deviceSyncUiState: StateFlow<DeviceSyncUiState> = _deviceSyncUiState.asStateFlow()
+
+    @Volatile
+    private var lastAutoSyncTriggerMillis: Long = 0L
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -256,6 +272,42 @@ class MainViewModel(
         viewModelScope.launch {
             val result = settingsRepository.importLocalBackupJson(rawJson)
             onComplete(result)
+        }
+    }
+
+    fun syncDictionaryWithDevice(force: Boolean = false) {
+        val manager = deviceBackupManager ?: return
+        val now = System.currentTimeMillis()
+        if (!force) {
+            if (_deviceSyncUiState.value is DeviceSyncUiState.Syncing) return
+            if (lastAutoSyncTriggerMillis > 0L &&
+                !syncLocalState.value.pendingChanges &&
+                (now - lastAutoSyncTriggerMillis) < 3_000L
+            ) {
+                return
+            }
+        }
+        lastAutoSyncTriggerMillis = now
+        _deviceSyncUiState.value = DeviceSyncUiState.Syncing
+        viewModelScope.launch {
+            val result = try {
+                manager.syncNow()
+            } catch (t: Throwable) {
+                DeviceSyncResult.Error(t.localizedMessage ?: "Gagal menyinkronkan kamus pribadi ke perangkat.")
+            }
+            _deviceSyncUiState.value = when (result) {
+                is DeviceSyncResult.Synced -> DeviceSyncUiState.Idle
+                is DeviceSyncResult.NeedsFolderAccess -> DeviceSyncUiState.NeedsFolderAccess(result.message)
+                is DeviceSyncResult.Error -> DeviceSyncUiState.Error(result.message)
+            }
+        }
+    }
+
+    fun onDeviceBackupFolderGranted(treeUri: String) {
+        if (treeUri.isBlank()) return
+        viewModelScope.launch {
+            settingsRepository.saveDeviceBackupTreeUri(treeUri)
+            syncDictionaryWithDevice(force = true)
         }
     }
 }

@@ -10,12 +10,7 @@
     <string name="action_enable_ime">Aktifkan di Setelan</string>
     <string name="action_select_ime">Pilih KetikKu</string>
 
-    <string name="drive_sync_title">Auto-Sinkronisasi Google Drive</string>
-    <string name="drive_sync_desc">Simpan dan sinkronkan otomatis ke folder \"%1$s\" di Google Drive Anda agar berkas bisa langsung dilihat di Drive.</string>
-    <string name="drive_auto_sync_title">Sinkronisasi Otomatis</string>
-    <string name="drive_auto_sync_subtitle">Unggah otomatis setiap ada perubahan atau saat kembali online</string>
-    <string name="drive_disconnect">Putuskan Akun</string>
-    <string name="drive_sync_now">Sinkronkan Sekarang</string>
-    <string name="sign_in_google">Masuk dengan Google</string>
-    <string name="continue_local_mode">Gunakan Mode Lokal Saja</string>
+    <string name="device_backup_title">Cadangan Perangkat</string>
+    <string name="device_backup_desc">Sinkronisasi otomatis dua arah kamus pribadi ke /storage/emulated/0/Documents/KetikKu/ketikku_dictionary.json saat aplikasi dibuka.</string>
+    <string name="device_backup_sync_now">Sinkron Sekarang</string>
 </resources>

@@ -1296,6 +1296,20 @@ private fun UtilityIconButton(
 }
 
 @Composable
+private fun SuggestionColumnDivider(
+    color: Color,
+    tag: String
+) {
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .height(18.dp)
+            .background(color.copy(alpha = 0.55f))
+            .testTag(tag)
+    )
+}
+
+@Composable
 private fun SuggestionChipsRow(
     suggestions: List<String>,
     primaryAutoCorrect: String?,
@@ -1320,11 +1334,17 @@ private fun SuggestionChipsRow(
 
     Row(
         modifier = modifier.fillMaxHeight(),
-        horizontalArrangement = Arrangement.spacedBy(if (isFloating) 3.dp else 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (isFloating) 2.dp else 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Columns 1 & 2: interactive dictionary suggestions
+        // Columns 1 & 2: borderless interactive dictionary suggestions separated by permanent subtle | dividers
         (0 until 2).forEach { index ->
+            if (index > 0) {
+                SuggestionColumnDivider(
+                    color = palette.borderColor,
+                    tag = "suggestion_divider_1"
+                )
+            }
             val word = suggestions.getOrNull(index)
             if (word == null) {
                 Spacer(
@@ -1339,8 +1359,6 @@ private fun SuggestionChipsRow(
                 modifier = Modifier
                     .weight(1f)
                     .height(chipHeight)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (isHighlighted) palette.chipHighlightBg else palette.chipBg)
                     .clickable { onTap(word) }
                     .padding(horizontal = if (isFloating) 4.dp else 6.dp)
                     .testTag("suggestion_chip"),
@@ -1359,28 +1377,29 @@ private fun SuggestionChipsRow(
             }
         }
 
-        // Column 3 (nearest to right utility toolbar): auto-scrolling live typed characters preview (read-only)
-        if (typedText.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(chipHeight)
-                    .testTag("typed_preview_slot")
-            )
-        } else {
-            val previewShape = RoundedCornerShape(8.dp)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(chipHeight)
-                    .clip(previewShape)
-                    .background(palette.chipBg.copy(alpha = 0.72f))
-                    .border(0.75.dp, palette.borderColor, previewShape)
-                    .padding(horizontal = if (isFloating) 5.dp else 7.dp)
-                    .semantics { contentDescription = "Pratinjau karakter diketik: $typedText" }
-                    .testTag("typed_preview_slot"),
-                contentAlignment = Alignment.CenterStart
-            ) {
+        // Permanent thin | divider between Column 2 and Column 3
+        SuggestionColumnDivider(
+            color = palette.borderColor,
+            tag = "suggestion_divider_2"
+        )
+
+        // Column 3 (nearest to right utility toolbar): borderless auto-scrolling live typed characters preview (read-only)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(chipHeight)
+                .padding(horizontal = if (isFloating) 4.dp else 6.dp)
+                .then(
+                    if (typedText.isNotEmpty()) {
+                        Modifier.semantics { contentDescription = "Pratinjau karakter diketik: $typedText" }
+                    } else {
+                        Modifier
+                    }
+                )
+                .testTag("typed_preview_slot"),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            if (typedText.isNotEmpty()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1389,7 +1408,7 @@ private fun SuggestionChipsRow(
                 ) {
                     Text(
                         text = typedText,
-                        color = palette.keyText,
+                        color = palette.keyText.copy(alpha = 0.85f),
                         fontSize = if (isFloating) 11.sp else 12.sp,
                         fontWeight = FontWeight.Normal,
                         fontFamily = fontFamily,
