@@ -1922,21 +1922,7 @@ class ExampleRobolectricTest {
 
         composeRule.waitForIdle()
 
-        // 1. Custom folder 3-dot menu shows ONLY "Ubah Nama" (NO "Pindahkan" and NO "Hapus Folder")
-        composeRule.onNodeWithTag("folder_menu_FolderKosong").performClick()
-        composeRule.waitForIdle()
-        assertTrue(composeRule.onAllNodesWithText("Ubah Nama").fetchSemanticsNodes().isNotEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Pindahkan").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithTag("folder_delete_FolderKosong").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Hapus Folder").fetchSemanticsNodes().isEmpty())
-
-        // Dismiss menu cleanly via Ubah Nama dialog -> Batal
-        composeRule.onAllNodesWithText("Ubah Nama")[0].performClick()
-        composeRule.waitForIdle()
-        composeRule.onAllNodesWithText("Batal")[0].performClick()
-        composeRule.waitForIdle()
-
-        // 2. Delete custom folder via multi-select -> MUST show confirmation dialog, NOT delete immediately
+        // 1. Delete custom folder via multi-select -> MUST show confirmation dialog, NOT delete immediately
         composeRule.onNodeWithTag("folder_item_FolderKosong").performTouchInput { longClick() }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("delete_selected_button").performClick()
@@ -1961,7 +1947,7 @@ class ExampleRobolectricTest {
         assertEquals(setOf("FolderKosong"), lastDeletedFolders)
         assertTrue(lastDeletedEntries.isEmpty())
 
-        // 3. Delete entry via SelectionActionBar -> MUST show confirmation dialog
+        // 2. Delete entry via SelectionActionBar -> MUST show confirmation dialog
         composeRule.onNodeWithTag("dictionary_item_e1").performTouchInput { longClick() }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("delete_selected_button").performClick()
@@ -1972,6 +1958,14 @@ class ExampleRobolectricTest {
 
         assertEquals(2, deletedCalls)
         assertEquals(setOf("e1"), lastDeletedEntries)
+
+        // 3. Custom folder 3-dot menu shows ONLY "Ubah Nama" (NO "Pindahkan" and NO "Hapus Folder")
+        composeRule.onNodeWithTag("folder_menu_FolderKosong").performClick()
+        composeRule.waitForIdle()
+        assertTrue(composeRule.onAllNodesWithText("Ubah Nama").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Pindahkan").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("folder_delete_FolderKosong").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Hapus Folder").fetchSemanticsNodes().isEmpty())
     }
 
     @Test
