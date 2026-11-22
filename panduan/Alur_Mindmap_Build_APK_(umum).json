@@ -1,0 +1,153 @@
+{
+  "title": "Alur Pembuatan & Build APK Android (Umum)",
+  "layoutMode": "top-down",
+  "nodeCount": 21,
+  "outline": [
+    "Alur Pembuatan & Build APK Android (Umum)",
+    "  - 1. Identitas & Skema Data",
+    "    - 1 kata Euskara 3 suku kata (com.aistudio.<kata>) & ikon adaptif kustom",
+    "    - Kotlin + Jetpack Compose + Material 3 dengan tema otomatis sistem",
+    "    - Skema data JSON seragam (id, updatedAtMillis, deleted)",
+    "    - Prioritas Beranda: #1 Cadangan Perangkat dan #2 Web Panduan (GitHub Pages)",
+    "  - 2. Sinkronisasi Otomatis Perangkat",
+    "    - Hanya sinkronisasi otomatis 2 arah ke perangkat saat aplikasi dibuka",
+    "    - 1 berkas tunggal konsisten di /storage/emulated/0/Documents/<NamaApp>/ (selalu menimpa berkas sebelumnya)",
+    "    - Tanpa akun/login cloud, tanpa layanan latar belakang, dan tanpa jadwal periodik",
+    "  - 3. UI Ringkas & Target Ukuran < 10 MB",
+    "    - Hapus fitur opsional, pemilih tema, dan dependensi tak terpakai",
+    "    - Seluruh keterangan rinci hanya di GitHub Pages (docs/index.html)",
+    "    - Sediakan bilah pencarian cepat & mode pilih dengan BackHandler",
+    "  - 4. Pengujian & Build R8",
+    "    - Unit Test & Robolectric UI Test lulus 100%",
+    "    - Aktifkan R8, shrinkResources, & ABI arm64-v8a (< 10 MB)",
+    "    - Verifikasi tanda tangan apksigner dan SHA-256 checksum",
+    "  - 5. Rilis & Keamanan Secret",
+    "    - Kemas berkas rahasia rilis saja ke secret/<slug_app>_secrets.hc (masuk .gitignore)",
+    "    - Publikasi APK via GitHub Actions ke GitHub Releases (tanpa APK di repo)",
+    "    - Zona folder bersih: panduan/ (dokumen), docs/ (khusus GitHub Pages), secret/ (lokal)"
+  ],
+  "tree": {
+    "id": "a1b2c3d4-0000-4000-8000-000000000001",
+    "title": "Alur Pembuatan & Build APK Android (Umum)",
+    "color": "slate",
+    "children": [
+      {
+        "id": "a1b2c3d4-1000-4000-8000-000000000001",
+        "title": "1. Identitas & Skema Data",
+        "color": "teal",
+        "children": [
+          {
+            "id": "a1b2c3d4-1100-4000-8000-000000000001",
+            "title": "1 kata Euskara 3 suku kata (com.aistudio.<kata>) & ikon adaptif kustom",
+            "color": "teal"
+          },
+          {
+            "id": "a1b2c3d4-1200-4000-8000-000000000001",
+            "title": "Kotlin + Jetpack Compose + Material 3 dengan tema otomatis sistem",
+            "color": "teal"
+          },
+          {
+            "id": "a1b2c3d4-1300-4000-8000-000000000001",
+            "title": "Skema data JSON seragam (id, updatedAtMillis, deleted)",
+            "color": "teal"
+          },
+          {
+            "id": "a1b2c3d4-1400-4000-8000-000000000001",
+            "title": "Prioritas Beranda: #1 Cadangan Perangkat dan #2 Web Panduan (GitHub Pages)",
+            "color": "teal"
+          }
+        ]
+      },
+      {
+        "id": "a1b2c3d4-2000-4000-8000-000000000001",
+        "title": "2. Sinkronisasi Otomatis Perangkat",
+        "color": "cobalt",
+        "children": [
+          {
+            "id": "a1b2c3d4-2100-4000-8000-000000000001",
+            "title": "Hanya sinkronisasi otomatis 2 arah ke perangkat saat aplikasi dibuka",
+            "color": "cobalt"
+          },
+          {
+            "id": "a1b2c3d4-2200-4000-8000-000000000001",
+            "title": "1 berkas tunggal konsisten di /storage/emulated/0/Documents/<NamaApp>/ (selalu menimpa berkas sebelumnya)",
+            "color": "cobalt"
+          },
+          {
+            "id": "a1b2c3d4-2300-4000-8000-000000000001",
+            "title": "Tanpa akun/login cloud, tanpa layanan latar belakang, dan tanpa jadwal periodik",
+            "color": "cobalt"
+          }
+        ]
+      },
+      {
+        "id": "a1b2c3d4-3000-4000-8000-000000000001",
+        "title": "3. UI Ringkas & Target Ukuran < 10 MB",
+        "color": "sage",
+        "children": [
+          {
+            "id": "a1b2c3d4-3100-4000-8000-000000000001",
+            "title": "Hapus fitur opsional, pemilih tema, dan dependensi tak terpakai",
+            "color": "sage"
+          },
+          {
+            "id": "a1b2c3d4-3200-4000-8000-000000000001",
+            "title": "Seluruh keterangan rinci hanya di GitHub Pages (docs/index.html)",
+            "color": "sage"
+          },
+          {
+            "id": "a1b2c3d4-3300-4000-8000-000000000001",
+            "title": "Sediakan bilah pencarian cepat & mode pilih dengan BackHandler",
+            "color": "sage"
+          }
+        ]
+      },
+      {
+        "id": "a1b2c3d4-4000-4000-8000-000000000001",
+        "title": "4. Pengujian & Build R8",
+        "color": "coral",
+        "children": [
+          {
+            "id": "a1b2c3d4-4100-4000-8000-000000000001",
+            "title": "Unit Test & Robolectric UI Test lulus 100%",
+            "color": "coral"
+          },
+          {
+            "id": "a1b2c3d4-4200-4000-8000-000000000001",
+            "title": "Aktifkan R8, shrinkResources, & ABI arm64-v8a (< 10 MB)",
+            "color": "coral"
+          },
+          {
+            "id": "a1b2c3d4-4300-4000-8000-000000000001",
+            "title": "Verifikasi tanda tangan apksigner dan SHA-256 checksum",
+            "color": "coral"
+          }
+        ]
+      },
+      {
+        "id": "a1b2c3d4-5000-4000-8000-000000000001",
+        "title": "5. Rilis & Keamanan Secret",
+        "color": "plum",
+        "children": [
+          {
+            "id": "a1b2c3d4-5100-4000-8000-000000000001",
+            "title": "Kemas berkas rahasia rilis saja ke secret/<slug_app>_secrets.hc (masuk .gitignore)",
+            "color": "plum"
+          },
+          {
+            "id": "a1b2c3d4-5200-4000-8000-000000000001",
+            "title": "Publikasi APK via GitHub Actions ke GitHub Releases (tanpa APK di repo)",
+            "color": "plum"
+          },
+          {
+            "id": "a1b2c3d4-5300-4000-8000-000000000001",
+            "title": "Zona folder bersih: panduan/ (dokumen), docs/ (khusus GitHub Pages), secret/ (lokal)",
+            "link": "https://docs.github.com/en/pages",
+            "color": "plum"
+          }
+        ]
+      }
+    ]
+  },
+  "schemaVersion": 1
+}

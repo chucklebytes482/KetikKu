@@ -1169,8 +1169,7 @@ private fun TopUtilityAndSuggestionBar(
                             .testTag("clipboard_status_banner")
                     )
                 }
-                controller.utilityPanel == UtilityPanel.NONE &&
-                    (controller.suggestions.isNotEmpty() || controller.currentTypedText.isNotEmpty()) -> {
+                controller.utilityPanel == UtilityPanel.NONE -> {
                     SuggestionChipsRow(
                         suggestions = controller.suggestions,
                         primaryAutoCorrect = controller.primaryAutoCorrect,
