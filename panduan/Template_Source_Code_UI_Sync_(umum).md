@@ -234,9 +234,9 @@ fun LazyListScope.standardHomePriorityCards(
 
 ---
 
-## 3. Sinkronisasi Otomatis ke Perangkat Saat Aplikasi Dibuka (`data/DeviceAutoSyncManager.kt`)
+## 3. Sinkronisasi Otomatis ke Perangkat (`data/DeviceAutoSyncManager.kt`)
 
-Satu berkas JSON tunggal konsisten di `/storage/emulated/0/Documents/<NamaApp>/<slug>_data.json` (selalu menimpa berkas sebelumnya; sinkron 2 arah otomatis saat aplikasi dibuka).
+Satu berkas JSON tunggal konsisten di `/storage/emulated/0/Documents/<NamaApp>/<slug>_data.json`: langsung menimpa berkas perangkat setiap ada perubahan data/folder di aplikasi (agar hapus/ubah folder tidak kembali lagi), serta memulihkan otomatis saat aplikasi dibuka dengan pengaman anti-timpa file kosong dan perlindungan jumlah entri aktif terbanyak.
 
 ```kotlin
 package com.contoh.aplikasi.data
@@ -349,7 +349,7 @@ class DeviceAutoSyncManager(
 }
 ```
 
-Panggil otomatis saat aplikasi dibuka (mis. di `MainActivity.onResume()` atau `LaunchedEffect(Unit)` di layar utama).
+Panggil `writeReplacingSingleFile` langsung setiap kali ada perubahan data/folder di aplikasi (dengan pagar pengaman bila belum pernah sinkron dan berkas perangkat punya entri lebih banyak), serta jalankan pemeriksaan pemulihan otomatis saat aplikasi dibuka (tolak menimpa lokal bila berkas perangkat kosong atau punya entri aktif lebih sedikit; gabungkan aman agar entri terbanyak tetap selamat).
 
 ---
 

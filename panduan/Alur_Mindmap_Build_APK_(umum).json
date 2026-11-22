@@ -10,8 +10,8 @@
     "    - Skema data JSON seragam (id, updatedAtMillis, deleted)",
     "    - Prioritas Beranda: #1 Cadangan Perangkat dan #2 Web Panduan (GitHub Pages)",
     "  - 2. Sinkronisasi Otomatis Perangkat",
-    "    - Hanya sinkronisasi otomatis 2 arah ke perangkat saat aplikasi dibuka",
-    "    - 1 berkas tunggal konsisten di /storage/emulated/0/Documents/<NamaApp>/ (selalu menimpa berkas sebelumnya)",
+    "    - Langsung timpa berkas perangkat saat ada perubahan/hapus folder di aplikasi + sinkron otomatis saat aplikasi dibuka",
+    "    - 1 berkas tunggal di /storage/emulated/0/Documents/<NamaApp>/ dengan pengaman anti-timpa file kosong & entri terbanyak",
     "    - 100% luring: tanpa izin INTERNET, tanpa akun/login cloud, tanpa layanan latar belakang",
     "  - 3. UI Ringkas & Target Ukuran < 10 MB",
     "    - Hapus fitur opsional, pemilih tema, dan dependensi berat tak terpakai (Firebase/Auth/OkHttp)",
@@ -65,12 +65,12 @@
         "children": [
           {
             "id": "a1b2c3d4-2100-4000-8000-000000000001",
-            "title": "Hanya sinkronisasi otomatis 2 arah ke perangkat saat aplikasi dibuka",
+            "title": "Langsung timpa berkas perangkat saat ada perubahan/hapus folder di aplikasi + sinkron otomatis saat aplikasi dibuka",
             "color": "cobalt"
           },
           {
             "id": "a1b2c3d4-2200-4000-8000-000000000001",
-            "title": "1 berkas tunggal konsisten di /storage/emulated/0/Documents/<NamaApp>/ (selalu menimpa berkas sebelumnya)",
+            "title": "1 berkas tunggal di /storage/emulated/0/Documents/<NamaApp>/ dengan pengaman anti-timpa file kosong & entri terbanyak",
             "color": "cobalt"
           },
           {

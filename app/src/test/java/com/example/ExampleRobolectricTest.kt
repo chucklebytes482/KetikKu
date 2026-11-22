@@ -942,6 +942,132 @@ class ExampleRobolectricTest {
     }
 
     @Test
+    fun deviceDictionaryBackupManager_deleteAndRenameFolderImmediatelyReplacesAndNeverResurrects() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = SettingsRepository(context)
+        val tempDir = java.io.File(context.cacheDir, "ketikku_folder_del_test_${System.nanoTime()}").apply {
+            mkdirs()
+        }
+        try {
+            val storage = com.example.data.DirectoryDeviceBackupStorage(tempDir)
+            val manager = com.example.data.DeviceDictionaryBackupManager(repo, storage)
+
+            // Seed 2 custom folders + entries & initial sync
+            repo.replaceDictionaryAndFolders(emptyList(), emptyList())
+            repo.createFolder("Kerja")
+            repo.createFolder("Sementara")
+            repo.upsertDictionaryEntry("Salam Kerja", "sk", KeyboardLanguage.INDONESIAN.code, existingId = "w1", folder = "Kerja")
+            repo.upsertDictionaryEntry("Catatan Lama", "cl", KeyboardLanguage.INDONESIAN.code, existingId = "w2", folder = "Sementara")
+            assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
+            assertTrue(storage.backupFile.readText(Charsets.UTF_8).contains("Sementara"))
+
+            // 1. Delete folder "Sementara" -> immediate pushLocalToDevice must remove it from device file
+            repo.deleteEntriesAndFolders(emptySet(), setOf("Sementara"))
+            val pushDel = manager.pushLocalToDevice()
+            assertTrue(pushDel is com.example.data.DeviceSyncResult.Synced)
+            val afterDelDecoded = repo.decodeDictionaryBackupJson(storage.backupFile.readText(Charsets.UTF_8))!!
+            assertFalse("Deleted folder must be gone from device file immediately", afterDelDecoded.folders.contains("Sementara"))
+
+            // Re-running syncNow() (simulating app reopen) must NOT resurrect deleted folder
+            assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
+            assertFalse("Deleted folder must NOT resurrect after syncNow", repo.getCurrentFolders().contains("Sementara"))
+            val afterReopenDecoded = repo.decodeDictionaryBackupJson(storage.backupFile.readText(Charsets.UTF_8))!!
+            assertFalse(afterReopenDecoded.folders.contains("Sementara"))
+
+            // 2. Rename folder "Kerja" -> "Kantor" & push -> old name must disappear and stay gone
+            repo.renameFolder("Kerja", "Kantor")
+            assertTrue(manager.pushLocalToDevice() is com.example.data.DeviceSyncResult.Synced)
+            assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
+            val afterRenameFolders = repo.getCurrentFolders()
+            assertTrue(afterRenameFolders.contains("Kantor"))
+            assertFalse("Old folder name must NOT return after rename", afterRenameFolders.contains("Kerja"))
+
+            // 3. Pending deletion (without immediate push) -> syncNow() must respect local pending delete & not union old fileFolders
+            repo.createFolder("Arsip")
+            assertTrue(manager.pushLocalToDevice() is com.example.data.DeviceSyncResult.Synced)
+            assertTrue(storage.backupFile.readText(Charsets.UTF_8).contains("Arsip"))
+            repo.deleteEntriesAndFolders(emptySet(), setOf("Arsip"))
+            assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
+            assertFalse("Pending folder delete must NOT be resurrected by syncNow", repo.getCurrentFolders().contains("Arsip"))
+            val finalDecoded = repo.decodeDictionaryBackupJson(storage.backupFile.readText(Charsets.UTF_8))!!
+            assertFalse(finalDecoded.folders.contains("Arsip"))
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun deviceDictionaryBackupManager_protectsMoreEntriesAgainstEmptyTruncatedOrFreshInstallOverwrite() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repo = SettingsRepository(context)
+        val tempDir = java.io.File(context.cacheDir, "ketikku_protect_test_${System.nanoTime()}").apply {
+            mkdirs()
+        }
+        try {
+            val storage = com.example.data.DirectoryDeviceBackupStorage(tempDir)
+            val manager = com.example.data.DeviceDictionaryBackupManager(repo, storage)
+
+            // Seed 4 active entries locally and complete initial sync
+            repo.replaceDictionaryAndFolders(emptyList(), emptyList())
+            val baseTs = System.currentTimeMillis()
+            for (i in 1..4) {
+                repo.upsertDictionaryEntry("Entri Penting $i", "e$i", KeyboardLanguage.INDONESIAN.code, existingId = "id_$i", folder = "Pribadi")
+            }
+            assertTrue(manager.syncNow(baseTs) is com.example.data.DeviceSyncResult.Synced)
+
+            // Guard 1: External file overwritten with EMPTY entries & newer timestamp -> must NOT wipe local, must restore device file
+            val emptyTs = baseTs + 10_000L
+            storage.backupFile.writeText(
+                repo.encodeDictionaryBackupJson(entries = emptyList(), updatedAtMillis = emptyTs, folders = emptyList()),
+                Charsets.UTF_8
+            )
+            storage.backupFile.setLastModified(emptyTs)
+
+            val afterEmptySync = manager.syncNow(emptyTs + 500L)
+            assertTrue(afterEmptySync is com.example.data.DeviceSyncResult.Synced)
+            assertEquals("Local 4 entries must stay safe against empty file", 4, repo.getCurrentDictionary().count { !it.deleted })
+            val restoredAfterEmpty = repo.decodeDictionaryBackupJson(storage.backupFile.readText(Charsets.UTF_8))!!
+            assertEquals("Device file must be restored from local entries", 4, restoredAfterEmpty.entries.count { !it.deleted })
+
+            // Guard 2: External file is newer but TRUNCATED (only 1 old + 1 new = 2 active < 4 local) ->
+            // must merge preserving all 4 local entries + adding the 1 new external entry (= 5 active)
+            val truncatedTs = emptyTs + 20_000L
+            val truncatedJson = repo.encodeDictionaryBackupJson(
+                entries = listOf(
+                    PersonalDictionaryEntry(id = "id_1", word = "Entri Penting 1", shortcut = "e1", folder = "Pribadi", updatedAtMillis = truncatedTs),
+                    PersonalDictionaryEntry(id = "ai_new", word = "Tambahan AI", shortcut = "ain", folder = "Kerja", updatedAtMillis = truncatedTs)
+                ),
+                updatedAtMillis = truncatedTs,
+                folders = listOf("Pribadi", "Kerja")
+            )
+            storage.backupFile.writeText(truncatedJson, Charsets.UTF_8)
+            storage.backupFile.setLastModified(truncatedTs)
+
+            val afterTruncSync = manager.syncNow(truncatedTs + 500L)
+            assertTrue(afterTruncSync is com.example.data.DeviceSyncResult.Synced)
+            val mergedActive = repo.getCurrentDictionary().filter { !it.deleted }
+            assertEquals("All 4 local entries + 1 new external entry must survive", 5, mergedActive.size)
+            assertTrue(mergedActive.any { it.id == "id_4" })
+            assertTrue(mergedActive.any { it.id == "ai_new" })
+
+            // Guard 3: Fresh install (lastSyncedAtMillis == 0L) where user adds 1 entry quickly before initial sync,
+            // while device file already holds 5 entries -> pushLocalToDevice must NOT overwrite the 5 entries with 1 entry!
+            repo.replaceDictionaryAndFolders(emptyList(), emptyList())
+            repo.updateSyncState(lastSyncedAtMillis = 0L, message = "Belum pernah disinkronkan", pendingChanges = false)
+            repo.upsertDictionaryEntry("Catatan Baru Instal", "cbi", KeyboardLanguage.INDONESIAN.code, existingId = "fresh_1", folder = "Pribadi")
+
+            val freshPush = manager.pushLocalToDevice(truncatedTs + 40_000L)
+            assertTrue(freshPush is com.example.data.DeviceSyncResult.Synced)
+            val savedActive = repo.getCurrentDictionary().filter { !it.deleted }
+            assertEquals("Fresh install push must preserve all 5 device entries + 1 new local entry", 6, savedActive.size)
+            val deviceDecodedAfterFresh = repo.decodeDictionaryBackupJson(storage.backupFile.readText(Charsets.UTF_8))!!
+            assertEquals(6, deviceDecodedAfterFresh.entries.count { !it.deleted })
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun settingsRepository_addClipboardText_autoSavesQualifyingGmailAndNumbersToDictionary() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SettingsRepository(context)

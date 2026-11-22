@@ -416,6 +416,89 @@ class DeviceDictionaryBackupManager(
 ) {
     private val syncMutex = Mutex()
 
+    /**
+     * Dipanggil seketika setiap kali ada perubahan kamus atau folder di dalam aplikasi
+     * agar berkas tunggal ketikku_dictionary.json di perangkat langsung ter-replace bersih
+     * (folder yang dihapus/diubah nama tidak pernah kembali lagi).
+     *
+     * Pengaman anti-timpa: jika aplikasi belum pernah sinkron sama sekali (lastSyncedAtMillis == 0L)
+     * dan di perangkat sudah ada berkas dengan entri aktif LEBIH BANYAK daripada lokal,
+     * penimpaan buta diblokir dan entri perangkat diselamatkan terlebih dahulu lewat penggabungan aman.
+     */
+    suspend fun pushLocalToDevice(nowMillis: Long = System.currentTimeMillis()): DeviceSyncResult = syncMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val localEntries = settingsRepository.getCurrentDictionary()
+            val localFolders = settingsRepository.getCurrentFolders()
+            val syncState = settingsRepository.getCurrentSyncLocalState()
+            val treeUri = syncState.deviceBackupTreeUri.takeIf { it.isNotBlank() }
+            val localActive = localEntries.filter { !it.deleted }
+
+            // Pagar pengaman instal baru: jangan pernah menimpa berkas perangkat yang punya entri lebih banyak
+            // ketika aplikasi belum pernah menyelesaikan sinkronisasi awal (lastSyncedAtMillis == 0L).
+            if (syncState.lastSyncedAtMillis == 0L) {
+                when (val existingRead = storage.readBackup(treeUri)) {
+                    is BackupReadResult.NeedsFolderAccess -> {
+                        settingsRepository.updateSyncState(
+                            lastSyncedAtMillis = syncState.lastSyncedAtMillis,
+                            message = "Perlu izin folder Documents/KetikKu",
+                            pendingChanges = true
+                        )
+                        return@withContext DeviceSyncResult.NeedsFolderAccess(existingRead.reason)
+                    }
+
+                    is BackupReadResult.Found -> {
+                        val decoded = settingsRepository.decodeDictionaryBackupJson(existingRead.file.content)
+                        if (decoded != null) {
+                            val fileActive = decoded.entries.filter { !it.deleted }
+                            if (fileActive.size > localActive.size) {
+                                val mergedEntries = mergePreservingActiveLocal(localEntries, decoded.entries)
+                                val mergedFolders = SettingsRepository.normalizeOrderedFolders(
+                                    explicitFolders = localFolders,
+                                    entries = mergedEntries
+                                )
+                                settingsRepository.replaceDictionaryAndFolders(mergedEntries, mergedFolders)
+                                val syncTs = maxOf(nowMillis, decoded.updatedAtMillis, existingRead.file.lastModifiedMillis)
+                                val mergedJson = settingsRepository.encodeDictionaryBackupJson(
+                                    entries = mergedEntries,
+                                    updatedAtMillis = syncTs,
+                                    folders = mergedFolders
+                                )
+                                val activeCount = mergedEntries.count { !it.deleted }
+                                return@withContext commitWriteResult(
+                                    writeResult = storage.writeBackup(mergedJson, treeUri),
+                                    activeCount = activeCount,
+                                    restoredFromFile = true,
+                                    nowMillis = syncTs,
+                                    previousSyncedAt = syncState.lastSyncedAtMillis,
+                                    previousPending = true,
+                                    customSuccessMessage = "Digabung aman (entri perangkat dipertahankan) • $activeCount kata"
+                                )
+                            }
+                        }
+                    }
+
+                    is BackupReadResult.NotFound, is BackupReadResult.Error -> Unit
+                }
+            }
+
+            // Kondisi normal (sudah pernah sinkron atau lokal >= perangkat): langsung replace berkas perangkat
+            val writeTs = maxOf(nowMillis, syncState.lastSyncedAtMillis + 1L)
+            val json = settingsRepository.encodeDictionaryBackupJson(
+                entries = localEntries,
+                updatedAtMillis = writeTs,
+                folders = localFolders
+            )
+            return@withContext commitWriteResult(
+                writeResult = storage.writeBackup(json, treeUri),
+                activeCount = localActive.size,
+                restoredFromFile = false,
+                nowMillis = writeTs,
+                previousSyncedAt = syncState.lastSyncedAtMillis,
+                previousPending = true
+            )
+        }
+    }
+
     suspend fun syncNow(nowMillis: Long = System.currentTimeMillis()): DeviceSyncResult = syncMutex.withLock {
         withContext(Dispatchers.IO) {
             val localEntries = settingsRepository.getCurrentDictionary()
@@ -488,6 +571,26 @@ class DeviceDictionaryBackupManager(
                     val fileHasData = fileActive.isNotEmpty() || fileCustomFolders.isNotEmpty()
                     val fileEffectiveTs = maxOf(decoded.updatedAtMillis, readResult.file.lastModifiedMillis)
 
+                    // Case 0: Pengaman berkas kosong — berkas perangkat kosong padahal kamus lokal punya entri aktif ->
+                    // tolak menimpa lokal dan pulihkan berkas perangkat dari lokal.
+                    if (fileActive.isEmpty() && localActive.isNotEmpty()) {
+                        val safeTs = maxOf(nowMillis, fileEffectiveTs + 1L)
+                        val json = settingsRepository.encodeDictionaryBackupJson(
+                            entries = localEntries,
+                            updatedAtMillis = safeTs,
+                            folders = localFolders
+                        )
+                        return@withContext commitWriteResult(
+                            writeResult = storage.writeBackup(json, treeUri),
+                            activeCount = localActive.size,
+                            restoredFromFile = false,
+                            nowMillis = safeTs,
+                            previousSyncedAt = syncState.lastSyncedAtMillis,
+                            previousPending = syncState.pendingChanges,
+                            customSuccessMessage = "Dilindungi dari berkas kosong • ${localActive.size} kata"
+                        )
+                    }
+
                     // Case 1: Local dictionary is empty (e.g. fresh install) & backup file has data -> restore from file
                     if (localIsEmpty && fileHasData) {
                         val (appliedEntries, appliedFolders) = settingsRepository.replaceDictionaryAndFolders(
@@ -532,11 +635,49 @@ class DeviceDictionaryBackupManager(
                         )
                     }
 
-                    // Case 2: External file was updated after last sync and user has NO pending local edits -> trust external file
+                    // Case 2: External file was updated after last sync and user has NO pending local edits
                     val externalFileIsNewer = syncState.lastSyncedAtMillis > 0L &&
                         fileEffectiveTs > syncState.lastSyncedAtMillis &&
                         !syncState.pendingChanges
                     if (externalFileIsNewer) {
+                        // Pengaman entri terbanyak: jika berkas eksternal punya entri aktif LEBIH SEDIKIT daripada lokal
+                        // (misalnya JSON hasil edit AI terpotong), JANGAN replace penuh lokal — gabungkan secara aman
+                        // agar seluruh entri aktif lokal tetap selamat dan entri baru dari file ikut masuk.
+                        if (fileActive.size < localActive.size) {
+                            val mergedEntries = mergePreservingActiveLocal(localEntries, fileEntries)
+                            val mergedFolders = SettingsRepository.normalizeOrderedFolders(
+                                explicitFolders = localFolders,
+                                entries = mergedEntries
+                            )
+                            val (appliedEntries, appliedFolders) = settingsRepository.replaceDictionaryAndFolders(
+                                entries = mergedEntries,
+                                folders = mergedFolders
+                            )
+                            val safeTs = maxOf(nowMillis, fileEffectiveTs + 1L)
+                            val mergedJson = settingsRepository.encodeDictionaryBackupJson(
+                                entries = appliedEntries,
+                                updatedAtMillis = safeTs,
+                                folders = appliedFolders
+                            )
+                            val activeCount = appliedEntries.count { !it.deleted }
+                            val localGotNewData = !isDictionaryContentEquivalent(
+                                leftEntries = localEntries,
+                                leftFolders = localFolders,
+                                rightEntries = appliedEntries,
+                                rightFolders = appliedFolders
+                            )
+                            return@withContext commitWriteResult(
+                                writeResult = storage.writeBackup(mergedJson, treeUri),
+                                activeCount = activeCount,
+                                restoredFromFile = localGotNewData,
+                                nowMillis = safeTs,
+                                previousSyncedAt = syncState.lastSyncedAtMillis,
+                                previousPending = false,
+                                customSuccessMessage = "Digabung aman (entri lokal dipertahankan) • $activeCount kata"
+                            )
+                        }
+
+                        // Berkas eksternal lebih baru dan jumlah entri aktif >= lokal -> pulihkan penuh (edit AI normal)
                         val (appliedEntries, appliedFolders) = settingsRepository.replaceDictionaryAndFolders(
                             entries = fileEntries,
                             folders = fileFolders
@@ -579,10 +720,44 @@ class DeviceDictionaryBackupManager(
                         )
                     }
 
-                    // Case 3: Two-way merge (local changes or first sync with data on both sides)
-                    val mergedEntries = SettingsRepository.mergeDictionaryLists(localEntries, fileEntries)
+                    // Case 3A: Ada perubahan lokal tertunda pada aplikasi yang sudah pernah sinkron
+                    // dan berkas perangkat TIDAK berubah lebih baru -> kondisi lokal otoritatif,
+                    // langsung replace perangkat tanpa menghidupkan kembali folder yang dihapus/diubah nama.
+                    val localPendingAuthoritative = syncState.pendingChanges &&
+                        syncState.lastSyncedAtMillis > 0L &&
+                        fileEffectiveTs <= syncState.lastSyncedAtMillis
+                    if (localPendingAuthoritative) {
+                        val writeTs = maxOf(nowMillis, fileEffectiveTs + 1L)
+                        val localJson = settingsRepository.encodeDictionaryBackupJson(
+                            entries = localEntries,
+                            updatedAtMillis = writeTs,
+                            folders = localFolders
+                        )
+                        return@withContext commitWriteResult(
+                            writeResult = storage.writeBackup(localJson, treeUri),
+                            activeCount = localActive.size,
+                            restoredFromFile = false,
+                            nowMillis = writeTs,
+                            previousSyncedAt = syncState.lastSyncedAtMillis,
+                            previousPending = true
+                        )
+                    }
+
+                    // Case 3B: Sinkronisasi awal dengan data di kedua sisi (lastSyncedAtMillis == 0L)
+                    // atau konflik dua sisi bersamaan -> gabungkan entri (lindungi entri terbanyak),
+                    // dan JANGAN lakukan union buta fileFolders bila lokal punya pendingChanges agar folder terhapus tidak kembali.
+                    val mergedEntries = if (syncState.lastSyncedAtMillis == 0L && fileActive.size > localActive.size) {
+                        mergePreservingActiveLocal(localEntries, fileEntries)
+                    } else {
+                        SettingsRepository.mergeDictionaryLists(localEntries, fileEntries)
+                    }
+                    val baseExplicitFolders = if (syncState.pendingChanges) {
+                        localFolders
+                    } else {
+                        localFolders + fileFolders
+                    }
                     val mergedFolders = SettingsRepository.normalizeOrderedFolders(
-                        explicitFolders = localFolders + fileFolders,
+                        explicitFolders = baseExplicitFolders,
                         entries = mergedEntries
                     )
                     val localChanged = !isDictionaryContentEquivalent(
@@ -638,18 +813,47 @@ class DeviceDictionaryBackupManager(
         }
     }
 
+    /**
+     * Menggabungkan entri lokal dan eksternal sembari menjaga agar entri aktif di lokal
+     * tidak pernah berubah menjadi terhapus (deleted = true) akibat berkas eksternal
+     * yang lebih sedikit/terpotong, namun tetap mengambil entri baru & pembaruan aktif.
+     */
+    private fun mergePreservingActiveLocal(
+        local: List<PersonalDictionaryEntry>,
+        remote: List<PersonalDictionaryEntry>
+    ): List<PersonalDictionaryEntry> {
+        val byId = linkedMapOf<String, PersonalDictionaryEntry>()
+        for (item in local) {
+            byId[item.id] = item
+        }
+        for (remoteItem in remote) {
+            val existing = byId[remoteItem.id]
+            when {
+                existing == null -> byId[remoteItem.id] = remoteItem
+                !existing.deleted && remoteItem.deleted -> {
+                    // Lindungi entri aktif lokal dari penghapusan tak sengaja saat berkas eksternal menyusut
+                }
+                remoteItem.updatedAtMillis >= existing.updatedAtMillis -> {
+                    byId[remoteItem.id] = remoteItem
+                }
+            }
+        }
+        return byId.values.toList()
+    }
+
     private suspend fun commitWriteResult(
         writeResult: BackupWriteResult,
         activeCount: Int,
         restoredFromFile: Boolean,
         nowMillis: Long,
         previousSyncedAt: Long,
-        previousPending: Boolean
+        previousPending: Boolean,
+        customSuccessMessage: String? = null
     ): DeviceSyncResult {
         return when (writeResult) {
             is BackupWriteResult.Success -> {
                 val effectiveTs = maxOf(nowMillis, writeResult.writtenAtMillis)
-                val msg = if (restoredFromFile) {
+                val msg = customSuccessMessage ?: if (restoredFromFile) {
                     "Disinkronkan dua arah • $activeCount kata"
                 } else {
                     "Tersinkronisasi • $activeCount kata"

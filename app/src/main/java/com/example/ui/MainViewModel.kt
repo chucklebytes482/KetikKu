@@ -175,36 +175,42 @@ class MainViewModel(
     ) {
         viewModelScope.launch {
             settingsRepository.upsertDictionaryEntry(word, shortcut, language, existingId, folder)
+            pushLocalChangesToDevice()
         }
     }
 
     fun deleteDictionaryEntry(entryId: String) {
         viewModelScope.launch {
             settingsRepository.deleteDictionaryEntry(entryId)
+            pushLocalChangesToDevice()
         }
     }
 
     fun createDictionaryFolder(folderPath: String) {
         viewModelScope.launch {
             settingsRepository.createFolder(folderPath)
+            pushLocalChangesToDevice()
         }
     }
 
     fun renameDictionaryFolder(oldPath: String, newName: String) {
         viewModelScope.launch {
             settingsRepository.renameFolder(oldPath, newName)
+            pushLocalChangesToDevice()
         }
     }
 
     fun moveDictionaryItems(entryIds: Set<String>, folderPaths: Set<String>, targetFolderPath: String) {
         viewModelScope.launch {
             settingsRepository.moveEntriesAndFolders(entryIds, folderPaths, targetFolderPath)
+            pushLocalChangesToDevice()
         }
     }
 
     fun deleteDictionaryItems(entryIds: Set<String>, folderPaths: Set<String>) {
         viewModelScope.launch {
             settingsRepository.deleteEntriesAndFolders(entryIds, folderPaths)
+            pushLocalChangesToDevice()
         }
     }
 
@@ -271,7 +277,26 @@ class MainViewModel(
     fun importLocalBackupJson(rawJson: String, onComplete: (Result<String>) -> Unit) {
         viewModelScope.launch {
             val result = settingsRepository.importLocalBackupJson(rawJson)
+            if (result.isSuccess) {
+                pushLocalChangesToDevice()
+            }
             onComplete(result)
+        }
+    }
+
+    private suspend fun pushLocalChangesToDevice() {
+        val manager = deviceBackupManager ?: return
+        lastAutoSyncTriggerMillis = System.currentTimeMillis()
+        _deviceSyncUiState.value = DeviceSyncUiState.Syncing
+        val result = try {
+            manager.pushLocalToDevice()
+        } catch (t: Throwable) {
+            DeviceSyncResult.Error(t.localizedMessage ?: "Gagal memperbarui cadangan kamus ke perangkat.")
+        }
+        _deviceSyncUiState.value = when (result) {
+            is DeviceSyncResult.Synced -> DeviceSyncUiState.Idle
+            is DeviceSyncResult.NeedsFolderAccess -> DeviceSyncUiState.NeedsFolderAccess(result.message)
+            is DeviceSyncResult.Error -> DeviceSyncUiState.Error(result.message)
         }
     }
 

@@ -512,19 +512,19 @@
     <section id="sinkronisasi-perangkat" class="card">
       <h2>4. Sinkronisasi Otomatis Kamus Pribadi ke Perangkat</h2>
       <p class="section-desc">
-        KetikKu bekerja <strong>100% luring tanpa izin internet</strong> sehingga seluruh ketikan dan kata sandi tetap aman di perangkat Anda. Setiap kali aplikasi <strong>KetikKu</strong> dibuka, kamus pribadi disinkronkan secara otomatis dua arah ke perangkat di jalur <code>/storage/emulated/0/Documents/KetikKu/ketikku_dictionary.json</code> — hanya 1 berkas konsisten yang selalu menimpa cadangan sebelumnya tanpa salinan ganda, tanpa akun Google, dan tanpa layanan latar belakang.
+        KetikKu bekerja <strong>100% luring tanpa izin internet</strong> sehingga seluruh ketikan dan kata sandi tetap aman di perangkat Anda. Setiap perubahan kamus atau folder di dalam aplikasi <strong>langsung menimpa</strong> 1 berkas tunggal di <code>/storage/emulated/0/Documents/KetikKu/ketikku_dictionary.json</code> (folder yang dihapus tidak akan kembali lagi), sekaligus memeriksa pemulihan otomatis setiap kali aplikasi dibuka — tanpa salinan ganda, tanpa akun Google, dan tanpa layanan latar belakang.
       </p>
       <div class="grid-2">
         <div class="subcard">
-          <h3>1 Berkas Tunggal: <code>ketikku_dictionary.json</code></h3>
+          <h3>1 Berkas Tunggal &amp; Replace Seketika</h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Hanya mencadangkan <strong>Kamus Pribadi</strong>: daftar <code>"folders"</code> serta array <code>"entries"</code> dengan 6 field seragam (<code>id</code>, <code>word</code>, <code>shortcut</code>, <code>folder</code>, <code>updatedAtMillis</code>, <code>deleted</code>) tanpa field <code>"language"</code>.
+            Hanya mencadangkan <strong>Kamus Pribadi</strong>: daftar <code>"folders"</code> serta array <code>"entries"</code> dengan 6 field seragam (<code>id</code>, <code>word</code>, <code>shortcut</code>, <code>folder</code>, <code>updatedAtMillis</code>, <code>deleted</code>) tanpa field <code>"language"</code>. Menambah, mengedit, atau menghapus kata/folder di aplikasi langsung mengganti berkas perangkat seketika.
           </p>
         </div>
         <div class="subcard">
-          <h3>Sinkron Dua Arah Otomatis</h3>
+          <h3>Pemulihan Otomatis &amp; Pengaman Entri Terbanyak</h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Jika kamus lokal kosong atau berkas di <code>Documents/KetikKu</code> lebih baru (misalnya setelah diedit dengan AI), KetikKu otomatis memulihkannya saat aplikasi dibuka. Anda juga dapat menekan <strong>Sinkron Sekarang</strong> di kartu <strong>Cadangan Perangkat</strong>.
+            Saat aplikasi dibuka, KetikKu memulihkan penuh bila kamus lokal kosong atau bila berkas di <code>Documents/KetikKu</code> lebih baru dengan entri lengkap (misalnya setelah diedit dengan AI). Berkas kosong atau terpotong dengan entri lebih sedikit <strong>tidak akan pernah menimpa kamus lokal</strong> — entri lokal tetap diselamatkan melalui penggabungan aman.
           </p>
         </div>
       </div>
