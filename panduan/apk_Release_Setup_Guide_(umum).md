@@ -6,7 +6,7 @@ Referensi teknis siap salin untuk keystore rilis, GitHub Secrets, `.gitignore`, 
 
 ## 1. Keystore Rilis & Encode Base64
 
-Buat keystore di luar repositori Git (atau gunakan `Prompt_Generator_Kredensial_Rilis_(umum).md` untuk generate otomatis ke kontainer `.hc`):
+Buat keystore di luar repositori Git (atau gunakan `Prompt_Generator_Kredensial_Rilis_(umum).md` untuk generate otomatis ke 1 file HTML pengunduh `.hc` di root):
 
 ```bash
 keytool -genkeypair -v \
@@ -22,7 +22,7 @@ base64 -w 0 release-upload.jks > keystore.b64
 
 ## 2. GitHub Secrets & `.gitignore`
 
-Tambahkan di **Settings → Secrets and variables → Actions**:
+Tambahkan 4 secret keystore berikut di **Settings → Secrets and variables → Actions** (tidak perlu `GOOGLE_SERVICES_JSON_BASE64` untuk aplikasi 100% luring):
 
 | Nama Secret | Isi |
 |---|---|
@@ -31,7 +31,7 @@ Tambahkan di **Settings → Secrets and variables → Actions**:
 | `KEY_PASSWORD` | Password key/alias |
 | `KEY_ALIAS` | `upload` |
 
-Tambahkan ke `.gitignore`:
+Tambahkan ke `.gitignore` (jangan blokir `<slug_app>_secrets_download.html` di root agar bisa langsung diunduh lewat browser lalu dihapus pengguna):
 
 ```gitignore
 .gradle/
@@ -45,8 +45,6 @@ keystore.properties
 debug.keystore
 google-services.json
 app/google-services.json
-secret/
-*.hc
 dist/
 releases/
 *.apk
@@ -99,6 +97,25 @@ android {
     dependenciesInfo {
         includeInApk = false
         includeInBundle = true
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            val robolectricJar = listOfNotNull(
+                "${System.getProperty("user.home")}/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7/android-all-instrumented-16-robolectric-13921718-i7.jar",
+                "/home/appuser/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7/android-all-instrumented-16-robolectric-13921718-i7.jar",
+                System.getenv("HOME")?.let { "$it/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7/android-all-instrumented-16-robolectric-13921718-i7.jar" }
+            ).map { File(it) }.firstOrNull { it.exists() }
+
+            if (robolectricJar != null) {
+                systemProperty("robolectric.offline", "true")
+                systemProperty("robolectric.dependency.dir", robolectricJar.parentFile.absolutePath)
+            } else {
+                // Fallback CI online (aman untuk Gradle Configuration Cache via FileCollection)
+                jvmArgumentProviders.add(RobolectricDepsArgProvider(objects.fileCollection().from(robolectricSdk)))
+            }
+        }
     }
 }
 ```
@@ -262,4 +279,5 @@ jobs:
 |---|---|
 | `Keystore was tampered with` / gagal buka keystore | Pastikan `RELEASE_KEYSTORE_BASE64` 1 baris tanpa spasi dan `STORE_PASSWORD` / `KEY_PASSWORD` cocok. |
 | `No key with alias '...' found` | Samakan `KEY_ALIAS` dengan alias di keystore (`upload`). |
-| Ukuran APK > 10 MB | Aktifkan `isMinifyEnabled`, `isShrinkResources`, `abiFilters += "arm64-v8a"`, dan hapus library tak terpakai. |
+| Ukuran APK > 10 MB | Aktifkan `isMinifyEnabled`, `isShrinkResources`, `abiFilters += "arm64-v8a"`, dan hapus library tak terpakai (Firebase/Auth/OkHttp). |
+| Robolectric gagal HTTP 429 / Configuration Cache | Gunakan resolusi cache lokal `android-all-instrumented` (`user.home/.m2` & `/home/appuser/.m2`) + `objects.fileCollection().from(robolectricSdk)`. |

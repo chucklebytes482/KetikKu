@@ -1358,9 +1358,9 @@ private fun SuggestionChipsRow(
                 modifier = Modifier
                     .weight(1f)
                     .height(chipHeight)
+                    .testTag("suggestion_chip")
                     .clickable { onTap(word) }
-                    .padding(horizontal = if (isFloating) 4.dp else 6.dp)
-                    .testTag("suggestion_chip"),
+                    .padding(horizontal = if (isFloating) 4.dp else 6.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -1387,6 +1387,7 @@ private fun SuggestionChipsRow(
             modifier = Modifier
                 .weight(1f)
                 .height(chipHeight)
+                .testTag("typed_preview_slot")
                 .padding(horizontal = if (isFloating) 4.dp else 6.dp)
                 .then(
                     if (typedText.isNotEmpty()) {
@@ -1394,8 +1395,7 @@ private fun SuggestionChipsRow(
                     } else {
                         Modifier
                     }
-                )
-                .testTag("typed_preview_slot"),
+                ),
             contentAlignment = Alignment.CenterStart
         ) {
             if (typedText.isNotEmpty()) {

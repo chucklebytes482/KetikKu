@@ -1,11 +1,6 @@
 package com.example.model
 
-import androidx.annotation.Keep
 import androidx.compose.runtime.Immutable
-import com.google.firebase.Timestamp
-import com.google.firebase.firestore.DocumentId
-import com.google.firebase.firestore.IgnoreExtraProperties
-import com.google.firebase.firestore.ServerTimestamp
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
@@ -120,33 +115,4 @@ data class SyncLocalState(
     val driveDictFileId: String = "",
     val deviceBackupTreeUri: String = "",
     val pendingChanges: Boolean = false
-)
-
-@Keep
-@IgnoreExtraProperties
-data class UserSyncProfile(
-    @DocumentId val id: String = "",
-    val userId: String = "",
-    val email: String = "",
-    val autoSync: Boolean = true,
-    val driveFolderId: String? = null,
-    val driveFolderName: String = "KetikKu",
-    val lastSyncedAtMillis: Long = 0L,
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
-)
-
-@Keep
-@IgnoreExtraProperties
-data class BackupSnapshot(
-    @DocumentId val id: String = "",
-    val userId: String = "",
-    val deviceName: String = "",
-    val driveFileId: String? = null,
-    val settingsJson: String = "{}",
-    val dictionaryCount: Long = 0L,
-    val syncSource: String = "CLOUD_ONLY",
-    val syncedAtMillis: Long = 0L,
-    @ServerTimestamp val createdAt: Timestamp? = null,
-    @ServerTimestamp val updatedAt: Timestamp? = null
 )

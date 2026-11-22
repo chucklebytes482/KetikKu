@@ -12,19 +12,19 @@
     "  - 2. Sinkronisasi Otomatis Perangkat",
     "    - Hanya sinkronisasi otomatis 2 arah ke perangkat saat aplikasi dibuka",
     "    - 1 berkas tunggal konsisten di /storage/emulated/0/Documents/<NamaApp>/ (selalu menimpa berkas sebelumnya)",
-    "    - Tanpa akun/login cloud, tanpa layanan latar belakang, dan tanpa jadwal periodik",
+    "    - 100% luring: tanpa izin INTERNET, tanpa akun/login cloud, tanpa layanan latar belakang",
     "  - 3. UI Ringkas & Target Ukuran < 10 MB",
-    "    - Hapus fitur opsional, pemilih tema, dan dependensi tak terpakai",
+    "    - Hapus fitur opsional, pemilih tema, dan dependensi berat tak terpakai (Firebase/Auth/OkHttp)",
     "    - Seluruh keterangan rinci hanya di GitHub Pages (docs/index.html)",
     "    - Sediakan bilah pencarian cepat & mode pilih dengan BackHandler",
     "  - 4. Pengujian & Build R8",
-    "    - Unit Test & Robolectric UI Test lulus 100%",
+    "    - Unit Test & Robolectric UI Test lulus 100% via cache lokal offline-first",
     "    - Aktifkan R8, shrinkResources, & ABI arm64-v8a (< 10 MB)",
     "    - Verifikasi tanda tangan apksigner dan SHA-256 checksum",
     "  - 5. Rilis & Keamanan Secret",
-    "    - Kemas berkas rahasia rilis saja ke secret/<slug_app>_secrets.hc (masuk .gitignore)",
+    "    - Sediakan kontainer .hc dalam 1 file HTML di root (<slug_app>_secrets_download.html, hapus setelah diunduh)",
     "    - Publikasi APK via GitHub Actions ke GitHub Releases (tanpa APK di repo)",
-    "    - Zona folder bersih: panduan/ (dokumen), docs/ (khusus GitHub Pages), secret/ (lokal)"
+    "    - Zona folder bersih: panduan/ (dokumen), docs/ (khusus GitHub Pages), hapus file HTML secret setelah unduh"
   ],
   "tree": {
     "id": "a1b2c3d4-0000-4000-8000-000000000001",
@@ -75,7 +75,7 @@
           },
           {
             "id": "a1b2c3d4-2300-4000-8000-000000000001",
-            "title": "Tanpa akun/login cloud, tanpa layanan latar belakang, dan tanpa jadwal periodik",
+            "title": "100% luring: tanpa izin INTERNET, tanpa akun/login cloud, tanpa layanan latar belakang",
             "color": "cobalt"
           }
         ]
@@ -87,7 +87,7 @@
         "children": [
           {
             "id": "a1b2c3d4-3100-4000-8000-000000000001",
-            "title": "Hapus fitur opsional, pemilih tema, dan dependensi tak terpakai",
+            "title": "Hapus fitur opsional, pemilih tema, dan dependensi berat tak terpakai (Firebase/Auth/OkHttp)",
             "color": "sage"
           },
           {
@@ -109,7 +109,7 @@
         "children": [
           {
             "id": "a1b2c3d4-4100-4000-8000-000000000001",
-            "title": "Unit Test & Robolectric UI Test lulus 100%",
+            "title": "Unit Test & Robolectric UI Test lulus 100% via cache lokal offline-first",
             "color": "coral"
           },
           {
@@ -131,7 +131,7 @@
         "children": [
           {
             "id": "a1b2c3d4-5100-4000-8000-000000000001",
-            "title": "Kemas berkas rahasia rilis saja ke secret/<slug_app>_secrets.hc (masuk .gitignore)",
+            "title": "Sediakan kontainer .hc dalam 1 file HTML di root (<slug_app>_secrets_download.html, hapus setelah diunduh)",
             "color": "plum"
           },
           {
@@ -141,7 +141,7 @@
           },
           {
             "id": "a1b2c3d4-5300-4000-8000-000000000001",
-            "title": "Zona folder bersih: panduan/ (dokumen), docs/ (khusus GitHub Pages), secret/ (lokal)",
+            "title": "Zona folder bersih: panduan/ (dokumen), docs/ (khusus GitHub Pages), hapus file HTML secret setelah unduh",
             "link": "https://docs.github.com/en/pages",
             "color": "plum"
           }

@@ -28,8 +28,5 @@ dist/
 releases/
 *.apk
 *.aab
-# Kontainer rahasia VeraCrypt lokal (hanya di AI Studio, tidak pernah masuk GitHub)
-secret/
-*.hc
 logs_*.zip
 public/assets/aistudio/
