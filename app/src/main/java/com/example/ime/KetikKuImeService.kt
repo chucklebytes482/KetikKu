@@ -310,9 +310,12 @@ class KetikKuImeService : InputMethodService() {
             }
         }
 
+        val hasNoSuggestionsFlag = (inputType and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS) != 0
+        val isMultiLineFlag = (inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0
         val isRawOrWebCodeEditor = inputType == InputType.TYPE_NULL ||
             (typeClass == InputType.TYPE_CLASS_TEXT &&
-                variation == InputType.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT)
+                (variation == InputType.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT ||
+                    (hasNoSuggestionsFlag && isMultiLineFlag)))
 
         target.onEditorStarted(isRawOrWebCodeEditor = isRawOrWebCodeEditor)
         target.onSelectionUpdated(
@@ -490,16 +493,28 @@ class KetikKuImeService : InputMethodService() {
             ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DEL, 0, 0))
         }
 
+        private fun deleteActiveSelection(ic: InputConnection, liveSelection: String) {
+            markSelfEdit(newExpectedEnd = -1)
+            val committed = runCatching { ic.commitText("", 1) }.getOrDefault(false)
+            val remainingSelection = runCatching { ic.getSelectedText(0)?.toString() }.getOrNull()
+            if (!committed || remainingSelection == liveSelection) {
+                dispatchHardwareDel(ic)
+            }
+        }
+
+        private fun isUnchangedSnapshot(before: String, after: String?, windowSize: Int): Boolean {
+            if (after == null || after != before) return false
+            // If the window was full of identical chars (e.g. 32 'a's), deleting 1 char keeps the same suffix window.
+            val saturatedUniform = before.length >= windowSize && before.all { it == before[0] }
+            return !saturatedUniform
+        }
+
         override fun deleteBeforeCursor(count: Int) {
             if (count <= 0) return
             val ic = icProvider() ?: return
             val liveSelection = runCatching { ic.getSelectedText(0)?.toString() }.getOrNull()
             if (!liveSelection.isNullOrEmpty()) {
-                markSelfEdit(newExpectedEnd = -1)
-                val committed = runCatching { ic.commitText("", 1) }.getOrDefault(false)
-                if (!committed) {
-                    dispatchHardwareDel(ic)
-                }
+                deleteActiveSelection(ic, liveSelection)
                 return
             }
             if (hasKnownSelection) {
@@ -508,13 +523,15 @@ class KetikKuImeService : InputMethodService() {
 
             val nextEnd = if (expectedCursorEnd >= count) expectedCursorEnd - count else -1
             markSelfEdit(newExpectedEnd = nextEnd)
-            val textBefore = runCatching { ic.getTextBeforeCursor(count.coerceAtMost(64), 0)?.toString() }.getOrNull()
+            val windowSize = (count + 16).coerceIn(32, 64)
+            val textBefore = runCatching { ic.getTextBeforeCursor(windowSize, 0)?.toString() }.getOrNull()
             if (isRawOrWebCodeEditor || textBefore.isNullOrEmpty()) {
                 repeat(count) { dispatchHardwareDel(ic) }
                 return
             }
             val deleted = runCatching { ic.deleteSurroundingText(count, 0) }.getOrDefault(false)
-            if (!deleted) {
+            val textAfter = runCatching { ic.getTextBeforeCursor(windowSize, 0)?.toString() }.getOrNull()
+            if (!deleted || isUnchangedSnapshot(textBefore, textAfter, windowSize)) {
                 repeat(count) { dispatchHardwareDel(ic) }
             }
         }
@@ -523,11 +540,7 @@ class KetikKuImeService : InputMethodService() {
             val ic = icProvider() ?: return
             val liveSelection = runCatching { ic.getSelectedText(0)?.toString() }.getOrNull()
             if (!liveSelection.isNullOrEmpty()) {
-                markSelfEdit(newExpectedEnd = -1)
-                val committed = runCatching { ic.commitText("", 1) }.getOrDefault(false)
-                if (!committed) {
-                    dispatchHardwareDel(ic)
-                }
+                deleteActiveSelection(ic, liveSelection)
                 return
             }
             if (hasKnownSelection) {
@@ -535,15 +548,19 @@ class KetikKuImeService : InputMethodService() {
             }
 
             markSelfEdit(newExpectedEnd = -1)
-            val textBefore = runCatching { ic.getTextBeforeCursor(2, 0)?.toString() }.getOrNull()
+            val windowSize = 32
+            val textBefore = runCatching { ic.getTextBeforeCursor(windowSize, 0)?.toString() }.getOrNull()
             if (isRawOrWebCodeEditor || textBefore.isNullOrEmpty()) {
                 dispatchHardwareDel(ic)
                 return
             }
-            val deletedCp = runCatching { ic.deleteSurroundingTextInCodePoints(1, 0) }.getOrDefault(false)
-            if (deletedCp) return
-            val deletedChars = runCatching { ic.deleteSurroundingText(1, 0) }.getOrDefault(false)
-            if (!deletedChars) {
+            val deleted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                runCatching { ic.deleteSurroundingTextInCodePoints(1, 0) }.getOrDefault(false)
+            } else {
+                false
+            } || runCatching { ic.deleteSurroundingText(1, 0) }.getOrDefault(false)
+            val textAfter = runCatching { ic.getTextBeforeCursor(windowSize, 0)?.toString() }.getOrNull()
+            if (!deleted || isUnchangedSnapshot(textBefore, textAfter, windowSize)) {
                 dispatchHardwareDel(ic)
             }
         }

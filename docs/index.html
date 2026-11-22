@@ -388,12 +388,12 @@
         </div>
 
         <div class="subcard">
-          <h3>Kamus Pribadi (Simple File Manager)</h3>
+          <h3>Kamus Pribadi (6 Folder Utama Permanen)</h3>
           <ul>
-            <li>Kelola kamus layaknya file manager satu tingkat: buat <strong>Folder</strong>, ubah nama &amp; pindahkan isi lewat menu titik tiga (<kbd>⋮</kbd>), serta gunakan mode pilih banyak (<kbd>Pilih Semua</kbd>, <kbd>Pindahkan</kbd>, <kbd>Hapus</kbd> dengan konfirmasi).</li>
-            <li>Di halaman utama, folder otomatis <strong>Gmail</strong> &amp; <strong>Nomor</strong> selalu di atas, diikuti folder baru. Entri yang memiliki <strong>pintasan</strong> diurutkan paling atas di dalam daftar sekaligus diprioritaskan pada personalisasi saran teks.</li>
-            <li>Mengetik pintasan <strong>tidak mengganti teks secara otomatis</strong> saat menekan Spasi/Enter — entri kamus muncul di bilah saran atas di <strong>semua kolom teks (termasuk kolom kata sandi/password)</strong> dan baru masuk ketika Anda mengetuk chip sarannya.</li>
-            <li><strong>Semua entri di setiap folder tetap aktif</strong> untuk pintasan &amp; saran keyboard.</li>
+            <li>Kelola kamus satu tingkat (tanpa subfolder) dengan 6 folder utama permanen di urutan atas: <strong>Gmail</strong>, <strong>Nomor</strong>, <strong>Pribadi</strong>, <strong>Kata Sandi</strong>, <strong>Kredensial</strong>, dan <strong>Keuangan</strong>.</li>
+            <li>Entri di folder <strong>Kata Sandi</strong> dan <strong>Kredensial</strong> dijaga privasinya: tidak pernah muncul saat kolom kosong maupun saat mengetik awalan isinya, dan <strong>hanya muncul di bilah saran jika pintasannya diketik</strong>.</li>
+            <li>Mengetik pintasan <strong>tidak mengganti teks secara otomatis</strong> saat menekan Spasi/Enter — entri muncul di Kolom 1 &amp; 2 bilah saran di <strong>semua kolom teks (termasuk kolom kata sandi)</strong> dan masuk saat chip diketuk.</li>
+            <li><strong>Kolom saran ketiga</strong> (di sebelah bilah alat) menampilkan pratinjau karakter yang sedang diketik dengan <strong>gulir horizontal otomatis</strong> agar ketikan panjang maupun pintasan di kolom sandi tetap mudah dipantau.</li>
           </ul>
         </div>
 
@@ -410,8 +410,8 @@
           <h3>Mode Floating, Tekan Tahan &amp; Baris Bawah</h3>
           <ul>
             <li>Susunan baris bawah: tombol simbol <kbd>Ω</kbd> di paling kiri, diikuti <kbd>Ctrl</kbd>, tombol <kbd>Spasi</kbd> ekstra lega, tombol titik/koma (<kbd>.</kbd> / tahan <kbd>,</kbd>), dan tombol <kbd>Enter</kbd> aksi editor.</li>
+            <li>Tombol hapus (<kbd>⌫</kbd>) menggunakan penghapusan terverifikasi agar dapat menghapus karakter apa pun secara andal, termasuk di aplikasi editor kode dan JSON.</li>
             <li>Aktifkan <strong>Mode Melayang (Floating)</strong> dari ikon bilah alat atas dan geser pegangan untuk memindahkan posisi keyboard.</li>
-            <li>Tekan tahan huruf (seperti <kbd>q</kbd>–<kbd>p</kbd>, <kbd>a</kbd>–<kbd>l</kbd>, <kbd>z</kbd>–<kbd>m</kbd>) untuk menyisipkan angka dan simbol cepat dengan petunjuk sudut tombol 20% lebih besar.</li>
           </ul>
         </div>
       </div>
@@ -424,9 +424,9 @@
       </p>
 
       <div class="pill-row" style="margin-bottom: 14px;">
-        <span class="pill">1× Ketuk Ctrl = Aktif 1× (Armed)</span>
-        <span class="pill">2× Ketuk Cepat Ctrl = Terkunci (Locked)</span>
-        <span class="pill">Ketuk 1× lagi saat Terkunci = Mati</span>
+        <span class="pill">1× Ketuk Ctrl = Aktif hingga 2 Kombinasi Huruf (mis. Ctrl+A lalu Ctrl+C)</span>
+        <span class="pill">Otomatis Mati setelah 2 Huruf, Hapus, Spasi, atau Enter</span>
+        <span class="pill">Ketuk Ctrl Lagi = Mati Seketika</span>
       </div>
 
       <div class="table-wrap">
@@ -486,17 +486,17 @@
       </p>
       <div class="grid-2">
         <div class="subcard">
-          <h3>Panel 1 Simbol (Angka, Matematika &amp; Penggerak Kursor)</h3>
+          <h3>Panel 1 Simbol (Angka, Matematika &amp; Panah Kursor)</h3>
           <ul>
             <li><strong>Baris 1:</strong> <code>1 2 3 4 5 6 7 8 9 0</code></li>
-            <li><strong>Baris 2:</strong> <code>@ # $ _ &amp; - + × ÷</code></li>
-            <li><strong>Baris 3:</strong> <code>= % /</code> + panah penggerak kursor <code>← → ↑ ↓</code></li>
+            <li><strong>Baris 2:</strong> <code>@ # $ _ &amp; * % / •</code></li>
+            <li><strong>Baris 3:</strong> <code>- + × ÷ =</code> + panah penggerak kursor <code>↑ ↓</code></li>
           </ul>
         </div>
         <div class="subcard">
-          <h3>Panel 2 Simbol (Standar Unik &amp; Simbol Panah Literal)</h3>
+          <h3>Panel 2 Simbol (Standar Unik Tanpa Duplikat &amp; Panah Literal)</h3>
           <ul>
-            <li><strong>Baris 1:</strong> <code>✓ Rp ← → ↑ ↓ ^ • ~ |</code></li>
+            <li><strong>Baris 1:</strong> <code>✓ Rp ← → ↑ ↓ ^ § ~ |</code></li>
             <li><strong>Baris 2:</strong> <code>&lt; &gt; { } [ ] \ ° ±</code></li>
             <li><strong>Baris 3:</strong> <code>` … 🔥 😂 😍 👍 🙏</code></li>
           </ul>
@@ -543,27 +543,26 @@
             <button class="copy-btn" type="button" data-copy-target="prompt-1">Salin Instruksi</button>
           </div>
           <p class="prompt-note">Format wajib seragam dengan 6 field pasti pada setiap entri dan folder satu tingkat (tanpa subfolder).</p>
-          <pre id="prompt-1" class="prompt-box" title="Klik untuk menyalin">Bantu edit file JSON kamus KetikKu (ketikku_dictionary.json).
-Format wajib (setiap entri memiliki 6 field seragam tanpa field tambahan):
+          <pre id="prompt-1" class="prompt-box" title="Klik untuk menyalin">Struktur berkas JSON kamus pribadi KetikKu (ketikku_dictionary.json):
 {
   "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
-  "folders": ["Gmail", "Nomor", "Kerja"],
+  "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Keuangan"],
   "entries": [
     {
       "id": "&lt;id_unik&gt;",
-      "word": "&lt;kalimat_atau_frasa&gt;",
+      "word": "&lt;kalimat_atau_nilai&gt;",
       "shortcut": "&lt;pintasan_singkat_atau_kosong&gt;",
-      "folder": "&lt;nama_folder_atau_kosong&gt;",
+      "folder": "&lt;nama_folder_datar_atau_kosong&gt;",
       "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
       "deleted": false
     }
   ]
 }
-Aturan:
+Aturan struktur:
 1. Jangan sertakan field "language" atau field tambahan lain.
-2. Setiap objek di "entries" wajib berisi keenam field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
-3. Folder hanya 1 tingkat (tanpa subfolder dan tanpa "/"). Gunakan "" jika tidak ada shortcut atau tidak masuk folder.
-4. Cantumkan seluruh nama folder yang dipakai di array "folders".
+2. Setiap objek di "entries" wajib berisi 6 field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
+3. Folder hanya 1 tingkat (tanpa subfolder dan tanpa "/"). 6 folder utama: "Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Keuangan".
+4. Entri di folder "Kata Sandi" dan "Kredensial" hanya tampil di bilah saran saat "shortcut"-nya diketik.
 5. Pertahankan entri &amp; "id" lama, lalu kembalikan 1 blok kode JSON valid.
 
 Daftar kalimat, pintasan &amp; folder yang ingin ditambahkan:

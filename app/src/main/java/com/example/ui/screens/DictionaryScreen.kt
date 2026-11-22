@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CheckBox
@@ -38,7 +39,10 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
@@ -174,7 +178,8 @@ fun DictionaryScreen(
             modifier = Modifier
                 .widthIn(max = 640.dp)
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .testTag("dictionary_list"),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             item {
@@ -648,9 +653,14 @@ private fun FolderRowCard(
     onMove: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    val isPrimary = SettingsRepository.isPrimaryFolder(folderName)
     val folderIcon = when (folderName) {
         SettingsRepository.FOLDER_GMAIL -> Icons.Default.Email
         SettingsRepository.FOLDER_NOMOR -> Icons.Default.Phone
+        SettingsRepository.FOLDER_PRIBADI -> Icons.Default.Person
+        SettingsRepository.FOLDER_KATA_SANDI -> Icons.Default.Lock
+        SettingsRepository.FOLDER_KREDENSIAL -> Icons.Default.Key
+        SettingsRepository.FOLDER_KEUANGAN -> Icons.Default.AccountBalanceWallet
         else -> Icons.Default.Folder
     }
 
@@ -734,13 +744,15 @@ private fun FolderRowCard(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false }
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("Ubah Nama") },
-                            onClick = {
-                                menuExpanded = false
-                                onRename()
-                            }
-                        )
+                        if (!isPrimary) {
+                            DropdownMenuItem(
+                                text = { Text("Ubah Nama") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onRename()
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Pindahkan") },
                             onClick = {

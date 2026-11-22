@@ -315,7 +315,7 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
-    fun keyboardController_ctrlTapArmsResetsOnLetterAndDoubleTapLocks() {
+    fun keyboardController_ctrlPersistsForTwoLettersAndAutoResetsOnNonLetterOrToggle() {
         var tf = TextFieldValue("abc", TextRange(3))
         var targetRef: TextFieldImeTarget? = null
         targetRef = TextFieldImeTarget(
@@ -326,31 +326,62 @@ class KeyboardEngineUnitTest {
         val settings = KeyboardSettings()
 
         assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
+        assertEquals(0, controller.ctrlActionsRemaining)
 
-        // Single tap arms Ctrl; typing letter 'a' runs Ctrl+A and auto-deactivates
+        // Single tap arms Ctrl for up to 2 letter combos (e.g. Ctrl+A then Ctrl+C)
         controller.onCtrlTap()
         assertEquals(com.example.ime.CtrlState.ARMED, controller.ctrlState)
+        assertEquals(2, controller.ctrlActionsRemaining)
+
+        // 1st letter: Ctrl+A selects all and keeps Ctrl ARMED with 1 remaining
         controller.onCharacterTap("a", settings, emptyList())
-        assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
+        assertEquals(com.example.ime.CtrlState.ARMED, controller.ctrlState)
+        assertEquals(1, controller.ctrlActionsRemaining)
         assertEquals(TextRange(0, 3), tf.selection)
-        assertEquals("abc", tf.text)
 
-        // Rapid double-tap locks Ctrl across multiple combos; next tap releases to OFF
+        // 2nd letter: Ctrl+C copies and automatically turns Ctrl OFF
+        var copied = ""
+        controller.onCharacterTap("c", settings, emptyList(), onCopyResult = { copied = it })
+        assertEquals("abc", copied)
+        assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
+        assertEquals(0, controller.ctrlActionsRemaining)
+
+        // Tapping Ctrl a second time toggles it OFF immediately (no lock mode)
         controller.onCtrlTap()
         assertEquals(com.example.ime.CtrlState.ARMED, controller.ctrlState)
         controller.onCtrlTap()
-        assertEquals(com.example.ime.CtrlState.LOCKED, controller.ctrlState)
+        assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
 
-        controller.onCharacterTap("b", settings, emptyList())
-        assertEquals(com.example.ime.CtrlState.LOCKED, controller.ctrlState)
-        assertEquals("Ctrl+B", targetRef.lastSentCtrlCombo)
-
-        controller.onCharacterTap("f", settings, emptyList())
-        assertEquals(com.example.ime.CtrlState.LOCKED, controller.ctrlState)
-        assertEquals("Ctrl+F", targetRef.lastSentCtrlCombo)
+        // After 1 combo (Ctrl+A), tapping Backspace / Space / Enter immediately resets Ctrl to OFF
+        controller.onCtrlTap()
+        controller.onCharacterTap("a", settings, emptyList())
+        assertEquals(com.example.ime.CtrlState.ARMED, controller.ctrlState)
+        controller.onBackspaceTap(settings, emptyList())
+        assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
+        assertEquals(0, controller.ctrlActionsRemaining)
 
         controller.onCtrlTap()
+        controller.onSpaceTap(settings, emptyList())
         assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
+
+        controller.onCtrlTap()
+        controller.onEnterTap(settings, emptyList())
+        assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
+
+        // Switching editor resets Ctrl cleanly
+        controller.onCtrlTap()
+        controller.onCharacterTap("b", settings, emptyList())
+        assertEquals("Ctrl+B", targetRef.lastSentCtrlCombo)
+        assertEquals(com.example.ime.CtrlState.ARMED, controller.ctrlState)
+        controller.configureForEditor(
+            isNumeric = false,
+            isPassword = false,
+            actionType = com.example.ime.EnterActionType.ENTER,
+            settings = settings,
+            personalEntries = emptyList()
+        )
+        assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
+        assertEquals(0, controller.ctrlActionsRemaining)
     }
 
     @Test
@@ -725,13 +756,90 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
-    fun settingsRepository_normalizeFolderPathFlattensSubfolders() {
+    fun settingsRepository_normalizeFolderPathFlattensSubfoldersAndCanonicalizesSixPrimaryFolders() {
         assertEquals("Kerja CS", SettingsRepository.normalizeFolderPath("Kerja/CS"))
         assertEquals("Kerja CS", SettingsRepository.normalizeFolderPath("  Kerja \\ CS  "))
         assertEquals("Gmail", SettingsRepository.normalizeFolderPath("gmail"))
         assertEquals("Nomor", SettingsRepository.normalizeFolderPath("nomor"))
+        assertEquals("Pribadi", SettingsRepository.normalizeFolderPath("pribadi"))
+        assertEquals("Kata Sandi", SettingsRepository.normalizeFolderPath("kata sandi"))
+        assertEquals("Kredensial", SettingsRepository.normalizeFolderPath("KREDENSIAL"))
+        assertEquals("Keuangan", SettingsRepository.normalizeFolderPath("keuangan"))
         assertEquals("", SettingsRepository.normalizeFolderPath("///"))
         assertFalse(SettingsRepository.normalizeFolderPath("A/B/C").contains('/'))
+
+        val ordered = SettingsRepository.normalizeOrderedFolders(
+            explicitFolders = listOf("Kerja", "kata sandi", "kredensial"),
+            entries = emptyList()
+        )
+        assertEquals(
+            listOf("Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Keuangan", "Kerja"),
+            ordered
+        )
+    }
+
+    @Test
+    fun dictionaryEngine_kataSandiAndKredensialNeverLeakIdleOrByPrefixOnlyByShortcut() {
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "pub", word = "Halo dunia", shortcut = "hd", folder = "Pribadi", updatedAtMillis = 1L),
+            PersonalDictionaryEntry(id = "pw1", word = "RahasiaSandi!2026", shortcut = "pw1", folder = "Kata Sandi", updatedAtMillis = 2L),
+            PersonalDictionaryEntry(id = "pw_no_sc", word = "SandiTanpaPintasan", shortcut = "", folder = "kata sandi", updatedAtMillis = 3L),
+            PersonalDictionaryEntry(id = "cred1", word = "sk-live-secret-9988", shortcut = "apikey", folder = "Kredensial", updatedAtMillis = 4L)
+        )
+        val highUsage = mapOf(
+            "rahasiasandi!2026" to WordPersonalityStat("RahasiaSandi!2026", usageCount = 50, lastUsedMillis = 1000L),
+            "sk-live-secret-9988" to WordPersonalityStat("sk-live-secret-9988", usageCount = 50, lastUsedMillis = 1000L)
+        )
+
+        // 1. Idle bar MUST NOT contain Kata Sandi or Kredensial entries
+        val idle = DictionaryEngine.getSuggestions("", "", entries, highUsage, 1000L).suggestions
+        assertEquals(listOf("Halo dunia"), idle)
+
+        // 2. Typing prefix or exact text of password/credential MUST NOT surface them
+        assertTrue(DictionaryEngine.getSuggestions("Rah", "", entries, highUsage, 1000L).suggestions.isEmpty())
+        assertTrue(DictionaryEngine.getSuggestions("RahasiaSandi!2026", "", entries, highUsage, 1000L).suggestions.isEmpty())
+        assertTrue(DictionaryEngine.getSuggestions("Sandi", "", entries, highUsage, 1000L).suggestions.isEmpty())
+        assertTrue(DictionaryEngine.getSuggestions("sk-live", "", entries, highUsage, 1000L).suggestions.isEmpty())
+
+        // 3. Typing their exact shortcut DOES surface them immediately
+        val pwMatch = DictionaryEngine.getSuggestions("pw1", "", entries, highUsage, 1000L)
+        assertEquals("RahasiaSandi!2026", pwMatch.primaryAutoCorrect)
+        assertEquals(listOf("RahasiaSandi!2026"), pwMatch.suggestions)
+
+        val credMatch = DictionaryEngine.getSuggestions("apikey", "", entries, highUsage, 1000L)
+        assertEquals("sk-live-secret-9988", credMatch.primaryAutoCorrect)
+        assertEquals(listOf("sk-live-secret-9988"), credMatch.suggestions)
+    }
+
+    @Test
+    fun keyboardController_liveTypedPreviewTracksCharactersIncludingSymbolsAndClearsOnBoundary() {
+        var tf = TextFieldValue("")
+        val settings = KeyboardSettings()
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "s1", word = "Rahasia!2026", shortcut = "pw", folder = "Kata Sandi", updatedAtMillis = 1L)
+        )
+        val controller = KeyboardController(
+            TextFieldImeTarget(getValue = { tf }, setValue = { tf = it })
+        )
+
+        "{\"k\":\"v\"}".forEach { ch ->
+            controller.onCharacterTap(ch.toString(), settings, entries)
+        }
+        assertEquals("{\"k\":\"v\"}", controller.currentTypedText)
+
+        controller.onBackspaceTap(settings, entries)
+        assertEquals("{\"k\":\"v\"", controller.currentTypedText)
+
+        controller.onSpaceTap(settings, entries)
+        assertEquals("", controller.currentTypedText)
+
+        // Works in password field too and clears after selecting shortcut suggestion
+        controller.configureForEditor(false, true, com.example.ime.EnterActionType.DONE, settings, entries)
+        controller.onCharacterTap("p", settings, entries)
+        controller.onCharacterTap("w", settings, entries)
+        assertEquals("pw", controller.currentTypedText)
+        controller.onSuggestionTap("Rahasia!2026", settings, entries)
+        assertEquals("", controller.currentTypedText)
     }
 
     @Test

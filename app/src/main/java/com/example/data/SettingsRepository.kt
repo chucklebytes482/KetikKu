@@ -312,7 +312,7 @@ class SettingsRepository(
 
     suspend fun renameFolder(oldPath: String, newNameOrPath: String) {
         val normOld = normalizeFolderPath(oldPath)
-        if (normOld.isEmpty()) return
+        if (normOld.isEmpty() || isPrimaryFolder(normOld)) return
         val normNew = normalizeFolderPath(newNameOrPath)
         if (normNew.isEmpty() || normNew == normOld) return
 
@@ -869,6 +869,24 @@ class SettingsRepository(
         private const val PERSONALITY_MAX_ENTRIES = 600
         const val FOLDER_GMAIL = "Gmail"
         const val FOLDER_NOMOR = "Nomor"
+        const val FOLDER_PRIBADI = "Pribadi"
+        const val FOLDER_KATA_SANDI = "Kata Sandi"
+        const val FOLDER_KREDENSIAL = "Kredensial"
+        const val FOLDER_KEUANGAN = "Keuangan"
+
+        val PRIMARY_FOLDERS: List<String> = listOf(
+            FOLDER_GMAIL,
+            FOLDER_NOMOR,
+            FOLDER_PRIBADI,
+            FOLDER_KATA_SANDI,
+            FOLDER_KREDENSIAL,
+            FOLDER_KEUANGAN
+        )
+
+        fun isPrimaryFolder(name: String?): Boolean {
+            val norm = normalizeFolderPath(name)
+            return norm in PRIMARY_FOLDERS
+        }
 
         fun normalizeFolderPath(raw: String?): String {
             if (raw.isNullOrBlank()) return ""
@@ -880,6 +898,10 @@ class SettingsRepository(
             return when {
                 cleaned.equals(FOLDER_GMAIL, ignoreCase = true) -> FOLDER_GMAIL
                 cleaned.equals(FOLDER_NOMOR, ignoreCase = true) -> FOLDER_NOMOR
+                cleaned.equals(FOLDER_PRIBADI, ignoreCase = true) -> FOLDER_PRIBADI
+                cleaned.equals(FOLDER_KATA_SANDI, ignoreCase = true) -> FOLDER_KATA_SANDI
+                cleaned.equals(FOLDER_KREDENSIAL, ignoreCase = true) -> FOLDER_KREDENSIAL
+                cleaned.equals(FOLDER_KEUANGAN, ignoreCase = true) -> FOLDER_KEUANGAN
                 else -> cleaned
             }
         }
@@ -906,7 +928,8 @@ class SettingsRepository(
 
         /**
          * Preserves ordered single-level folder list (no subfolders):
-         * - Auto-folders pinned at top in exact order: "Gmail", then "Nomor" (if present).
+         * - 6 permanent primary folders pinned at top in exact order:
+         *   Gmail, Nomor, Pribadi, Kata Sandi, Kredensial, Keuangan.
          * - All other custom folders preserve existing order (newest-first on creation).
          */
         fun normalizeOrderedFolders(
@@ -914,6 +937,8 @@ class SettingsRepository(
             entries: List<PersonalDictionaryEntry>
         ): List<String> {
             val orderedAll = linkedSetOf<String>()
+            orderedAll.addAll(PRIMARY_FOLDERS)
+
             explicitFolders.forEach { raw ->
                 val norm = normalizeFolderPath(raw)
                 if (norm.isNotEmpty()) orderedAll.add(norm)
@@ -926,10 +951,11 @@ class SettingsRepository(
             }
 
             val result = ArrayList<String>(orderedAll.size)
-            if (orderedAll.contains(FOLDER_GMAIL)) result.add(FOLDER_GMAIL)
-            if (orderedAll.contains(FOLDER_NOMOR)) result.add(FOLDER_NOMOR)
+            PRIMARY_FOLDERS.forEach { p ->
+                if (orderedAll.contains(p)) result.add(p)
+            }
             orderedAll.forEach { path ->
-                if (path != FOLDER_GMAIL && path != FOLDER_NOMOR) {
+                if (path !in PRIMARY_FOLDERS) {
                     result.add(path)
                 }
             }
@@ -977,7 +1003,7 @@ class SettingsRepository(
                 id = "preset_ttd",
                 word = "Terima kasih, salam hangat",
                 shortcut = "ttd",
-                folder = "",
+                folder = "Pribadi",
                 language = KeyboardLanguage.INDONESIAN.code,
                 updatedAtMillis = 1L
             ),
@@ -985,7 +1011,7 @@ class SettingsRepository(
                 id = "preset_omw",
                 word = "Sedang dalam perjalanan",
                 shortcut = "omw",
-                folder = "",
+                folder = "Pribadi",
                 language = KeyboardLanguage.INDONESIAN.code,
                 updatedAtMillis = 1L
             ),
@@ -993,7 +1019,7 @@ class SettingsRepository(
                 id = "preset_asap",
                 word = "As soon as possible",
                 shortcut = "asap",
-                folder = "",
+                folder = "Pribadi",
                 language = KeyboardLanguage.ENGLISH.code,
                 updatedAtMillis = 1L
             )

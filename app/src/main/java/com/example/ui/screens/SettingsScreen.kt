@@ -76,31 +76,26 @@ import kotlinx.coroutines.delay
 
 internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/KetikKu/"
 
-internal const val KETIKKU_GENERAL_AI_PROMPT = """Bantu edit file JSON kamus KetikKu (ketikku_dictionary.json).
-Format wajib (setiap entri memiliki 6 field seragam tanpa field tambahan):
+internal const val KETIKKU_GENERAL_AI_PROMPT = """Struktur berkas JSON kamus pribadi KetikKu (ketikku_dictionary.json):
 {
-  "updatedAtMillis": <timestamp_ms_terbaru>,
-  "folders": ["Gmail", "Nomor", "Kerja"],
+  "updatedAtMillis": 0,
+  "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Keuangan"],
   "entries": [
     {
-      "id": "<id_unik>",
-      "word": "<kalimat_atau_frasa>",
-      "shortcut": "<pintasan_singkat_atau_kosong>",
-      "folder": "<nama_folder_atau_kosong>",
-      "updatedAtMillis": <timestamp_ms_terbaru>,
+      "id": "string unik entri",
+      "word": "teks atau nilai entri",
+      "shortcut": "pintasan ketik (opsional; wajib untuk Kata Sandi & Kredensial)",
+      "folder": "nama folder datar 1 tingkat tanpa subfolder, atau kosong untuk Utama",
+      "updatedAtMillis": 0,
       "deleted": false
     }
   ]
 }
-Aturan:
-1. Jangan sertakan field "language" atau field tambahan lain.
-2. Setiap entri wajib berisi 6 field: "id", "word", "shortcut", "folder", "updatedAtMillis", "deleted".
-3. Folder hanya 1 tingkat (tanpa subfolder dan tanpa "/"). Gunakan "" jika tanpa shortcut atau tanpa folder.
-4. Cantumkan semua nama folder yang dipakai di array "folders".
-5. Pertahankan entri & "id" lama, lalu kembalikan 1 blok kode JSON valid.
-
-Daftar kalimat, pintasan & folder yang ingin ditambahkan:
-- [tulis daftar data atau folder di sini]"""
+Aturan struktur:
+- Folder datar 1 tingkat saja (tanpa subfolder dan tanpa tanda '/').
+- 6 folder utama: "Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Keuangan".
+- Setiap entri memiliki 6 field: id, word, shortcut, folder, updatedAtMillis, deleted (tanpa field "language").
+- Entri di folder "Kata Sandi" dan "Kredensial" hanya muncul di bilah saran jika pintasannya diketik."""
 
 @Composable
 fun SettingsScreen(
@@ -416,7 +411,7 @@ private fun GeneralAiPromptCard(context: Context) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Salin instruksi umum untuk edit ketikku_dictionary.json dengan AI",
+                        text = "Referensi struktur ketikku_dictionary.json (tanpa permintaan tugas)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,

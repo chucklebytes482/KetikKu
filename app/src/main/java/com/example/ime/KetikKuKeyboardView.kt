@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,7 +49,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardCapslock
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.ContentPaste
@@ -1234,10 +1234,12 @@ private fun TopUtilityAndSuggestionBar(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-                controller.utilityPanel == UtilityPanel.NONE && controller.suggestions.isNotEmpty() -> {
+                controller.utilityPanel == UtilityPanel.NONE &&
+                    (controller.suggestions.isNotEmpty() || controller.currentTypedText.isNotEmpty()) -> {
                     SuggestionChipsRow(
                         suggestions = controller.suggestions,
                         primaryAutoCorrect = controller.primaryAutoCorrect,
+                        typedText = controller.currentTypedText,
                         palette = palette,
                         fontFamily = chipFontFamily,
                         fontStyle = keyFontStyle,
@@ -1426,6 +1428,7 @@ private fun RecentClipboardSuggestionChip(
 private fun SuggestionChipsRow(
     suggestions: List<String>,
     primaryAutoCorrect: String?,
+    typedText: String,
     palette: KeyboardPalette,
     fontFamily: FontFamily,
     fontStyle: FontStyle,
@@ -1433,12 +1436,24 @@ private fun SuggestionChipsRow(
     onTap: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val chipHeight = if (isFloating) 30.dp else 32.dp
+    val previewScrollState = rememberScrollState()
+
+    LaunchedEffect(typedText, previewScrollState.maxValue) {
+        if (typedText.isNotEmpty()) {
+            previewScrollState.scrollTo(previewScrollState.maxValue)
+        } else if (previewScrollState.value != 0) {
+            previewScrollState.scrollTo(0)
+        }
+    }
+
     Row(
         modifier = modifier.fillMaxHeight(),
         horizontalArrangement = Arrangement.spacedBy(if (isFloating) 3.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        (0 until 3).forEach { index ->
+        // Columns 1 & 2: interactive dictionary suggestions
+        (0 until 2).forEach { index ->
             val word = suggestions.getOrNull(index)
             if (word == null) {
                 Spacer(Modifier.weight(1f))
@@ -1448,7 +1463,7 @@ private fun SuggestionChipsRow(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(if (isFloating) 30.dp else 32.dp)
+                    .height(chipHeight)
                     .clip(RoundedCornerShape(8.dp))
                     .background(if (isHighlighted) palette.chipHighlightBg else palette.chipBg)
                     .clickable { onTap(word) }
@@ -1468,6 +1483,48 @@ private fun SuggestionChipsRow(
                 )
             }
         }
+
+        // Column 3 (nearest to right utility toolbar): auto-scrolling live typed characters preview (read-only)
+        if (typedText.isEmpty()) {
+            Spacer(
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("typed_preview_slot")
+            )
+        } else {
+            val previewShape = RoundedCornerShape(8.dp)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(chipHeight)
+                    .clip(previewShape)
+                    .background(palette.chipBg.copy(alpha = 0.72f))
+                    .border(0.75.dp, palette.borderColor, previewShape)
+                    .padding(horizontal = if (isFloating) 5.dp else 7.dp)
+                    .semantics { contentDescription = "Pratinjau karakter diketik: $typedText" }
+                    .testTag("typed_preview_slot"),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(previewScrollState),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = typedText,
+                        color = palette.keyText,
+                        fontSize = if (isFloating) 11.sp else 12.sp,
+                        fontWeight = FontWeight.Normal,
+                        fontFamily = fontFamily,
+                        fontStyle = fontStyle,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.testTag("typed_preview_text")
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1476,16 +1533,16 @@ private val QWERTY_ROW_2 = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
 private val QWERTY_ROW_3 = listOf("z", "x", "c", "v", "b", "n", "m")
 
 // Same geometry as QWERTY: 10 / 9 / (1.45 + 7 + 1.45) slots.
-// Panel 1: angka, matematika, dan 4 tombol panah penggerak kursor (← → ↑ ↓).
+// Panel 1: angka, @#$_&*%/•, operator matematika (-+×÷=), dan panah kursor vertikal (↑ ↓).
 private val SYMBOLS_1_ROWS = listOf(
     listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
-    listOf("@", "#", "$", "_", "&", "-", "+", "×", "÷"),
-    listOf("=", "%", "/", "←", "→", "↑", "↓")
+    listOf("@", "#", "$", "_", "&", "*", "%", "/", "•"),
+    listOf("-", "+", "×", "÷", "=", "↑", "↓")
 )
 
-// Panel 2: simbol standar unik + simbol panah literal (← → ↑ ↓) tanpa simbol jarang dipakai (✗€£≠©®) maupun duplikat pintasan QWERTY (10 / 9 / 7).
+// Panel 2: simbol standar unik + simbol panah literal (← → ↑ ↓) tanpa simbol jarang dipakai (✗€£≠©®) maupun duplikat Panel 1 / pintasan QWERTY (10 / 9 / 7).
 private val SYMBOLS_2_ROWS = listOf(
-    listOf("✓", "Rp", "←", "→", "↑", "↓", "^", "•", "~", "|"),
+    listOf("✓", "Rp", "←", "→", "↑", "↓", "^", "§", "~", "|"),
     listOf("<", ">", "{", "}", "[", "]", "\\", "°", "±"),
     listOf("`", "…", "🔥", "😂", "😍", "👍", "🙏")
 )
@@ -1810,12 +1867,9 @@ private fun SymbolsKeyboardGrid(
                             }
                         }
                         rowSymbols.forEach { sym ->
-                            val isPanel1CursorArrow = !isPageTwoSelected &&
-                                (sym == "←" || sym == "→" || sym == "↑" || sym == "↓")
+                            val isPanel1CursorArrow = !isPageTwoSelected && (sym == "↑" || sym == "↓")
                             if (isPanel1CursorArrow) {
                                 val (dx, dy, arrowDesc) = when (sym) {
-                                    "←" -> Triple(-1, 0, "Geser kursor kiri")
-                                    "→" -> Triple(1, 0, "Geser kursor kanan")
                                     "↑" -> Triple(0, -1, "Geser kursor atas")
                                     else -> Triple(0, 1, "Geser kursor bawah")
                                 }
@@ -2206,26 +2260,18 @@ private fun CtrlKey(
         slotId = slotId,
         onTap = onTap
     )
-    val bgColor = when (ctrlState) {
-        CtrlState.OFF -> palette.specialKeyBg
-        CtrlState.ARMED -> palette.chipHighlightBg
-        CtrlState.LOCKED -> palette.accentBg
-    }
     val borderColor = when (ctrlState) {
         CtrlState.OFF -> palette.borderColor
         CtrlState.ARMED -> palette.accentBg
-        CtrlState.LOCKED -> palette.accentBg
     }
     val borderWidth = if (ctrlState == CtrlState.OFF) 0.75.dp else 1.5.dp
     val contentColor = when (ctrlState) {
         CtrlState.OFF -> palette.keyText
         CtrlState.ARMED -> palette.accentBg
-        CtrlState.LOCKED -> palette.accentContent
     }
     val statusDesc = when (ctrlState) {
         CtrlState.OFF -> "Ctrl nonaktif"
         CtrlState.ARMED -> "Ctrl aktif"
-        CtrlState.LOCKED -> "Ctrl terkunci"
     }
 
     Box(
@@ -2236,11 +2282,9 @@ private fun CtrlKey(
                 val isPressed = (pointerTracker?.pressedCounts?.get(slotId) ?: 0) > 0
                 val fill = when {
                     isPressed && currentCtrlState == CtrlState.OFF -> currentPalette.keyPressedBg
-                    isPressed && currentCtrlState == CtrlState.LOCKED -> currentPalette.accentBg.copy(alpha = 0.82f)
                     else -> when (currentCtrlState) {
                         CtrlState.OFF -> currentPalette.specialKeyBg
                         CtrlState.ARMED -> currentPalette.chipHighlightBg
-                        CtrlState.LOCKED -> currentPalette.accentBg
                     }
                 }
                 drawRoundRect(
@@ -2280,27 +2324,14 @@ private fun CtrlKey(
                 fontWeight = if (ctrlState == CtrlState.OFF) FontWeight.SemiBold else FontWeight.Bold,
                 maxLines = 1
             )
-            when (ctrlState) {
-                CtrlState.ARMED -> {
-                    Box(
-                        modifier = Modifier
-                            .size(5.dp)
-                            .clip(CircleShape)
-                            .background(palette.accentBg)
-                            .testTag("ctrl_armed_indicator")
-                    )
-                }
-                CtrlState.LOCKED -> {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Ctrl terkunci",
-                        tint = palette.accentContent,
-                        modifier = Modifier
-                            .size(if (isFloating) 10.dp else 12.dp)
-                            .testTag("ctrl_locked_indicator")
-                    )
-                }
-                CtrlState.OFF -> Unit
+            if (ctrlState == CtrlState.ARMED) {
+                Box(
+                    modifier = Modifier
+                        .size(5.dp)
+                        .clip(CircleShape)
+                        .background(palette.accentBg)
+                        .testTag("ctrl_armed_indicator")
+                )
             }
         }
     }

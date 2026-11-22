@@ -36,6 +36,12 @@ object DictionaryEngine {
         getOrBuildIndex(personalEntries)
     }
 
+    private fun isShortcutOnlyFolder(folder: String): Boolean {
+        val norm = SettingsRepository.normalizeFolderPath(folder)
+        return norm == SettingsRepository.FOLDER_KATA_SANDI ||
+            norm == SettingsRepository.FOLDER_KREDENSIAL
+    }
+
     private fun getOrBuildIndex(personalEntries: List<PersonalDictionaryEntry>): IndexedDictionary {
         val current = cachedIndex
         val isUnmodifiable = UNMODIFIABLE_LIST_MARKER.isInstance(personalEntries)
@@ -67,17 +73,24 @@ object DictionaryEngine {
             val trimmedWord = entry.word.trim()
             if (trimmedWord.isBlank()) continue
             val lowerWord = trimmedWord.lowercase(Locale.ROOT)
+            val shortcutOnly = isShortcutOnlyFolder(entry.folder)
 
-            if (defaults.size < 24 && !defaults.contains(trimmedWord)) {
-                defaults.add(trimmedWord)
-            }
             if (entry.shortcut.isNotBlank()) {
-                shortcutOwnedLowerWords.add(lowerWord)
+                if (!shortcutOnly) {
+                    shortcutOwnedLowerWords.add(lowerWord)
+                }
                 val key = entry.shortcut.trim().lowercase(Locale.ROOT)
                 val seenForKey = shortcutWordsSeen.getOrPut(key) { HashSet(4) }
                 if (seenForKey.add(lowerWord)) {
                     shortcutMap.getOrPut(key) { ArrayList(2) }.add(entry.copy(word = trimmedWord))
                 }
+            }
+
+            // Sensitive folders (Kata Sandi & Kredensial) must NEVER leak into idle, exact, or prefix suggestions.
+            if (shortcutOnly) continue
+
+            if (defaults.size < 24 && !defaults.contains(trimmedWord)) {
+                defaults.add(trimmedWord)
             }
             if (seenLowerWords.add(lowerWord)) {
                 val maxLen = minOf(lowerWord.length, MAX_INDEX_PREFIX_LEN)
@@ -197,7 +210,7 @@ object DictionaryEngine {
             return true
         }
 
-        // Priority 1: Personal dictionary shortcut matches (up to 3 ordered by personality).
+        // Priority 1: Personal dictionary shortcut matches (including Kata Sandi & Kredensial).
         for (match in shortcutMatches) {
             if (!addCandidate(match)) break
         }
@@ -214,7 +227,7 @@ object DictionaryEngine {
             lowerWord
         }
 
-        // Gather matches strictly from Kamus Pribadi (across all folders and subfolders)
+        // Gather non-sensitive matches strictly from Kamus Pribadi
         val rankedPool = ArrayList<Pair<String, Double>>(16)
         val seenPoolLower = HashSet<String>(16)
 

@@ -37,8 +37,7 @@ enum class ShiftState {
 
 enum class CtrlState {
     OFF,
-    ARMED,
-    LOCKED
+    ARMED
 }
 
 enum class EnterActionType(val label: String) {
@@ -289,6 +288,10 @@ class KeyboardController(
         private set
     var isPasswordField by mutableStateOf(false)
         private set
+    var currentTypedText by mutableStateOf("")
+        private set
+    var ctrlActionsRemaining by mutableIntStateOf(0)
+        private set
     var dismissedClipboardId by mutableStateOf<String?>(null)
         private set
     var dismissedClipboardSignature by mutableStateOf<String?>(null)
@@ -340,6 +343,8 @@ class KeyboardController(
     private val localWordRawLengths = ArrayList<Int>(32)
     private var localWordRawTotalLen = 0
     private var localContextValid = false
+    // Live preview buffer for the 3rd suggestion column (tracks all non-whitespace characters currently being typed)
+    private val livePreviewBuffer = StringBuilder(64)
 
     fun configureForEditor(
         isNumeric: Boolean,
@@ -352,7 +357,7 @@ class KeyboardController(
         enterActionType = actionType
         currentPage = if (isNumeric) KeyboardPage.NUMPAD else KeyboardPage.QWERTY
         utilityPanel = UtilityPanel.NONE
-        ctrlState = CtrlState.OFF
+        resetCtrlMode()
         clipboardStatusMessage = null
         invalidateLocalWordCache()
         refreshState(settings, personalEntries)
@@ -361,12 +366,40 @@ class KeyboardController(
     fun invalidateLocalWordCache() {
         localContextValid = false
         clearLocalWordBuffer()
+        clearLivePreviewBuffer()
     }
 
     private fun clearLocalWordBuffer() {
         localWordPlain.setLength(0)
         localWordRawLengths.clear()
         localWordRawTotalLen = 0
+    }
+
+    private fun clearLivePreviewBuffer() {
+        if (livePreviewBuffer.isNotEmpty()) {
+            livePreviewBuffer.setLength(0)
+        }
+        if (currentTypedText.isNotEmpty()) {
+            currentTypedText = ""
+        }
+    }
+
+    private fun appendLivePreview(text: String) {
+        if (text.isEmpty()) return
+        livePreviewBuffer.append(text)
+        while (livePreviewBuffer.length > MAX_LIVE_PREVIEW_CHARS) {
+            livePreviewBuffer.deleteCharAt(0)
+        }
+        currentTypedText = livePreviewBuffer.toString()
+    }
+
+    private fun popLivePreviewCodePoint() {
+        if (livePreviewBuffer.isEmpty()) return
+        val lastCp = Character.codePointBefore(livePreviewBuffer, livePreviewBuffer.length)
+        val charCount = Character.charCount(lastCp)
+        val newLen = (livePreviewBuffer.length - charCount).coerceAtLeast(0)
+        livePreviewBuffer.setLength(newLen)
+        currentTypedText = livePreviewBuffer.toString()
     }
 
     fun setPage(page: KeyboardPage) {
@@ -400,14 +433,22 @@ class KeyboardController(
         lastShiftTapMillis = now
     }
 
+    private var ctrlActionsCount = 0
+
+    private fun resetCtrlMode() {
+        ctrlState = CtrlState.OFF
+        ctrlActionsCount = 0
+        ctrlActionsRemaining = 0
+    }
+
     fun onCtrlTap() {
         val now = System.currentTimeMillis()
-        ctrlState = when (ctrlState) {
-            CtrlState.OFF -> CtrlState.ARMED
-            CtrlState.ARMED -> {
-                if (now - lastCtrlTapMillis < 380L) CtrlState.LOCKED else CtrlState.OFF
-            }
-            CtrlState.LOCKED -> CtrlState.OFF
+        if (ctrlState == CtrlState.OFF) {
+            ctrlActionsCount = 0
+            ctrlActionsRemaining = CTRL_STICKY_CHAR_LIMIT
+            ctrlState = CtrlState.ARMED
+        } else {
+            resetCtrlMode()
         }
         lastCtrlTapMillis = now
     }
@@ -449,8 +490,11 @@ class KeyboardController(
                 clipboardStatusMessage = "Gagal mengirim kombinasi Ctrl+${lower.uppercaseChar()}"
             }
             lastCtrlComboLabel = "Ctrl+${lower.uppercaseChar()}"
-            if (ctrlState == CtrlState.ARMED) {
-                ctrlState = CtrlState.OFF
+            ctrlActionsCount++
+            if (ctrlActionsCount >= CTRL_STICKY_CHAR_LIMIT) {
+                resetCtrlMode()
+            } else {
+                ctrlActionsRemaining = (CTRL_STICKY_CHAR_LIMIT - ctrlActionsCount).coerceAtLeast(0)
             }
             return
         }
@@ -484,6 +528,12 @@ class KeyboardController(
 
         if (shiftState == ShiftState.SHIFTED) {
             shiftState = ShiftState.OFF
+        }
+
+        if (output.all { it.isWhitespace() }) {
+            clearLivePreviewBuffer()
+        } else {
+            appendLivePreview(output)
         }
 
         if (isWordChar) {
@@ -525,10 +575,12 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
+        if (ctrlState != CtrlState.OFF) resetCtrlMode()
         recordCompletedTypedWordIfEligible(personalEntries)
         target.commitText(" ")
         localContextValid = true
         clearLocalWordBuffer()
+        clearLivePreviewBuffer()
         applySuggestionResult(personalEntries)
     }
 
@@ -536,7 +588,11 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
+        if (ctrlState != CtrlState.OFF) resetCtrlMode()
         target.deleteSingleCodePointBeforeCursor()
+        if (livePreviewBuffer.isNotEmpty()) {
+            popLivePreviewCodePoint()
+        }
         if (localContextValid && localWordPlain.isNotEmpty()) {
             localWordPlain.setLength(localWordPlain.length - 1)
             if (localWordRawLengths.isNotEmpty()) {
@@ -546,7 +602,8 @@ class KeyboardController(
             applySuggestionResult(personalEntries)
         } else {
             // Crossed into previous word or whitespace: avoid blocking IPC during rapid backspacing
-            invalidateLocalWordCache()
+            localContextValid = false
+            clearLocalWordBuffer()
             applySuggestionResult(personalEntries)
         }
     }
@@ -555,10 +612,12 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
+        if (ctrlState != CtrlState.OFF) resetCtrlMode()
         recordCompletedTypedWordIfEligible(personalEntries)
         target.insertNewline()
         localContextValid = true
         clearLocalWordBuffer()
+        clearLivePreviewBuffer()
         applySuggestionResult(personalEntries)
     }
 
@@ -566,10 +625,12 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
+        if (ctrlState != CtrlState.OFF) resetCtrlMode()
         recordCompletedTypedWordIfEligible(personalEntries)
         target.performEnterAction(enterActionType)
         localContextValid = true
         clearLocalWordBuffer()
+        clearLivePreviewBuffer()
         applySuggestionResult(personalEntries)
     }
 
@@ -598,6 +659,7 @@ class KeyboardController(
         recordWordUsageInternal(word, personalEntries, forceRecord = true)
         localContextValid = true
         clearLocalWordBuffer()
+        clearLivePreviewBuffer()
         applySuggestionResult(personalEntries)
     }
 
@@ -726,6 +788,7 @@ class KeyboardController(
     private fun clearPostPasteSuggestionContext() {
         // Paste path strictly separated from typing suggestion path
         clearLocalWordBuffer()
+        clearLivePreviewBuffer()
         localContextValid = true
         if (suggestions.isNotEmpty()) suggestions = emptyList()
         if (primaryAutoCorrect != null) primaryAutoCorrect = null
@@ -857,6 +920,8 @@ class KeyboardController(
 
     companion object {
         const val MAX_ACTIVE_WORD_CHARS = 30
+        const val MAX_LIVE_PREVIEW_CHARS = 120
+        const val CTRL_STICKY_CHAR_LIMIT = 2
         private const val MAX_ACTIVE_WORD_READ_UTF16 = 60
         private val BOUNDARY_PUNCTUATION = charArrayOf('.', ',', '!', '?', ';', ':')
 

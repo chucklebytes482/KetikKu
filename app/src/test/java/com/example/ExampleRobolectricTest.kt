@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -206,15 +207,21 @@ class ExampleRobolectricTest {
         // Without personal entries, top suggestion chips remain empty
         assertEquals(0, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
 
-        // When personal entries exist, refreshing populates 3 equal-width suggestion slots
+        // When personal entries exist, refreshing populates 2 equal-width suggestion chips + 3rd live preview slot next to toolbar
         controller.refreshState(settings, personalSample)
         composeRule.waitForIdle()
         val chipNodes = composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes()
-        assertEquals(3, chipNodes.size)
+        assertEquals(2, chipNodes.size)
+        val previewSlotBounds = composeRule.onNodeWithTag("typed_preview_slot").fetchSemanticsNode().boundsInRoot
         val chipWidths = chipNodes.map { it.boundsInRoot.width }
         assertTrue(
-            "All 3 suggestion slots should have equal width: $chipWidths",
-            abs(chipWidths[0] - chipWidths[1]) < 2f && abs(chipWidths[1] - chipWidths[2]) < 2f
+            "All 3 top strip columns (2 suggestions + 1 typed preview) should have equal width: $chipWidths, ${previewSlotBounds.width}",
+            abs(chipWidths[0] - chipWidths[1]) < 2f && abs(chipWidths[1] - previewSlotBounds.width) < 2f
+        )
+        assertTrue(
+            "3rd column (typed_preview_slot) must sit directly to the left of the toolbar",
+            chipNodes[1].boundsInRoot.right <= previewSlotBounds.left + 1f &&
+                previewSlotBounds.right <= clipToolbarBounds.left + 1f
         )
 
         // Verify corner long-press hint text ('1' on 'q', ',' on '.') is enlarged by +20% (10.8.sp)
@@ -664,7 +671,7 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertEquals("Halo a", value.text)
 
-        // Single tap Ctrl -> ARMED -> tap 'z' executes Undo and automatically returns Ctrl to OFF
+        // Single tap Ctrl -> ARMED for 2 letter actions: Undo (1/2, stays ARMED) -> Redo (2/2, auto-OFF)
         composeRule.onNodeWithTag("key_ctrl").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithContentDescription("Ctrl aktif").assertIsDisplayed()
@@ -672,52 +679,55 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("key_z").performClick()
         composeRule.waitForIdle()
         assertEquals("Halo ", value.text)
+        composeRule.onNodeWithContentDescription("Ctrl aktif").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("key_y").performClick()
+        composeRule.waitForIdle()
+        assertEquals("Halo a", value.text)
         composeRule.onNodeWithContentDescription("Ctrl nonaktif").assertIsDisplayed()
         assertTrue(
             composeRule.onAllNodesWithTag("ctrl_armed_indicator", useUnmergedTree = true)
                 .fetchSemanticsNodes().isEmpty()
         )
 
-        // Single tap Ctrl -> tap 'y' executes Redo
+        // Single tap Ctrl -> Ctrl+A (1/2) then Ctrl+C (2/2) without re-tapping Ctrl -> auto-OFF
         composeRule.onNodeWithTag("key_ctrl").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("key_y").performClick()
-        composeRule.waitForIdle()
-        assertEquals("Halo a", value.text)
-
-        // Double tap Ctrl locks Ctrl and keeps lock active across Select All + Copy, then third tap releases
-        composeRule.onNodeWithTag("key_ctrl").performClick()
-        composeRule.onNodeWithTag("key_ctrl").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithContentDescription("Ctrl terkunci").assertIsDisplayed()
-        composeRule.onNodeWithTag("ctrl_locked_indicator", useUnmergedTree = true).assertIsDisplayed()
-
         composeRule.onNodeWithTag("key_a").performClick()
         composeRule.waitForIdle()
         assertEquals(0, value.selection.min)
         assertEquals("Halo a".length, value.selection.max)
-        composeRule.onNodeWithTag("ctrl_locked_indicator", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("ctrl_armed_indicator", useUnmergedTree = true).assertIsDisplayed()
 
         composeRule.onNodeWithTag("key_c").performClick()
         composeRule.waitForIdle()
         assertEquals("Halo a", latestCopied)
-        composeRule.onNodeWithTag("ctrl_locked_indicator", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Ctrl nonaktif").assertIsDisplayed()
 
+        // Ctrl+X then Ctrl+V (2nd action auto-OFF)
+        composeRule.onNodeWithTag("key_ctrl").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("key_x").performClick()
         composeRule.waitForIdle()
         assertEquals("", value.text)
-
         composeRule.onNodeWithTag("key_v").performClick()
         composeRule.waitForIdle()
         assertEquals("KetikKu", value.text)
+        composeRule.onNodeWithContentDescription("Ctrl nonaktif").assertIsDisplayed()
 
+        // Tapping Ctrl again immediately cancels Ctrl (no lock mode), and Backspace also resets Ctrl
+        composeRule.onNodeWithTag("key_ctrl").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("ctrl_armed_indicator", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithTag("key_ctrl").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithContentDescription("Ctrl nonaktif").assertIsDisplayed()
-        assertTrue(
-            composeRule.onAllNodesWithTag("ctrl_locked_indicator", useUnmergedTree = true)
-                .fetchSemanticsNodes().isEmpty()
-        )
+
+        composeRule.onNodeWithTag("key_ctrl").performClick()
+        composeRule.onNodeWithTag("key_a").performClick()
+        composeRule.onNodeWithTag("key_backspace").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("Ctrl nonaktif").assertIsDisplayed()
     }
 
     @Test
@@ -1182,8 +1192,8 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("symbols_panel").assertIsDisplayed()
         val p1Row1 = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
-        val p1Row2 = listOf("@", "#", "$", "_", "&", "-", "+", "×", "÷")
-        val p1Row3 = listOf("=", "%", "/", "←", "→", "↑", "↓")
+        val p1Row2 = listOf("@", "#", "$", "_", "&", "*", "%", "/", "•")
+        val p1Row3 = listOf("-", "+", "×", "÷", "=", "↑", "↓")
         assertEquals(10, p1Row1.size)
         assertEquals(9, p1Row2.size)
         assertEquals(7, p1Row3.size)
@@ -1200,8 +1210,8 @@ class ExampleRobolectricTest {
         val r1First = composeRule.onNodeWithTag("key_1").fetchSemanticsNode().boundsInRoot
         val r1Last = composeRule.onNodeWithTag("key_0").fetchSemanticsNode().boundsInRoot
         val r2First = composeRule.onNodeWithTag("key_@").fetchSemanticsNode().boundsInRoot
-        val r2Last = composeRule.onNodeWithTag("key_÷").fetchSemanticsNode().boundsInRoot
-        val r3First = composeRule.onNodeWithTag("key_=").fetchSemanticsNode().boundsInRoot
+        val r2Last = composeRule.onNodeWithTag("key_•").fetchSemanticsNode().boundsInRoot
+        val r3First = composeRule.onNodeWithTag("key_-").fetchSemanticsNode().boundsInRoot
         val r3Last = composeRule.onNodeWithTag("key_↓").fetchSemanticsNode().boundsInRoot
         assertTrue(r1First.right < r1Last.left)
         assertTrue(r2First.left > r1First.left + 1f)
@@ -1210,24 +1220,20 @@ class ExampleRobolectricTest {
         assertTrue(r2First.bottom <= r3First.top + 1f)
         assertTrue(r3First.right < r3Last.left)
 
-        // Tap '1', '@', then Panel 1 '←' and '→' — arrows move cursor instead of inserting characters
+        // Tap '1', '@', '*', '-' -> inserts symbols; Panel 1 '↑' and '↓' move cursor instead of inserting characters
         composeRule.onNodeWithTag("key_1").performClick()
         composeRule.onNodeWithTag("key_@").performClick()
+        composeRule.onNodeWithTag("key_*").performClick()
+        composeRule.onNodeWithTag("key_-").performClick()
         composeRule.waitForIdle()
-        assertEquals("1@", value.text)
-        assertEquals(TextRange(2), value.selection)
+        assertEquals("1@*-", value.text)
 
-        composeRule.onNodeWithTag("key_←").performClick()
+        composeRule.onNodeWithTag("key_↑").performClick()
+        composeRule.onNodeWithTag("key_↓").performClick()
         composeRule.waitForIdle()
-        assertEquals("1@", value.text)
-        assertEquals(TextRange(1), value.selection)
+        assertEquals("1@*-", value.text)
 
-        composeRule.onNodeWithTag("key_→").performClick()
-        composeRule.waitForIdle()
-        assertEquals("1@", value.text)
-        assertEquals(TextRange(2), value.selection)
-
-        // Switch to Symbol Panel 2 via Row 3 toggle and verify 10/9/7 geometry, removed rare symbols, and literal arrow insertion
+        // Switch to Symbol Panel 2 via Row 3 toggle and verify 10/9/7 geometry, ZERO duplicates with Panel 1, removed rare symbols, and literal arrow insertion
         composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("2/2").fetchSemanticsNodes().isNotEmpty())
@@ -1237,8 +1243,8 @@ class ExampleRobolectricTest {
             "*", "\"", "'", ":", ";", "!", "?", ".", ","
         )
         val removedRareSymbols = setOf("✗", "€", "£", "≠", "©", "®")
-        val panel1NonArrows = (panel1All - setOf("←", "→", "↑", "↓")).toSet()
-        val p2Row1 = listOf("✓", "Rp", "←", "→", "↑", "↓", "^", "•", "~", "|")
+        val panel1NonArrows = (panel1All - setOf("↑", "↓")).toSet()
+        val p2Row1 = listOf("✓", "Rp", "←", "→", "↑", "↓", "^", "§", "~", "|")
         val p2Row2 = listOf("<", ">", "{", "}", "[", "]", "\\", "°", "±")
         val p2Row3 = listOf("`", "…", "🔥", "😂", "😍", "👍", "🙏")
         assertEquals(10, p2Row1.size)
@@ -1247,7 +1253,7 @@ class ExampleRobolectricTest {
         val panel2All = p2Row1 + p2Row2 + p2Row3
         assertEquals(26, panel2All.distinct().size)
         assertTrue(
-            "Panel 2 must exclude ✗€£≠©® and avoid duplicating Panel 1 non-arrow symbols or QWERTY shortcuts",
+            "Panel 2 must exclude ✗€£≠©® and avoid duplicating Panel 1 non-arrow symbols (including •) or QWERTY shortcuts",
             panel2All.none { it in removedRareSymbols || it in panel1NonArrows || it in qwertyShortcuts }
         )
         removedRareSymbols.forEach { rare ->
@@ -1262,7 +1268,7 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("key_→").performClick()
         composeRule.onNodeWithTag("key_{").performClick()
         composeRule.waitForIdle()
-        assertEquals("1@✓Rp←→{", value.text)
+        assertEquals("1@*-✓Rp←→{", value.text)
 
         // Toggle back to Panel 1 ('2/2' -> '1/2'), then bottom-left 'ABC' returns to QWERTY
         composeRule.onNodeWithTag("key_symbols_page_toggle").performClick()
@@ -1657,15 +1663,30 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         val gmailBounds = composeRule.onNodeWithTag("folder_item_Gmail").fetchSemanticsNode().boundsInRoot
         val nomorBounds = composeRule.onNodeWithTag("folder_item_Nomor").fetchSemanticsNode().boundsInRoot
+        val pribadiBounds = composeRule.onNodeWithTag("folder_item_Pribadi").fetchSemanticsNode().boundsInRoot
+        val sandiBounds = composeRule.onNodeWithTag("folder_item_Kata Sandi").fetchSemanticsNode().boundsInRoot
+        val kredBounds = composeRule.onNodeWithTag("folder_item_Kredensial").fetchSemanticsNode().boundsInRoot
+        val keuanganBounds = composeRule.onNodeWithTag("folder_item_Keuangan").fetchSemanticsNode().boundsInRoot
+        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("folder_item_Kerja"))
+        composeRule.waitForIdle()
         val kerjaBounds = composeRule.onNodeWithTag("folder_item_Kerja").fetchSemanticsNode().boundsInRoot
+        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("dictionary_item_e_root"))
+        composeRule.waitForIdle()
         val rootEntryBounds = composeRule.onNodeWithTag("dictionary_item_e_root").fetchSemanticsNode().boundsInRoot
 
         assertTrue("Gmail must be above Nomor", gmailBounds.bottom <= nomorBounds.top + 1f)
-        assertTrue("Nomor must be above custom folders", nomorBounds.bottom <= kerjaBounds.top + 1f)
+        assertTrue("Nomor must be above Pribadi", nomorBounds.bottom <= pribadiBounds.top + 1f)
+        assertTrue("Pribadi must be above Kata Sandi", pribadiBounds.bottom <= sandiBounds.top + 1f)
+        assertTrue("Kata Sandi must be above Kredensial", sandiBounds.bottom <= kredBounds.top + 1f)
+        assertTrue("Kredensial must be above Keuangan", kredBounds.bottom <= keuanganBounds.top + 1f)
         assertTrue("Custom folders must be above unfoldered entries", kerjaBounds.bottom <= rootEntryBounds.top + 1f)
+
+        composeRule.onNodeWithTag("dictionary_list").performScrollToIndex(0)
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("add_folder_button").assertIsDisplayed()
 
         // Open Kerja -> shows breadcrumb & entries only; subfolder creation button is hidden
+        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("folder_item_Kerja"))
         composeRule.onNodeWithTag("folder_item_Kerja").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("folder_breadcrumb_bar").assertIsDisplayed()
@@ -1677,16 +1698,16 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("folder_item_Gmail").assertIsDisplayed()
 
-        // Multi-select mode -> Pilih Semua (4 dipilih) -> deselect Gmail -> Pindahkan to Gmail
+        // Multi-select mode -> Pilih Semua (6 primary + Kerja + e_root = 8 dipilih) -> deselect Gmail -> Pindahkan to Gmail
         composeRule.onNodeWithTag("toggle_selection_mode_button").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("selection_action_bar").assertIsDisplayed()
         composeRule.onNodeWithTag("select_all_items_button").performClick()
         composeRule.waitForIdle()
-        assertTrue(composeRule.onAllNodesWithText("4 dipilih").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("8 dipilih").fetchSemanticsNodes().isNotEmpty())
         composeRule.onNodeWithTag("folder_item_Gmail").performClick()
         composeRule.waitForIdle()
-        assertTrue(composeRule.onAllNodesWithText("3 dipilih").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("7 dipilih").fetchSemanticsNodes().isNotEmpty())
 
         composeRule.onNodeWithTag("move_selected_button").performClick()
         composeRule.waitForIdle()
@@ -1903,6 +1924,8 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
 
         // 1. Folder 3-dot menu must NOT show "Hapus Folder" (only "Ubah Nama" and "Pindahkan")
+        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("folder_menu_FolderKosong"))
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("folder_menu_FolderKosong").performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("Ubah Nama").fetchSemanticsNodes().isNotEmpty())
@@ -1917,8 +1940,10 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
 
         // 2. Delete folder via multi-select -> MUST show confirmation dialog, NOT delete immediately
+        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("folder_item_FolderKosong"))
         composeRule.onNodeWithTag("folder_item_FolderKosong").performTouchInput { longClick() }
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("delete_selected_button"))
         composeRule.onNodeWithTag("delete_selected_button").performClick()
         composeRule.waitForIdle()
 
@@ -1942,8 +1967,10 @@ class ExampleRobolectricTest {
         assertTrue(lastDeletedEntries.isEmpty())
 
         // 3. Delete entry via SelectionActionBar -> MUST show confirmation dialog
+        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("dictionary_item_e1"))
         composeRule.onNodeWithTag("dictionary_item_e1").performTouchInput { longClick() }
         composeRule.waitForIdle()
+        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("delete_selected_button"))
         composeRule.onNodeWithTag("delete_selected_button").performClick()
         composeRule.waitForIdle()
         assertEquals(1, deletedCalls)
@@ -1955,7 +1982,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    @Config(qualifiers = "w411dp-h891dp")
+    @Config(qualifiers = "w411dp-h1400dp")
     fun dictionaryScreen_sortsShortcutBearingEntriesAbovePlainEntries() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "plain_a", word = "Alamat biasa", shortcut = "", folder = "", updatedAtMillis = 100L),
@@ -2073,6 +2100,95 @@ class ExampleRobolectricTest {
         assertEquals(true, decoded?.settings?.floatingModeEnabled)
         assertEquals(false, decoded?.settings?.hapticEnabled)
         assertEquals("KetikKu", decoded?.settings?.driveFolderName)
+    }
+
+    @Test
+    fun inputConnectionImeTarget_jsonCodeEditorSilentNoOpFallsBackToKeycodeDel() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dummyView = android.view.View(context)
+        val sentKeyEvents = mutableListOf<android.view.KeyEvent>()
+        var jsonBuffer = "{\"key\":\"val\"}"
+
+        // Simulate a JSON/code editor that falsely returns true from deleteSurroundingText* without editing text
+        val lyingJsonEditorIc = object : android.view.inputmethod.BaseInputConnection(dummyView, true) {
+            override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence = jsonBuffer.takeLast(n)
+            override fun getSelectedText(flags: Int): CharSequence? = null
+            override fun deleteSurroundingTextInCodePoints(beforeLength: Int, afterLength: Int): Boolean = true
+            override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean = true
+            override fun sendKeyEvent(event: android.view.KeyEvent?): Boolean {
+                if (event != null) {
+                    sentKeyEvents.add(event)
+                    if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+                        event.keyCode == android.view.KeyEvent.KEYCODE_DEL &&
+                        jsonBuffer.isNotEmpty()
+                    ) {
+                        jsonBuffer = jsonBuffer.dropLast(1)
+                    }
+                }
+                return true
+            }
+        }
+
+        val target = com.example.ime.KetikKuImeService.InputConnectionImeTarget(
+            icProvider = { lyingJsonEditorIc },
+            onOpenSettings = {}
+        )
+        target.onEditorStarted(isRawOrWebCodeEditor = false)
+        target.deleteSingleCodePointBeforeCursor()
+
+        assertEquals("{\"key\":\"val\"", jsonBuffer)
+        assertEquals(2, sentKeyEvents.size)
+        assertEquals(android.view.KeyEvent.KEYCODE_DEL, sentKeyEvents[0].keyCode)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp")
+    fun keyboardView_thirdSuggestionColumnShowsAutoScrollingLiveTypedPreviewInAllBoxes() {
+        var value = TextFieldValue("")
+        val controller = KeyboardController(
+            TextFieldImeTarget(getValue = { value }, setValue = { value = it })
+        )
+        val settings = KeyboardSettings()
+        controller.configureForEditor(
+            isNumeric = false,
+            isPassword = true,
+            actionType = com.example.ime.EnterActionType.DONE,
+            settings = settings,
+            personalEntries = emptyList()
+        )
+
+        composeRule.setContent {
+            KetikKuTheme {
+                KetikKuKeyboardView(
+                    controller = controller,
+                    settings = settings,
+                    personalEntries = emptyList(),
+                    clipboardItems = emptyList(),
+                    onPasteClipboard = {},
+                    onCopySelectionToClipboard = {}
+                )
+            }
+        }
+
+        composeRule.waitForIdle()
+        // Type characters in password box with zero suggestions -> Column 3 still displays live typed preview!
+        "qwertyuiopasdf".forEach { ch ->
+            composeRule.onNodeWithTag("key_$ch").performClick()
+        }
+        composeRule.waitForIdle()
+        assertEquals("qwertyuiopasdf", value.text)
+        composeRule.onNodeWithTag("typed_preview_slot").assertIsDisplayed()
+        composeRule.onNodeWithTag("typed_preview_text").assertTextEquals("qwertyuiopasdf")
+
+        // Column 3 is read-only preview (clicking does not alter input text)
+        composeRule.onNodeWithTag("typed_preview_slot").performClick()
+        composeRule.waitForIdle()
+        assertEquals("qwertyuiopasdf", value.text)
+
+        // Backspace updates Column 3 live preview immediately
+        composeRule.onNodeWithTag("key_backspace").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("typed_preview_text").assertTextEquals("qwertyuiopasd")
     }
 
     @Test
