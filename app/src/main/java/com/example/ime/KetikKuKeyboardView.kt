@@ -515,20 +515,18 @@ private val longPressAlternates: Map<String, List<String>> = mapOf(
     "m" to listOf("?")
 )
 
-private const val RECENT_CLIPBOARD_SUGGESTION_MAX_CHARS = 120
-
 @Composable
 fun KetikKuKeyboardView(
     controller: KeyboardController,
     settings: KeyboardSettings,
     personalEntries: List<PersonalDictionaryEntry>,
     clipboardItems: List<ClipboardItem>,
-    dismissedClipboardId: String? = null,
-    dismissedClipboardSignature: String? = null,
+    @Suppress("UNUSED_PARAMETER") dismissedClipboardId: String? = null,
+    @Suppress("UNUSED_PARAMETER") dismissedClipboardSignature: String? = null,
     onPasteClipboard: (String) -> Unit,
     onPasteClipboardItem: ((ClipboardItem) -> Unit)? = null,
     onRequestCtrlPaste: (() -> Unit)? = null,
-    onDismissRecentClipboard: (String) -> Unit = {},
+    @Suppress("UNUSED_PARAMETER") onDismissRecentClipboard: (String) -> Unit = {},
     onCopySelectionToClipboard: (String) -> Unit,
     onClearAllClipboard: () -> Unit = {},
     onToggleSerifMiring: () -> Unit = {},
@@ -569,25 +567,6 @@ fun KetikKuKeyboardView(
     val currentOnPasteClipboard by rememberUpdatedState(onPasteClipboard)
     val currentOnPasteClipboardItem by rememberUpdatedState(onPasteClipboardItem)
     val currentOnRequestCtrlPaste by rememberUpdatedState(onRequestCtrlPaste)
-    val currentOnDismissRecentClipboard by rememberUpdatedState(onDismissRecentClipboard)
-    val onPasteRecentClipboardStable = remember(controller) {
-        { item: ClipboardItem ->
-            val itemHandler = currentOnPasteClipboardItem
-            if (itemHandler != null) {
-                itemHandler(item)
-            } else {
-                currentOnPasteClipboard(item.preview)
-            }
-            controller.dismissClipboardItem(item)
-            currentOnDismissRecentClipboard(item.id)
-        }
-    }
-    val onDismissRecentClipboardStable = remember(controller) {
-        { item: ClipboardItem ->
-            controller.dismissClipboardItem(item)
-            currentOnDismissRecentClipboard(item.id)
-        }
-    }
     val onToggleFloatingModeStable = remember {
         { currentOnToggleFloatingMode() }
     }
@@ -740,15 +719,10 @@ fun KetikKuKeyboardView(
                     palette = palette,
                     settings = settings,
                     personalEntries = personalEntries,
-                    clipboardItems = clipboardItems,
-                    dismissedClipboardId = dismissedClipboardId,
-                    dismissedClipboardSignature = dismissedClipboardSignature,
                     chipFontFamily = chipFontFamily,
                     keyFontStyle = keyFontStyle,
                     isFloating = isFloating,
                     onFeedback = onFeedbackStable,
-                    onPasteRecentClipboard = onPasteRecentClipboardStable,
-                    onDismissRecentClipboard = onDismissRecentClipboardStable,
                     onToggleFloatingMode = onToggleFloatingModeStable
                 )
 
@@ -1152,15 +1126,10 @@ private fun TopUtilityAndSuggestionBar(
     palette: KeyboardPalette,
     settings: KeyboardSettings,
     personalEntries: List<PersonalDictionaryEntry>,
-    clipboardItems: List<ClipboardItem>,
-    dismissedClipboardId: String?,
-    dismissedClipboardSignature: String? = null,
     chipFontFamily: FontFamily,
     keyFontStyle: FontStyle,
     isFloating: Boolean,
     onFeedback: () -> Unit,
-    onPasteRecentClipboard: (ClipboardItem) -> Unit,
-    onDismissRecentClipboard: (ClipboardItem) -> Unit,
     onToggleFloatingMode: () -> Unit
 ) {
     val barHeight = if (isFloating) 40.dp else 44.dp
@@ -1168,23 +1137,6 @@ private fun TopUtilityAndSuggestionBar(
     val btnSize = if (isFloating) 28.dp else 34.dp
     val iconSize = if (isFloating) 15.dp else 18.dp
     val statusMsg = controller.clipboardStatusMessage
-    val recentClipboardItem = if (settings.clipboardHistoryEnabled && !controller.isPasswordField) {
-        clipboardItems.firstOrNull()?.takeIf { item ->
-            val itemSig = item.dismissSignature()
-            val hiddenBySig = (dismissedClipboardSignature != null && itemSig == dismissedClipboardSignature) ||
-                (dismissedClipboardSignature == null &&
-                    controller.dismissedClipboardSignature != null &&
-                    itemSig == controller.dismissedClipboardSignature)
-            item.id.isNotBlank() &&
-                item.preview.isNotBlank() &&
-                item.charCount <= RECENT_CLIPBOARD_SUGGESTION_MAX_CHARS &&
-                item.id != dismissedClipboardId &&
-                item.id != controller.dismissedClipboardId &&
-                !hiddenBySig
-        }
-    } else {
-        null
-    }
 
     Row(
         modifier = Modifier
@@ -1195,7 +1147,7 @@ private fun TopUtilityAndSuggestionBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(if (isFloating) 4.dp else 6.dp)
     ) {
-        // Left side: Suggestion area (leaves space empty when no suggestions, never shifts right toolbar)
+        // Left side: Suggestion area (copied text stays in Clipboard panel only; never replaces suggestions)
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -1215,23 +1167,6 @@ private fun TopUtilityAndSuggestionBar(
                         modifier = Modifier
                             .padding(horizontal = 6.dp)
                             .testTag("clipboard_status_banner")
-                    )
-                }
-                controller.utilityPanel == UtilityPanel.NONE && recentClipboardItem != null -> {
-                    RecentClipboardSuggestionChip(
-                        item = recentClipboardItem,
-                        palette = palette,
-                        fontFamily = chipFontFamily,
-                        isFloating = isFloating,
-                        onPaste = {
-                            onFeedback()
-                            onPasteRecentClipboard(recentClipboardItem)
-                        },
-                        onDismiss = {
-                            onFeedback()
-                            onDismissRecentClipboard(recentClipboardItem)
-                        },
-                        modifier = Modifier.fillMaxWidth()
                     )
                 }
                 controller.utilityPanel == UtilityPanel.NONE &&
@@ -1357,70 +1292,6 @@ private fun UtilityIconButton(
             tint = if (active) palette.accentBg else palette.keyText.copy(alpha = 0.85f),
             modifier = Modifier.size(iconSize)
         )
-    }
-}
-
-@Composable
-private fun RecentClipboardSuggestionChip(
-    item: ClipboardItem,
-    palette: KeyboardPalette,
-    fontFamily: FontFamily,
-    isFloating: Boolean,
-    onPaste: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val chipHeight = if (isFloating) 30.dp else 32.dp
-    val shape = RoundedCornerShape(8.dp)
-    Row(
-        modifier = modifier
-            .height(chipHeight)
-            .clip(shape)
-            .background(palette.chipHighlightBg)
-            .border(1.dp, palette.accentBg.copy(alpha = 0.45f), shape),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .clickable(onClick = onPaste)
-                .padding(start = if (isFloating) 6.dp else 8.dp, end = 4.dp)
-                .testTag("recent_clipboard_suggestion_chip"),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (isFloating) 4.dp else 6.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.ContentPaste,
-                contentDescription = "Tempel teks baru disalin",
-                tint = palette.accentBg,
-                modifier = Modifier.size(if (isFloating) 13.dp else 15.dp)
-            )
-            Text(
-                text = item.preview,
-                color = palette.keyText,
-                fontSize = if (isFloating) 11.sp else 12.sp,
-                fontWeight = FontWeight.Medium,
-                fontFamily = fontFamily,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(width = if (isFloating) 26.dp else 30.dp, height = chipHeight)
-                .clickable(onClick = onDismiss)
-                .semantics { contentDescription = "Tutup saran teks disalin" }
-                .testTag("dismiss_recent_clipboard_button"),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Tutup saran teks disalin",
-                tint = palette.keyHintText,
-                modifier = Modifier.size(if (isFloating) 13.dp else 15.dp)
-            )
-        }
     }
 }
 

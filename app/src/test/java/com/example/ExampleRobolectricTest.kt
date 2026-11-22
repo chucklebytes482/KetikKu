@@ -746,10 +746,13 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithTag("nav_backup").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("drive_connect_google_button").fetchSemanticsNodes().isEmpty())
 
+        composeRule.onNodeWithTag("open_drive_sync_sheet_button").assertIsDisplayed()
         composeRule.onNodeWithTag("enable_ime_button").assertIsDisplayed()
         composeRule.onNodeWithTag("select_ime_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("open_dictionary_menu_button"))
         composeRule.onNodeWithTag("open_dictionary_menu_button").assertIsDisplayed()
-        composeRule.onNodeWithTag("open_drive_sync_sheet_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings_list").performScrollToIndex(0)
+        composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithTag("height_chip_normal").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("toggle_floating_mode").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("toggle_clipboard_history").fetchSemanticsNodes().isEmpty())
@@ -1001,36 +1004,41 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun keyboardView_recentCopiedTextAppearsInSuggestionBarWithDismissXAndPasteAction() {
+    fun keyboardView_copiedTextNeverAppearsInSuggestionBarAndRemainsInClipboardPanel() {
         var value = TextFieldValue("")
-        var clipboardState by mutableStateOf(
-            listOf(
-                ClipboardItem(
-                    id = "clip_1",
-                    preview = "penggunapanjang2026@gmail.com",
-                    charCount = 29,
-                    timestampMillis = 500L
-                )
+        val clipboardState = listOf(
+            ClipboardItem(
+                id = "clip_1",
+                preview = "penggunapanjang2026@gmail.com",
+                charCount = 29,
+                timestampMillis = 500L
+            ),
+            ClipboardItem(
+                id = "clip_2",
+                preview = "081234567890",
+                charCount = 12,
+                timestampMillis = 400L
             )
         )
-        var dismissedIdState by mutableStateOf<String?>(null)
+        val personal = listOf(
+            PersonalDictionaryEntry(id = "p1", word = "Halo pagi", shortcut = "hp", updatedAtMillis = 10L)
+        )
         val controller = KeyboardController(
             TextFieldImeTarget(
                 getValue = { value },
                 setValue = { value = it }
             )
         )
+        controller.refreshState(KeyboardSettings(), personal)
 
         composeRule.setContent {
             KetikKuTheme {
                 KetikKuKeyboardView(
                     controller = controller,
                     settings = KeyboardSettings(),
-                    personalEntries = emptyList(),
+                    personalEntries = personal,
                     clipboardItems = clipboardState,
-                    dismissedClipboardId = dismissedIdState,
-                    onPasteClipboard = { text -> controller.pasteText(text, KeyboardSettings(), emptyList()) },
-                    onDismissRecentClipboard = { id -> dismissedIdState = id },
+                    onPasteClipboard = { text -> controller.pasteText(text, KeyboardSettings(), personal) },
                     onCopySelectionToClipboard = {},
                     onToggleSerifMiring = {}
                 )
@@ -1038,50 +1046,23 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        // Recently copied text shows inside suggestion bar alongside the X dismiss button
-        composeRule.onNodeWithTag("recent_clipboard_suggestion_chip").assertIsDisplayed()
-        composeRule.onNodeWithTag("dismiss_recent_clipboard_button").assertIsDisplayed()
-        assertTrue(composeRule.onAllNodesWithText("penggunapanjang2026@gmail.com").fetchSemanticsNodes().isNotEmpty())
-
-        // Tapping X dismisses the recently copied banner; suggestion strip stays empty when personalEntries is empty
-        composeRule.onNodeWithTag("dismiss_recent_clipboard_button").performClick()
-        composeRule.waitForIdle()
+        // Copied text must NEVER appear inside the suggestion bar; personal dictionary suggestions stay undisturbed
         assertTrue(composeRule.onAllNodesWithTag("recent_clipboard_suggestion_chip").fetchSemanticsNodes().isEmpty())
-        assertEquals(0, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
+        assertTrue(composeRule.onAllNodesWithTag("dismiss_recent_clipboard_button").fetchSemanticsNodes().isEmpty())
+        assertEquals(1, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
+        assertTrue(composeRule.onAllNodesWithText("Halo pagi").fetchSemanticsNodes().isNotEmpty())
 
-        // Even if clip listener emits the SAME text with a brand-new ID, it stays hidden from suggestion bar
-        clipboardState = listOf(
-            ClipboardItem(
-                id = "clip_1_duplicate",
-                preview = "penggunapanjang2026@gmail.com",
-                charCount = 29,
-                timestampMillis = 550L
-            )
-        )
-        composeRule.waitForIdle()
-        assertTrue(
-            "Same dismissed text must NOT reappear even with a new ClipboardItem id",
-            composeRule.onAllNodesWithTag("recent_clipboard_suggestion_chip").fetchSemanticsNodes().isEmpty()
-        )
-
-        // Item remains accessible inside Papan Klip panel (without redundant X close button; toolbar icon toggles closed)
+        // Copied items remain accessible and pasteable inside the Papan Klip panel (without X close button)
         composeRule.onNodeWithTag("ime_clipboard_button").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("clipboard_item_clip_1_duplicate").assertIsDisplayed()
+        composeRule.onNodeWithTag("clipboard_item_clip_1").assertIsDisplayed()
+        composeRule.onNodeWithTag("clipboard_item_clip_2").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithContentDescription("Tutup Papan Klip").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithContentDescription("Tutup").fetchSemanticsNodes().isEmpty())
-        composeRule.onNodeWithTag("ime_clipboard_button").performClick()
-        composeRule.waitForIdle()
 
-        // Newly copied DIFFERENT text appears in the suggestion column and tapping it pastes & dismisses
-        clipboardState = listOf(
-            ClipboardItem(id = "clip_2", preview = "081234567890", charCount = 12, timestampMillis = 600L)
-        )
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("recent_clipboard_suggestion_chip").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("clipboard_item_clip_2").performClick()
         composeRule.waitForIdle()
         assertEquals("081234567890", value.text)
-        assertTrue(composeRule.onAllNodesWithTag("recent_clipboard_suggestion_chip").fetchSemanticsNodes().isEmpty())
     }
 
     @Test
@@ -1591,6 +1572,8 @@ class ExampleRobolectricTest {
         val copiedText = cm.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
         assertTrue(copiedText.contains("ketikku_dictionary.json"))
         assertTrue(copiedText.contains("tanpa subfolder"))
+        assertTrue(copiedText.contains("Balasan Cepat"))
+        assertFalse(copiedText.contains("Keuangan"))
         assertFalse(copiedText.contains("Kerja/CS"))
     }
 
@@ -1630,15 +1613,16 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    @Config(qualifiers = "w411dp-h891dp")
+    @Config(qualifiers = "w411dp-h1400dp")
     fun dictionaryScreen_simpleFileManagerFlatFoldersOnlySelectsMovesAndDeletes() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "e_root", word = "Salam hangat", shortcut = "sh", folder = "", updatedAtMillis = 10L),
             PersonalDictionaryEntry(id = "e_gmail", word = "adminsuperpanjang@gmail.com", shortcut = "", folder = "Gmail", updatedAtMillis = 11L),
             PersonalDictionaryEntry(id = "e_nomor", word = "081234567890", shortcut = "", folder = "Nomor", updatedAtMillis = 12L),
-            PersonalDictionaryEntry(id = "e_kerja", word = "Mohon ditunggu sebentar", shortcut = "mds", folder = "Kerja", updatedAtMillis = 13L)
+            PersonalDictionaryEntry(id = "e_kerja", word = "Mohon ditunggu sebentar", shortcut = "mds", folder = "Kerja", updatedAtMillis = 13L),
+            PersonalDictionaryEntry(id = "e_legacy_keuangan", word = "Siap, segera diproses", shortcut = "sp", folder = "Keuangan", updatedAtMillis = 14L)
         )
-        val folders = listOf("Kerja", "Gmail", "Nomor")
+        val folders = listOf("Kerja", "Gmail", "Nomor", "Keuangan")
         var movedEntries = emptySet<String>()
         var movedFolders = emptySet<String>()
         var movedTarget = ""
@@ -1661,36 +1645,42 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
+        // All 6 primary folders + custom folder + root entry fit in a single frame for deterministic bounds checks
         val gmailBounds = composeRule.onNodeWithTag("folder_item_Gmail").fetchSemanticsNode().boundsInRoot
         val nomorBounds = composeRule.onNodeWithTag("folder_item_Nomor").fetchSemanticsNode().boundsInRoot
         val pribadiBounds = composeRule.onNodeWithTag("folder_item_Pribadi").fetchSemanticsNode().boundsInRoot
         val sandiBounds = composeRule.onNodeWithTag("folder_item_Kata Sandi").fetchSemanticsNode().boundsInRoot
         val kredBounds = composeRule.onNodeWithTag("folder_item_Kredensial").fetchSemanticsNode().boundsInRoot
-        val keuanganBounds = composeRule.onNodeWithTag("folder_item_Keuangan").fetchSemanticsNode().boundsInRoot
-        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("folder_item_Kerja"))
-        composeRule.waitForIdle()
+        val balasanBounds = composeRule.onNodeWithTag("folder_item_Balasan Cepat").fetchSemanticsNode().boundsInRoot
         val kerjaBounds = composeRule.onNodeWithTag("folder_item_Kerja").fetchSemanticsNode().boundsInRoot
-        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("dictionary_item_e_root"))
-        composeRule.waitForIdle()
         val rootEntryBounds = composeRule.onNodeWithTag("dictionary_item_e_root").fetchSemanticsNode().boundsInRoot
 
         assertTrue("Gmail must be above Nomor", gmailBounds.bottom <= nomorBounds.top + 1f)
         assertTrue("Nomor must be above Pribadi", nomorBounds.bottom <= pribadiBounds.top + 1f)
         assertTrue("Pribadi must be above Kata Sandi", pribadiBounds.bottom <= sandiBounds.top + 1f)
         assertTrue("Kata Sandi must be above Kredensial", sandiBounds.bottom <= kredBounds.top + 1f)
-        assertTrue("Kredensial must be above Keuangan", kredBounds.bottom <= keuanganBounds.top + 1f)
+        assertTrue("Kredensial must be above Balasan Cepat", kredBounds.bottom <= balasanBounds.top + 1f)
+        assertTrue("Balasan Cepat must be above custom folders", balasanBounds.bottom <= kerjaBounds.top + 1f)
         assertTrue("Custom folders must be above unfoldered entries", kerjaBounds.bottom <= rootEntryBounds.top + 1f)
 
-        composeRule.onNodeWithTag("dictionary_list").performScrollToIndex(0)
-        composeRule.waitForIdle()
+        // Legacy "Keuangan" folder must not appear separately; its entry auto-migrated to "Balasan Cepat"
+        assertTrue(composeRule.onAllNodesWithTag("folder_item_Keuangan").fetchSemanticsNodes().isEmpty())
+
+        // None of the 6 primary folders show a 3-dot menu
+        SettingsRepository.PRIMARY_FOLDERS.forEach { primary ->
+            assertTrue(
+                "Primary folder '$primary' must not show a 3-dot menu",
+                composeRule.onAllNodesWithTag("folder_menu_$primary").fetchSemanticsNodes().isEmpty()
+            )
+        }
+        composeRule.onNodeWithTag("folder_menu_Kerja").assertIsDisplayed()
         composeRule.onNodeWithTag("add_folder_button").assertIsDisplayed()
 
-        // Open Kerja -> shows breadcrumb & entries only; subfolder creation button is hidden
-        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("folder_item_Kerja"))
-        composeRule.onNodeWithTag("folder_item_Kerja").performClick()
+        // Open Balasan Cepat -> verifies legacy Keuangan entry is automatically shown inside Balasan Cepat
+        composeRule.onNodeWithTag("folder_item_Balasan Cepat").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("folder_breadcrumb_bar").assertIsDisplayed()
-        composeRule.onNodeWithTag("dictionary_item_e_kerja").assertIsDisplayed()
+        composeRule.onNodeWithTag("dictionary_item_e_legacy_keuangan").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithTag("add_folder_button").fetchSemanticsNodes().isEmpty())
 
         // Navigate back to Utama
@@ -1698,25 +1688,33 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("folder_item_Gmail").assertIsDisplayed()
 
-        // Multi-select mode -> Pilih Semua (6 primary + Kerja + e_root = 8 dipilih) -> deselect Gmail -> Pindahkan to Gmail
+        // Long-pressing a primary folder must NOT enter selection mode
+        composeRule.onNodeWithTag("folder_item_Gmail").performTouchInput { longClick() }
+        composeRule.waitForIdle()
+        assertTrue(composeRule.onAllNodesWithTag("selection_action_bar").fetchSemanticsNodes().isEmpty())
+
+        // Multi-select mode -> Pilih Semua selects ONLY custom folder Kerja + e_root (2 dipilih, excluding 6 primary folders)
         composeRule.onNodeWithTag("toggle_selection_mode_button").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("selection_action_bar").assertIsDisplayed()
         composeRule.onNodeWithTag("select_all_items_button").performClick()
         composeRule.waitForIdle()
-        assertTrue(composeRule.onAllNodesWithText("8 dipilih").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("2 dipilih").fetchSemanticsNodes().isNotEmpty())
+
+        // Tapping a primary folder in selection mode does NOT select it
         composeRule.onNodeWithTag("folder_item_Gmail").performClick()
         composeRule.waitForIdle()
-        assertTrue(composeRule.onAllNodesWithText("7 dipilih").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("2 dipilih").fetchSemanticsNodes().isNotEmpty())
 
+        // Move selected entries to Gmail (only entries move; folders are not moved)
         composeRule.onNodeWithTag("move_selected_button").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("move_target_Gmail").performClick()
         composeRule.onNodeWithTag("confirm_move_button").performClick()
         composeRule.waitForIdle()
 
-        assertTrue(movedEntries.contains("e_root"))
-        assertTrue(movedFolders.contains("Kerja"))
+        assertEquals(setOf("e_root"), movedEntries)
+        assertTrue(movedFolders.isEmpty())
         assertEquals("Gmail", movedTarget)
     }
 
@@ -1894,7 +1892,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    @Config(qualifiers = "w411dp-h891dp")
+    @Config(qualifiers = "w411dp-h1400dp")
     fun dictionaryScreen_deleteActionsAlwaysRequireConfirmation() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "e1", word = "Halo dunia", shortcut = "hd", folder = "", updatedAtMillis = 10L)
@@ -1923,27 +1921,23 @@ class ExampleRobolectricTest {
 
         composeRule.waitForIdle()
 
-        // 1. Folder 3-dot menu must NOT show "Hapus Folder" (only "Ubah Nama" and "Pindahkan")
-        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("folder_menu_FolderKosong"))
-        composeRule.waitForIdle()
+        // 1. Custom folder 3-dot menu shows ONLY "Ubah Nama" (NO "Pindahkan" and NO "Hapus Folder")
         composeRule.onNodeWithTag("folder_menu_FolderKosong").performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("Ubah Nama").fetchSemanticsNodes().isNotEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Pindahkan").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Pindahkan").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("folder_delete_FolderKosong").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Hapus Folder").fetchSemanticsNodes().isEmpty())
 
-        // Dismiss menu cleanly via Pindahkan dialog -> Batal
-        composeRule.onAllNodesWithText("Pindahkan")[0].performClick()
+        // Dismiss menu cleanly via Ubah Nama dialog -> Batal
+        composeRule.onAllNodesWithText("Ubah Nama")[0].performClick()
         composeRule.waitForIdle()
         composeRule.onAllNodesWithText("Batal")[0].performClick()
         composeRule.waitForIdle()
 
-        // 2. Delete folder via multi-select -> MUST show confirmation dialog, NOT delete immediately
-        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("folder_item_FolderKosong"))
+        // 2. Delete custom folder via multi-select -> MUST show confirmation dialog, NOT delete immediately
         composeRule.onNodeWithTag("folder_item_FolderKosong").performTouchInput { longClick() }
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("delete_selected_button"))
         composeRule.onNodeWithTag("delete_selected_button").performClick()
         composeRule.waitForIdle()
 
@@ -1967,10 +1961,8 @@ class ExampleRobolectricTest {
         assertTrue(lastDeletedEntries.isEmpty())
 
         // 3. Delete entry via SelectionActionBar -> MUST show confirmation dialog
-        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("dictionary_item_e1"))
         composeRule.onNodeWithTag("dictionary_item_e1").performTouchInput { longClick() }
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("dictionary_list").performScrollToNode(hasTestTag("delete_selected_button"))
         composeRule.onNodeWithTag("delete_selected_button").performClick()
         composeRule.waitForIdle()
         assertEquals(1, deletedCalls)

@@ -79,7 +79,7 @@ internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/Keti
 internal const val KETIKKU_GENERAL_AI_PROMPT = """Struktur berkas JSON kamus pribadi KetikKu (ketikku_dictionary.json):
 {
   "updatedAtMillis": 0,
-  "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Keuangan"],
+  "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat"],
   "entries": [
     {
       "id": "string unik entri",
@@ -93,7 +93,7 @@ internal const val KETIKKU_GENERAL_AI_PROMPT = """Struktur berkas JSON kamus pri
 }
 Aturan struktur:
 - Folder datar 1 tingkat saja (tanpa subfolder dan tanpa tanda '/').
-- 6 folder utama: "Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Keuangan".
+- 6 folder utama: "Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat".
 - Setiap entri memiliki 6 field: id, word, shortcut, folder, updatedAtMillis, deleted (tanpa field "language").
 - Entri di folder "Kata Sandi" dan "Kredensial" hanya muncul di bilah saran jika pintasannya diketik."""
 

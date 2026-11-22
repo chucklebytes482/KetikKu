@@ -347,7 +347,10 @@ class SettingsRepository(
         targetFolderPath: String
     ) {
         val normTarget = normalizeFolderPath(targetFolderPath)
-        val normSources = folderPaths.map(::normalizeFolderPath).filter { it.isNotEmpty() }.toSet()
+        val normSources = folderPaths
+            .map(::normalizeFolderPath)
+            .filter { it.isNotEmpty() && !isPrimaryFolder(it) }
+            .toSet()
         if (entryIds.isEmpty() && normSources.isEmpty()) return
 
         val now = System.currentTimeMillis()
@@ -388,7 +391,9 @@ class SettingsRepository(
         entryIds: Set<String>,
         folderPaths: Set<String>
     ) {
-        val normFolders = folderPaths.map(::normalizeFolderPath).filter { it.isNotEmpty() }
+        val normFolders = folderPaths
+            .map(::normalizeFolderPath)
+            .filter { it.isNotEmpty() && !isPrimaryFolder(it) }
         if (entryIds.isEmpty() && normFolders.isEmpty()) return
         val now = System.currentTimeMillis()
         dataStore.edit { prefs ->
@@ -872,7 +877,8 @@ class SettingsRepository(
         const val FOLDER_PRIBADI = "Pribadi"
         const val FOLDER_KATA_SANDI = "Kata Sandi"
         const val FOLDER_KREDENSIAL = "Kredensial"
-        const val FOLDER_KEUANGAN = "Keuangan"
+        const val FOLDER_BALASAN_CEPAT = "Balasan Cepat"
+        private const val LEGACY_FOLDER_KEUANGAN = "Keuangan"
 
         val PRIMARY_FOLDERS: List<String> = listOf(
             FOLDER_GMAIL,
@@ -880,7 +886,7 @@ class SettingsRepository(
             FOLDER_PRIBADI,
             FOLDER_KATA_SANDI,
             FOLDER_KREDENSIAL,
-            FOLDER_KEUANGAN
+            FOLDER_BALASAN_CEPAT
         )
 
         fun isPrimaryFolder(name: String?): Boolean {
@@ -901,7 +907,8 @@ class SettingsRepository(
                 cleaned.equals(FOLDER_PRIBADI, ignoreCase = true) -> FOLDER_PRIBADI
                 cleaned.equals(FOLDER_KATA_SANDI, ignoreCase = true) -> FOLDER_KATA_SANDI
                 cleaned.equals(FOLDER_KREDENSIAL, ignoreCase = true) -> FOLDER_KREDENSIAL
-                cleaned.equals(FOLDER_KEUANGAN, ignoreCase = true) -> FOLDER_KEUANGAN
+                cleaned.equals(FOLDER_BALASAN_CEPAT, ignoreCase = true) ||
+                    cleaned.equals(LEGACY_FOLDER_KEUANGAN, ignoreCase = true) -> FOLDER_BALASAN_CEPAT
                 else -> cleaned
             }
         }
@@ -929,7 +936,7 @@ class SettingsRepository(
         /**
          * Preserves ordered single-level folder list (no subfolders):
          * - 6 permanent primary folders pinned at top in exact order:
-         *   Gmail, Nomor, Pribadi, Kata Sandi, Kredensial, Keuangan.
+         *   Gmail, Nomor, Pribadi, Kata Sandi, Kredensial, Balasan Cepat.
          * - All other custom folders preserve existing order (newest-first on creation).
          */
         fun normalizeOrderedFolders(

@@ -390,7 +390,7 @@
         <div class="subcard">
           <h3>Kamus Pribadi (6 Folder Utama Permanen)</h3>
           <ul>
-            <li>Kelola kamus satu tingkat (tanpa subfolder) dengan 6 folder utama permanen di urutan atas: <strong>Gmail</strong>, <strong>Nomor</strong>, <strong>Pribadi</strong>, <strong>Kata Sandi</strong>, <strong>Kredensial</strong>, dan <strong>Keuangan</strong>.</li>
+            <li>Kelola kamus satu tingkat (tanpa subfolder) dengan 6 folder utama permanen di urutan atas: <strong>Gmail</strong>, <strong>Nomor</strong>, <strong>Pribadi</strong>, <strong>Kata Sandi</strong>, <strong>Kredensial</strong>, dan <strong>Balasan Cepat</strong> (folder utama terlindungi agar tidak dapat diubah nama, dipindahkan, atau dihapus).</li>
             <li>Entri di folder <strong>Kata Sandi</strong> dan <strong>Kredensial</strong> dijaga privasinya: tidak pernah muncul saat kolom kosong maupun saat mengetik awalan isinya, dan <strong>hanya muncul di bilah saran jika pintasannya diketik</strong>.</li>
             <li>Mengetik pintasan <strong>tidak mengganti teks secara otomatis</strong> saat menekan Spasi/Enter — entri muncul di Kolom 1 &amp; 2 bilah saran di <strong>semua kolom teks (termasuk kolom kata sandi)</strong> dan masuk saat chip diketuk.</li>
             <li><strong>Kolom saran ketiga</strong> (di sebelah bilah alat) menampilkan pratinjau karakter yang sedang diketik dengan <strong>gulir horizontal otomatis</strong> agar ketikan panjang maupun pintasan di kolom sandi tetap mudah dipantau.</li>
@@ -400,7 +400,7 @@
         <div class="subcard">
           <h3>Pemfolderan Otomatis &amp; Papan Klip</h3>
           <ul>
-            <li>Teks yang baru disalin muncul sebagai tombol cepat di bilah atas keyboard; tekan <strong>X</strong> untuk menyembunyikan dari bilah saran tanpa menghapus dari Papan Klip.</li>
+            <li>Teks yang disalin tidak ditampilkan di bilah saran atas, melainkan tersimpan rapi di panel <strong>Papan Klip</strong> agar bilah saran tetap fokus pada kamus pribadi.</li>
             <li>Alamat <code>@gmail.com</code> (≥ 20 karakter) yang disalin otomatis tersimpan ke folder <strong>Gmail</strong>.</li>
             <li>Nomor telepon berawalan <code>+62</code>, <code>62</code>, atau <code>08</code> (≥ 11 digit) yang disalin otomatis tersimpan ke folder <strong>Nomor</strong>.</li>
           </ul>
@@ -546,7 +546,7 @@
           <pre id="prompt-1" class="prompt-box" title="Klik untuk menyalin">Struktur berkas JSON kamus pribadi KetikKu (ketikku_dictionary.json):
 {
   "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
-  "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Keuangan"],
+  "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat"],
   "entries": [
     {
       "id": "&lt;id_unik&gt;",
@@ -561,7 +561,7 @@
 Aturan struktur:
 1. Jangan sertakan field "language" atau field tambahan lain.
 2. Setiap objek di "entries" wajib berisi 6 field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
-3. Folder hanya 1 tingkat (tanpa subfolder dan tanpa "/"). 6 folder utama: "Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Keuangan".
+3. Folder hanya 1 tingkat (tanpa subfolder dan tanpa "/"). 6 folder utama: "Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat".
 4. Entri di folder "Kata Sandi" dan "Kredensial" hanya tampil di bilah saran saat "shortcut"-nya diketik.
 5. Pertahankan entri &amp; "id" lama, lalu kembalikan 1 blok kode JSON valid.
 

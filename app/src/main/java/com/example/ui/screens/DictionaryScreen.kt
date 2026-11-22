@@ -27,8 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
@@ -165,6 +165,9 @@ fun DictionaryScreen(
         }
     }
 
+    val selectableFolders = remember(visibleFolders) {
+        visibleFolders.filterNot { SettingsRepository.isPrimaryFolder(it) }
+    }
     val totalCount = activeEntriesAll.size
     val totalSelectedCount = selectedEntryIds.size + selectedFolderPaths.size
 
@@ -231,13 +234,14 @@ fun DictionaryScreen(
                 item {
                     SelectionActionBar(
                         selectedCount = totalSelectedCount,
+                        canMoveEntries = selectedEntryIds.isNotEmpty(),
                         onSelectAll = {
-                            selectedFolderPaths = visibleFolders.toSet()
+                            selectedFolderPaths = selectableFolders.toSet()
                             selectedEntryIds = visibleEntries.map { it.id }.toSet()
                         },
                         onMoveSelected = {
-                            if (totalSelectedCount > 0) {
-                                moveRequest = selectedEntryIds to selectedFolderPaths
+                            if (selectedEntryIds.isNotEmpty()) {
+                                moveRequest = selectedEntryIds to emptySet()
                             }
                         },
                         onDeleteSelected = {
@@ -268,7 +272,7 @@ fun DictionaryScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Tahan lama item untuk memilih, pindah, atau hapus",
+                                text = "Tahan lama item untuk memilih, pindah kata, atau hapus",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -276,7 +280,7 @@ fun DictionaryScreen(
                             )
                         }
 
-                        if (visibleFolders.isNotEmpty() || visibleEntries.isNotEmpty()) {
+                        if (selectableFolders.isNotEmpty() || visibleEntries.isNotEmpty()) {
                             IconButton(
                                 onClick = { selectionMode = true },
                                 modifier = Modifier
@@ -355,10 +359,11 @@ fun DictionaryScreen(
                     }
                 }
             } else {
-                // 1. Folder rows (Utama: Gmail -> Nomor -> Custom folders newest-first, single-level only)
+                // 1. Folder rows (Utama: 6 permanent primary folders -> Custom folders newest-first, single-level only)
                 items(visibleFolders, key = { "folder:$it" }) { folderName ->
                     val entryCount = folderEntryCountMap[folderName] ?: 0
-                    val isSelected = folderName in selectedFolderPaths
+                    val isPrimary = SettingsRepository.isPrimaryFolder(folderName)
+                    val isSelected = !isPrimary && folderName in selectedFolderPaths
                     FolderRowCard(
                         folderName = folderName,
                         entryCount = entryCount,
@@ -366,10 +371,12 @@ fun DictionaryScreen(
                         selected = isSelected,
                         onTap = {
                             if (selectionMode) {
-                                selectedFolderPaths = if (isSelected) {
-                                    selectedFolderPaths - folderName
-                                } else {
-                                    selectedFolderPaths + folderName
+                                if (!isPrimary) {
+                                    selectedFolderPaths = if (isSelected) {
+                                        selectedFolderPaths - folderName
+                                    } else {
+                                        selectedFolderPaths + folderName
+                                    }
                                 }
                             } else {
                                 dictSearchQuery = ""
@@ -377,11 +384,16 @@ fun DictionaryScreen(
                             }
                         },
                         onLongPress = {
-                            selectionMode = true
-                            selectedFolderPaths = selectedFolderPaths + folderName
+                            if (!isPrimary) {
+                                selectionMode = true
+                                selectedFolderPaths = selectedFolderPaths + folderName
+                            }
                         },
-                        onRename = { renamingFolderPath = folderName },
-                        onMove = { moveRequest = emptySet<String>() to setOf(folderName) }
+                        onRename = {
+                            if (!isPrimary) {
+                                renamingFolderPath = folderName
+                            }
+                        }
                     )
                 }
 
@@ -569,6 +581,7 @@ private fun FolderBreadcrumbBar(
 @Composable
 private fun SelectionActionBar(
     selectedCount: Int,
+    canMoveEntries: Boolean,
     onSelectAll: () -> Unit,
     onMoveSelected: () -> Unit,
     onDeleteSelected: () -> Unit,
@@ -612,15 +625,15 @@ private fun SelectionActionBar(
             }
             IconButton(
                 onClick = onMoveSelected,
-                enabled = selectedCount > 0,
+                enabled = canMoveEntries,
                 modifier = Modifier
                     .size(48.dp)
                     .testTag("move_selected_button")
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.DriveFileMove,
-                    contentDescription = "Pindahkan item terpilih",
-                    tint = MaterialTheme.colorScheme.primary
+                    contentDescription = "Pindahkan kata terpilih",
+                    tint = if (canMoveEntries) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                 )
             }
             IconButton(
@@ -649,8 +662,7 @@ private fun FolderRowCard(
     selected: Boolean,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
-    onRename: () -> Unit,
-    onMove: () -> Unit
+    onRename: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val isPrimary = SettingsRepository.isPrimaryFolder(folderName)
@@ -660,7 +672,7 @@ private fun FolderRowCard(
         SettingsRepository.FOLDER_PRIBADI -> Icons.Default.Person
         SettingsRepository.FOLDER_KATA_SANDI -> Icons.Default.Lock
         SettingsRepository.FOLDER_KREDENSIAL -> Icons.Default.Key
-        SettingsRepository.FOLDER_KEUANGAN -> Icons.Default.AccountBalanceWallet
+        SettingsRepository.FOLDER_BALASAN_CEPAT -> Icons.Default.Bolt
         else -> Icons.Default.Folder
     }
 
@@ -677,7 +689,7 @@ private fun FolderRowCard(
             .clip(RoundedCornerShape(16.dp))
             .combinedClickable(
                 onClick = onTap,
-                onLongClick = onLongPress
+                onLongClick = if (isPrimary) null else onLongPress
             )
             .testTag("folder_item_${folderName.replace('/', '_')}")
     ) {
@@ -686,7 +698,7 @@ private fun FolderRowCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (selectionMode) {
+            if (selectionMode && !isPrimary) {
                 Icon(
                     imageVector = if (selected) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
                     contentDescription = if (selected) "Terpilih" else "Belum terpilih",
@@ -726,7 +738,7 @@ private fun FolderRowCard(
                 )
             }
 
-            if (!selectionMode) {
+            if (!selectionMode && !isPrimary) {
                 Box {
                     IconButton(
                         onClick = { menuExpanded = true },
@@ -744,20 +756,11 @@ private fun FolderRowCard(
                         expanded = menuExpanded,
                         onDismissRequest = { menuExpanded = false }
                     ) {
-                        if (!isPrimary) {
-                            DropdownMenuItem(
-                                text = { Text("Ubah Nama") },
-                                onClick = {
-                                    menuExpanded = false
-                                    onRename()
-                                }
-                            )
-                        }
                         DropdownMenuItem(
-                            text = { Text("Pindahkan") },
+                            text = { Text("Ubah Nama") },
                             onClick = {
                                 menuExpanded = false
-                                onMove()
+                                onRename()
                             }
                         )
                     }

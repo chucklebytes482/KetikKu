@@ -764,16 +764,18 @@ class KeyboardEngineUnitTest {
         assertEquals("Pribadi", SettingsRepository.normalizeFolderPath("pribadi"))
         assertEquals("Kata Sandi", SettingsRepository.normalizeFolderPath("kata sandi"))
         assertEquals("Kredensial", SettingsRepository.normalizeFolderPath("KREDENSIAL"))
-        assertEquals("Keuangan", SettingsRepository.normalizeFolderPath("keuangan"))
+        assertEquals("Balasan Cepat", SettingsRepository.normalizeFolderPath("balasan cepat"))
+        assertEquals("Balasan Cepat", SettingsRepository.normalizeFolderPath("keuangan"))
+        assertEquals("Balasan Cepat", SettingsRepository.normalizeFolderPath("Keuangan"))
         assertEquals("", SettingsRepository.normalizeFolderPath("///"))
         assertFalse(SettingsRepository.normalizeFolderPath("A/B/C").contains('/'))
 
         val ordered = SettingsRepository.normalizeOrderedFolders(
-            explicitFolders = listOf("Kerja", "kata sandi", "kredensial"),
+            explicitFolders = listOf("Kerja", "kata sandi", "kredensial", "Keuangan"),
             entries = emptyList()
         )
         assertEquals(
-            listOf("Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Keuangan", "Kerja"),
+            listOf("Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat", "Kerja"),
             ordered
         )
     }
