@@ -30,7 +30,7 @@
 2. **Penyimpanan & Sinkronisasi Perangkat:** Gunakan penyimpanan lokal (DataStore/Room) dengan 1 berkas tunggal di `/storage/emulated/0/Documents/<NamaApp>/`: **langsung timpa berkas perangkat** setiap ada perubahan di aplikasi (folder terhapus tidak kembali) dan **sinkron otomatis saat aplikasi dibuka** dengan pengaman anti-timpa file kosong/entri lebih sedikit.
 3. **Kurasi Ringan & Luring:** Pangkas fitur opsional, izin jaringan (`INTERNET`/`ACCESS_NETWORK_STATE`), dan dependensi berat tak terpakai (Firebase/Google Auth/OkHttp). Gunakan `remember`, `derivedStateOf`, dan `Dispatchers.IO`.
 4. **Pengujian & Build R8:** Gunakan cache lokal Robolectric offline-first agar `gradle :app:testDebugUnitTest --no-daemon` lulus 100% tanpa mengunduh ulang dari Maven, lalu verifikasi APK rilis R8 `arm64-v8a` dengan `apksigner`.
-5. **Rilis & GitHub Pages:** Publikasikan APK via `.github/workflows/release.yml` ke GitHub Releases dan tempatkan panduan lengkap pengguna di `docs/index.html` (ramah HP, tanpa teks hash mentah panjang).
+5. **Rilis & GitHub Pages:** Publikasikan APK via `.github/workflows/release.yml` ke GitHub Releases dan tempatkan panduan lengkap pengguna di `docs/index.html` (wajib ramah HP tanpa teks/path/kode keluar jalur: `overflow-x: clip`, `min-width: 0`, dan `overflow-wrap: anywhere`, tanpa teks hash mentah panjang).
 
 ---
 
@@ -51,7 +51,7 @@ Buat aplikasi Android (Kotlin + Jetpack Compose + Material 3 + MVVM):
   - 100% luring: tanpa izin INTERNET/ACCESS_NETWORK_STATE dan tanpa dependensi Firebase/Google Auth/OkHttp; R8 + shrink + arm64-v8a pada release.
 - Pengujian & Rilis:
   - Sertakan Unit Test & Robolectric UI Test dengan konfigurasi cache lokal Robolectric offline-first.
-  - Simpan panduan di panduan/, jaga docs/ khusus GitHub Pages, dan sediakan kontainer .hc dalam 1 file HTML di root (<slug_app>_secrets_download.html, tidak disembunyikan di .gitignore) agar mudah diunduh lewat browser lalu dihapus pengguna.
+  - Simpan panduan di panduan/, jaga docs/ khusus GitHub Pages (wajib bebas horizontal overflow di HP: overflow-x: clip, min-width: 0, overflow-wrap: anywhere pada code/pre/kartu), dan sediakan kontainer .hc dalam 1 file HTML di root (<slug_app>_secrets_download.html, tidak disembunyikan di .gitignore) agar mudah diunduh lewat browser lalu dihapus pengguna.
 ```
 
 ---
@@ -63,4 +63,4 @@ Buat aplikasi Android (Kotlin + Jetpack Compose + Material 3 + MVVM):
 - [ ] Unit Test & Robolectric 100% lulus lokal (offline cache) dan di CI.
 - [ ] Tema otomatis sistem, prioritas Beranda `#1 Cadangan Perangkat` & `#2 Web Panduan`, tanpa keterangan berlebih di UI.
 - [ ] Sinkronisasi perangkat memakai 1 berkas tunggal di `Documents/<NamaApp>/`: langsung menimpa saat edit/hapus di aplikasi (folder terhapus tidak kembali) dan dilindungi dari timpa file kosong/entri lebih sedikit.
-- [ ] Folder `docs/` khusus GitHub Pages, `panduan/` berisi dokumentasi, berkas `<slug_app>_secrets_download.html` di root sudah dihapus setelah `.hc` diunduh, dan tidak ada rahasia mentah (`.jks`, `.env`, `keystore.properties`) atau `.apk` di Git.
+- [ ] Folder `docs/` khusus GitHub Pages (bebas teks/path keluar jalur di layar HP), `panduan/` berisi dokumentasi, berkas `<slug_app>_secrets_download.html` di root sudah dihapus setelah `.hc` diunduh, dan tidak ada rahasia mentah (`.jks`, `.env`, `keystore.properties`) atau `.apk` di Git.

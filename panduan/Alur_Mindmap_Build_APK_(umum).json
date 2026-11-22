@@ -15,7 +15,7 @@
     "    - 100% luring: tanpa izin INTERNET, tanpa akun/login cloud, tanpa layanan latar belakang",
     "  - 3. UI Ringkas & Target Ukuran < 10 MB",
     "    - Hapus fitur opsional, pemilih tema, dan dependensi berat tak terpakai (Firebase/Auth/OkHttp)",
-    "    - Seluruh keterangan rinci hanya di GitHub Pages (docs/index.html)",
+    "    - Seluruh keterangan rinci hanya di GitHub Pages (docs/index.html, wajib ramah HP tanpa teks/kode keluar jalur)",
     "    - Sediakan bilah pencarian cepat & mode pilih dengan BackHandler",
     "  - 4. Pengujian & Build R8",
     "    - Unit Test & Robolectric UI Test lulus 100% via cache lokal offline-first",
@@ -92,7 +92,7 @@
           },
           {
             "id": "a1b2c3d4-3200-4000-8000-000000000001",
-            "title": "Seluruh keterangan rinci hanya di GitHub Pages (docs/index.html)",
+            "title": "Seluruh keterangan rinci hanya di GitHub Pages (docs/index.html, wajib ramah HP tanpa teks/kode keluar jalur)",
             "color": "sage"
           },
           {
