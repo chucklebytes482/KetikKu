@@ -112,6 +112,8 @@ android {
     unitTests {
       isIncludeAndroidResources = true
       all { test ->
+        test.maxHeapSize = "2048m"
+        test.jvmArgs("-XX:+UseG1GC")
         val m2SdkDir =
           file(
             "${System.getProperty("user.home")}/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7"

@@ -689,7 +689,7 @@ private fun FolderRowCard(
             .clip(RoundedCornerShape(16.dp))
             .combinedClickable(
                 onClick = onTap,
-                onLongClick = if (isPrimary) null else onLongPress
+                onLongClick = { if (!isPrimary) onLongPress() }
             )
             .testTag("folder_item_${folderName.replace('/', '_')}")
     ) {

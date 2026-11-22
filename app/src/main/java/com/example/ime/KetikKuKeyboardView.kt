@@ -1327,7 +1327,11 @@ private fun SuggestionChipsRow(
         (0 until 2).forEach { index ->
             val word = suggestions.getOrNull(index)
             if (word == null) {
-                Spacer(Modifier.weight(1f))
+                Spacer(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(chipHeight)
+                )
                 return@forEach
             }
             val isHighlighted = primaryAutoCorrect != null && word == primaryAutoCorrect
@@ -1357,9 +1361,10 @@ private fun SuggestionChipsRow(
 
         // Column 3 (nearest to right utility toolbar): auto-scrolling live typed characters preview (read-only)
         if (typedText.isEmpty()) {
-            Spacer(
+            Box(
                 modifier = Modifier
                     .weight(1f)
+                    .height(chipHeight)
                     .testTag("typed_preview_slot")
             )
         } else {

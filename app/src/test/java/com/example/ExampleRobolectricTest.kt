@@ -1613,7 +1613,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    @Config(qualifiers = "w411dp-h1400dp")
+    @Config(qualifiers = "w411dp-h1150dp")
     fun dictionaryScreen_simpleFileManagerFlatFoldersOnlySelectsMovesAndDeletes() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "e_root", word = "Salam hangat", shortcut = "sh", folder = "", updatedAtMillis = 10L),
@@ -1688,10 +1688,11 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("folder_item_Gmail").assertIsDisplayed()
 
-        // Long-pressing a primary folder must NOT enter selection mode
+        // Long-pressing a primary folder must NOT enter selection mode or open the folder
         composeRule.onNodeWithTag("folder_item_Gmail").performTouchInput { longClick() }
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithTag("selection_action_bar").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("folder_breadcrumb_bar").fetchSemanticsNodes().isEmpty())
 
         // Multi-select mode -> Pilih Semua selects ONLY custom folder Kerja + e_root (2 dipilih, excluding 6 primary folders)
         composeRule.onNodeWithTag("toggle_selection_mode_button").performClick()
@@ -1892,7 +1893,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    @Config(qualifiers = "w411dp-h1400dp")
+    @Config(qualifiers = "w411dp-h1150dp")
     fun dictionaryScreen_deleteActionsAlwaysRequireConfirmation() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "e1", word = "Halo dunia", shortcut = "hd", folder = "", updatedAtMillis = 10L)
@@ -1974,7 +1975,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    @Config(qualifiers = "w411dp-h1400dp")
+    @Config(qualifiers = "w411dp-h1150dp")
     fun dictionaryScreen_sortsShortcutBearingEntriesAbovePlainEntries() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "plain_a", word = "Alamat biasa", shortcut = "", folder = "", updatedAtMillis = 100L),
