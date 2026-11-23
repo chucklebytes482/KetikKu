@@ -1,6 +1,0 @@
-{
-  "name": "KetikKu",
-  "description": "Aplikasi keyboard Android cepat dan ringkas tanpa emoji atau GIF, dilengkapi font Monospace Unicode dan sinkronisasi kamus pribadi ke Google Drive.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
