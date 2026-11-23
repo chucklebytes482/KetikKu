@@ -1,0 +1,899 @@
+﻿2026-11-23T11:41:07.5119848Z Current runner version: '2.338.2'
+2026-11-23T11:41:07.5142731Z ##[group]Runner Image Provisioner
+2026-11-23T11:41:07.5143573Z Hosted Compute Agent
+2026-11-23T11:41:07.5144102Z Version: 20261111.635
+2026-11-23T11:41:07.5144665Z Commit: b8a594ea514ff44cadb5342986c68b1eac6e22ed
+2026-11-23T11:41:07.5145416Z Build Date: 2026-11-11T01:49:01Z
+2026-11-23T11:41:07.5146014Z Worker ID: {8f2ed998-ea65-4a5e-8cff-ca6ded4c970f}
+2026-11-23T11:41:07.5146705Z Region: westus3
+2026-11-23T11:41:07.5147202Z Cloud: Azure
+2026-11-23T11:41:07.5147701Z ##[endgroup]
+2026-11-23T11:41:07.5148908Z ##[group]Operating System
+2026-11-23T11:41:07.5149845Z Ubuntu
+2026-11-23T11:41:07.5150389Z 26.04.1
+2026-11-23T11:41:07.5150891Z LTS
+2026-11-23T11:41:07.5151408Z ##[endgroup]
+2026-11-23T11:41:07.5151940Z ##[group]Runner Image
+2026-11-23T11:41:07.5152493Z Image: ubuntu-26.04
+2026-11-23T11:41:07.5153058Z Version: 20261116.202.1
+2026-11-23T11:41:07.5154174Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261116.202/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-23T11:41:07.5155516Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261116.202
+2026-11-23T11:41:07.5156390Z ##[endgroup]
+2026-11-23T11:41:07.5157404Z ##[group]GITHUB_TOKEN Permissions
+2026-11-23T11:41:07.5159326Z Contents: write
+2026-11-23T11:41:07.5159887Z Metadata: read
+2026-11-23T11:41:07.5160367Z ##[endgroup]
+2026-11-23T11:41:07.5162258Z Secret source: Actions
+2026-11-23T11:41:07.5163168Z Cache mode: write
+2026-11-23T11:41:07.5163778Z Prepare workflow directory
+2026-11-23T11:41:07.5522475Z Prepare all required actions
+2026-11-23T11:41:07.5561695Z Getting action download info
+2026-11-23T11:41:07.9678401Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-23T11:41:08.1549958Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+2026-11-23T11:41:08.9478495Z Download action repository 'gradle/actions@v4' (SHA:ed408507eac070d1f99cc633dbcf757c94c7933a)
+2026-11-23T11:41:10.7387787Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+2026-11-23T11:41:10.9393990Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-11-23T11:41:11.0735330Z Download action repository 'softprops/action-gh-release@v2' (SHA:3bb12739c298aeb8a4eeaf626c5b8d85266b0e65)
+2026-11-23T11:41:11.5964100Z Complete job name: Build R8 arm64-v8a APK
+2026-11-23T11:41:11.6666692Z ##[group]Run actions/checkout@v4
+2026-11-23T11:41:11.6667150Z with:
+2026-11-23T11:41:11.6667370Z   repository: chucklebytes482/KetikKu
+2026-11-23T11:41:11.6669808Z   token: ***
+2026-11-23T11:41:11.6670008Z   ssh-strict: true
+2026-11-23T11:41:11.6670214Z   ssh-user: git
+2026-11-23T11:41:11.6670417Z   persist-credentials: true
+2026-11-23T11:41:11.6670650Z   clean: true
+2026-11-23T11:41:11.6670861Z   sparse-checkout-cone-mode: true
+2026-11-23T11:41:11.6671107Z   fetch-depth: 1
+2026-11-23T11:41:11.6671292Z   fetch-tags: false
+2026-11-23T11:41:11.6671524Z   show-progress: true
+2026-11-23T11:41:11.6671716Z   lfs: false
+2026-11-23T11:41:11.6671893Z   submodules: false
+2026-11-23T11:41:11.6672090Z   set-safe-directory: true
+2026-11-23T11:41:11.6672316Z   allow-unsafe-pr-checkout: false
+2026-11-23T11:41:11.6672691Z env:
+2026-11-23T11:41:11.6672878Z   APP_SLUG: ketikku
+2026-11-23T11:41:11.6673077Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:11.6673361Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:11.6673624Z ##[endgroup]
+2026-11-23T11:41:11.9018229Z Syncing repository: chucklebytes482/KetikKu
+2026-11-23T11:41:11.9020917Z ##[group]Getting Git version info
+2026-11-23T11:41:11.9022171Z Working directory is '/home/runner/work/KetikKu/KetikKu'
+2026-11-23T11:41:11.9033597Z [command]/usr/bin/git version
+2026-11-23T11:41:11.9077044Z git version 2.56.1
+2026-11-23T11:41:11.9143131Z ##[endgroup]
+2026-11-23T11:41:11.9151691Z Temporarily overriding HOME='/home/runner/work/_temp/f64a81e4-58e3-40f3-94e6-e1ec4cba4ff4' before making global git config changes
+2026-11-23T11:41:11.9153067Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-23T11:41:11.9153911Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/KetikKu/KetikKu
+2026-11-23T11:41:11.9227905Z Deleting the contents of '/home/runner/work/KetikKu/KetikKu'
+2026-11-23T11:41:11.9229304Z ##[group]Initializing the repository
+2026-11-23T11:41:11.9231542Z [command]/usr/bin/git init /home/runner/work/KetikKu/KetikKu
+2026-11-23T11:41:11.9359299Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-23T11:41:11.9360139Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-23T11:41:11.9400131Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-23T11:41:11.9401266Z hint: call:
+2026-11-23T11:41:11.9420130Z hint:
+2026-11-23T11:41:11.9420932Z hint: 	git config --global init.defaultBranch <name>
+2026-11-23T11:41:11.9421872Z hint:
+2026-11-23T11:41:11.9422568Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-23T11:41:11.9423776Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-23T11:41:11.9424486Z hint:
+2026-11-23T11:41:11.9425217Z hint: 	git branch -m <name>
+2026-11-23T11:41:11.9425804Z hint:
+2026-11-23T11:41:11.9426775Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-23T11:41:11.9428106Z Initialized empty Git repository in /home/runner/work/KetikKu/KetikKu/.git/
+2026-11-23T11:41:11.9430961Z [command]/usr/bin/git remote add origin https://github.com/chucklebytes482/KetikKu
+2026-11-23T11:41:11.9475178Z ##[endgroup]
+2026-11-23T11:41:11.9476052Z ##[group]Disabling automatic garbage collection
+2026-11-23T11:41:11.9477102Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-23T11:41:11.9532668Z ##[endgroup]
+2026-11-23T11:41:11.9533209Z ##[group]Setting up auth
+2026-11-23T11:41:11.9547677Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-23T11:41:11.9680650Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-23T11:41:12.0137143Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-23T11:41:12.0159875Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-23T11:41:12.0496861Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-23T11:41:12.0498249Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-23T11:41:12.0726364Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-23T11:41:12.0764322Z ##[endgroup]
+2026-11-23T11:41:12.0765452Z ##[group]Fetching the repository
+2026-11-23T11:41:12.0773139Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +9fec7f89f6d8d7d89b8ba5f33d7852cf9602a8a4:refs/remotes/origin/main
+2026-11-23T11:41:12.7529214Z From https://github.com/chucklebytes482/KetikKu
+2026-11-23T11:41:12.7613007Z  * [new ref]         9fec7f89f6d8d7d89b8ba5f33d7852cf9602a8a4 -> origin/main
+2026-11-23T11:41:12.7615592Z ##[endgroup]
+2026-11-23T11:41:12.7616622Z ##[group]Determining the checkout info
+2026-11-23T11:41:12.7617634Z ##[endgroup]
+2026-11-23T11:41:12.7618700Z [command]/usr/bin/git sparse-checkout disable
+2026-11-23T11:41:12.7621318Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-23T11:41:12.7635377Z ##[group]Checking out the ref
+2026-11-23T11:41:12.7647576Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-11-23T11:41:12.7775603Z Switched to a new branch 'main'
+2026-11-23T11:41:12.7786751Z branch 'main' set up to track 'origin/main'.
+2026-11-23T11:41:12.7791741Z ##[endgroup]
+2026-11-23T11:41:12.7826325Z [command]/usr/bin/git log -1 --format=%H
+2026-11-23T11:41:12.7849262Z 9fec7f89f6d8d7d89b8ba5f33d7852cf9602a8a4
+2026-11-23T11:41:12.8038775Z ##[group]Run set -euo pipefail
+2026-11-23T11:41:12.8039357Z [36;1mset -euo pipefail[0m
+2026-11-23T11:41:12.8039835Z [36;1mBASE_CODE=$(grep -E 'baseVersionCode\s*=' app/build.gradle.kts | head -n1 | sed -E 's/[^0-9]*([0-9]+).*/\1/')[0m
+2026-11-23T11:41:12.8040460Z [36;1mBASE_NAME=$(grep -E 'baseVersionName\s*=' app/build.gradle.kts | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')[0m
+2026-11-23T11:41:12.8040888Z [36;1mBASE_CODE="${BASE_CODE:-2}"[0m
+2026-11-23T11:41:12.8041137Z [36;1mBASE_NAME="${BASE_NAME:-1.1}"[0m
+2026-11-23T11:41:12.8041382Z [36;1mRUN_NUM="${GITHUB_RUN_NUMBER:-1}"[0m
+2026-11-23T11:41:12.8041620Z [36;1m[0m
+2026-11-23T11:41:12.8041858Z [36;1mESCAPED_BASE=$(printf '%s' "$BASE_NAME" | sed 's/\./\\./g')[0m
+2026-11-23T11:41:12.8042311Z [36;1mMAX_TAG_NUM=$(git ls-remote --tags origin "refs/tags/v${BASE_NAME}.*" 2>/dev/null \[0m
+2026-11-23T11:41:12.8042740Z [36;1m  | sed -nE "s|.*refs/tags/v${ESCAPED_BASE}\.([0-9]+)$|\1|p" \[0m
+2026-11-23T11:41:12.8043073Z [36;1m  | sort -n \[0m
+2026-11-23T11:41:12.8043290Z [36;1m  | tail -n 1 || true)[0m
+2026-11-23T11:41:12.8043526Z [36;1mMAX_TAG_NUM="${MAX_TAG_NUM:-0}"[0m
+2026-11-23T11:41:12.8043753Z [36;1m[0m
+2026-11-23T11:41:12.8043967Z [36;1mif [ "$RUN_NUM" -le "$MAX_TAG_NUM" ]; then[0m
+2026-11-23T11:41:12.8044266Z [36;1m  NEXT_NUM=$((MAX_TAG_NUM + 1))[0m
+2026-11-23T11:41:12.8044488Z [36;1melse[0m
+2026-11-23T11:41:12.8044678Z [36;1m  NEXT_NUM="$RUN_NUM"[0m
+2026-11-23T11:41:12.8044886Z [36;1mfi[0m
+2026-11-23T11:41:12.8045059Z [36;1m[0m
+2026-11-23T11:41:12.8045274Z [36;1mCI_VERSION_CODE=$((BASE_CODE + 10 + NEXT_NUM))[0m
+2026-11-23T11:41:12.8045570Z [36;1mCI_VERSION_NAME="${BASE_NAME}.${NEXT_NUM}"[0m
+2026-11-23T11:41:12.8045845Z [36;1mVERSION_TAG="v${CI_VERSION_NAME}"[0m
+2026-11-23T11:41:12.8046091Z [36;1m[0m
+2026-11-23T11:41:12.8046324Z [36;1mecho "CI_VERSION_CODE=${CI_VERSION_CODE}" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:12.8046663Z [36;1mecho "CI_VERSION_NAME=${CI_VERSION_NAME}" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:12.8047002Z [36;1mecho "VERSION_TAG=${VERSION_TAG}" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:12.8047392Z [36;1mecho "Automatic release version: ${VERSION_TAG} (versionCode=${CI_VERSION_CODE})"[0m
+2026-11-23T11:41:12.8079906Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-23T11:41:12.8080228Z env:
+2026-11-23T11:41:12.8080418Z   APP_SLUG: ketikku
+2026-11-23T11:41:12.8080636Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:12.8080885Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:12.8081155Z ##[endgroup]
+2026-11-23T11:41:13.1780842Z Automatic release version: v1.1.35 (versionCode=47)
+2026-11-23T11:41:13.1959378Z ##[group]Run actions/setup-java@v4
+2026-11-23T11:41:13.1959811Z with:
+2026-11-23T11:41:13.1960095Z   distribution: temurin
+2026-11-23T11:41:13.1960426Z   java-version: 21
+2026-11-23T11:41:13.1960719Z   java-package: jdk
+2026-11-23T11:41:13.1961014Z   check-latest: false
+2026-11-23T11:41:13.1961303Z   server-id: github
+2026-11-23T11:41:13.1961608Z   server-username: GITHUB_ACTOR
+2026-11-23T11:41:13.1961944Z   server-password: GITHUB_TOKEN
+2026-11-23T11:41:13.1962299Z   overwrite-settings: true
+2026-11-23T11:41:13.1962597Z   job-status: success
+2026-11-23T11:41:13.1966300Z   token: ***
+2026-11-23T11:41:13.1966606Z env:
+2026-11-23T11:41:13.1966878Z   APP_SLUG: ketikku
+2026-11-23T11:41:13.1967191Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:13.1967559Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:13.1968000Z   CI_VERSION_CODE: 47
+2026-11-23T11:41:13.1968312Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:41:13.1968628Z   VERSION_TAG: v1.1.35
+2026-11-23T11:41:13.1968977Z ##[endgroup]
+2026-11-23T11:41:13.3559438Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+2026-11-23T11:41:13.3566616Z ##[group]Installed distributions
+2026-11-23T11:41:13.3731066Z (node:2151) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-23T11:41:13.3731988Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-23T11:41:13.3732531Z Resolved Java 21.0.13+9 from tool-cache
+2026-11-23T11:41:13.3740113Z Setting Java 21.0.13+9 as the default
+2026-11-23T11:41:13.3741848Z Creating toolchains.xml for JDK version 21 from temurin
+2026-11-23T11:41:13.3791966Z Writing to /home/runner/.m2/toolchains.xml
+2026-11-23T11:41:13.3792593Z 
+2026-11-23T11:41:13.3793312Z Java configuration:
+2026-11-23T11:41:13.3794026Z   Distribution: temurin
+2026-11-23T11:41:13.3794917Z   Version: 21.0.13+9
+2026-11-23T11:41:13.3795720Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:13.3796685Z 
+2026-11-23T11:41:13.3797465Z ##[endgroup]
+2026-11-23T11:41:13.3842383Z Creating settings.xml with server-id: github
+2026-11-23T11:41:13.3864849Z Writing to /home/runner/.m2/settings.xml
+2026-11-23T11:41:13.4047793Z ##[group]Run SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+2026-11-23T11:41:13.4048558Z [36;1mSDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"[0m
+2026-11-23T11:41:13.4049646Z [36;1mSDKMANAGER=$(find "$SDK_DIR/cmdline-tools" -name sdkmanager -type f 2>/dev/null | sort -V | tail -n 1)[0m
+2026-11-23T11:41:13.4050340Z [36;1mif [ -z "$SDKMANAGER" ]; then[0m
+2026-11-23T11:41:13.4050822Z [36;1m  echo "sdkmanager not found under $SDK_DIR/cmdline-tools" >&2[0m
+2026-11-23T11:41:13.4051311Z [36;1m  exit 1[0m
+2026-11-23T11:41:13.4051588Z [36;1mfi[0m
+2026-11-23T11:41:13.4051925Z [36;1m(yes || true) | "$SDKMANAGER" --licenses >/dev/null[0m
+2026-11-23T11:41:13.4052657Z [36;1m"$SDKMANAGER" "platform-tools" "platforms;android-36" "platforms;android-36.1" "build-tools;36.0.0"[0m
+2026-11-23T11:41:13.4053375Z [36;1mecho "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:13.4053899Z [36;1mecho "ANDROID_SDK_ROOT=$SDK_DIR" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:13.4113899Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-23T11:41:13.4114345Z env:
+2026-11-23T11:41:13.4114606Z   APP_SLUG: ketikku
+2026-11-23T11:41:13.4114894Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:13.4115254Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:13.4115651Z   CI_VERSION_CODE: 47
+2026-11-23T11:41:13.4115943Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:41:13.4116250Z   VERSION_TAG: v1.1.35
+2026-11-23T11:41:13.4116679Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:13.4117303Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:13.4117797Z ##[endgroup]
+2026-11-23T11:41:20.8376951Z yes: standard output: Broken pipe
+2026-11-23T11:41:21.7359331Z Loading package information...                                                  
+2026-11-23T11:41:21.8455875Z Loading local repository...                                                     
+2026-11-23T11:41:21.8478315Z [                                       ] 3% Loading local repository...        
+2026-11-23T11:41:21.8494242Z [                                       ] 3% Fetch remote repository...         
+2026-11-23T11:41:22.2456791Z [=                                      ] 3% Fetch remote repository...         
+2026-11-23T11:41:22.3451227Z [=                                      ] 4% Fetch remote repository...         
+2026-11-23T11:41:22.3870625Z [=                                      ] 5% Fetch remote repository...         
+2026-11-23T11:41:22.4450375Z [==                                     ] 5% Fetch remote repository...         
+2026-11-23T11:41:22.5134154Z [==                                     ] 6% Fetch remote repository...         
+2026-11-23T11:41:22.5500529Z [==                                     ] 7% Fetch remote repository...         
+2026-11-23T11:41:22.5540132Z [==                                     ] 7% Computing updates...               
+2026-11-23T11:41:22.5589961Z [===                                    ] 8% Computing updates...               
+2026-11-23T11:41:22.5860963Z [===                                    ] 10% Computing updates...              
+2026-11-23T11:41:23.0745357Z [===                                    ] 10% Installing Android SDK Platform-To
+2026-11-23T11:41:23.0858636Z [===                                    ] 10% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.1428943Z [====                                   ] 10% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.1630182Z [====                                   ] 11% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.1970549Z [====                                   ] 12% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.2125243Z [=====                                  ] 13% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.2381111Z [=====                                  ] 14% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.2534551Z [=====                                  ] 15% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.2648838Z [======                                 ] 15% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.2870707Z [======                                 ] 16% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.3146247Z [======                                 ] 17% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.3366156Z [=======                                ] 18% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.3668449Z [=======                                ] 19% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.3727941Z [=======                                ] 20% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.3822209Z [========                               ] 20% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4072721Z [========                               ] 21% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4260937Z [========                               ] 22% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4439509Z [=========                              ] 23% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4648377Z [=========                              ] 24% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4724470Z [=========                              ] 25% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4809516Z [==========                             ] 25% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5008462Z [==========                             ] 26% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5170949Z [==========                             ] 27% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5354464Z [===========                            ] 28% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5514568Z [===========                            ] 29% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5582617Z [===========                            ] 30% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5700664Z [============                           ] 30% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5847431Z [============                           ] 31% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.6019870Z [============                           ] 32% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.6020747Z [============                           ] 33% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.7534116Z [============                           ] 33% Unzipping...                      
+2026-11-23T11:41:23.7545717Z [============                           ] 33% Unzipping... platform-tools/NOTICE
+2026-11-23T11:41:23.7724797Z [=============                          ] 33% Unzipping... platform-tools/NOTICE
+2026-11-23T11:41:23.7731578Z [=============                          ] 33% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.7799486Z [=============                          ] 34% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.7816558Z [=============                          ] 35% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8046665Z [==============                         ] 35% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8079638Z [==============                         ] 36% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8300073Z [==============                         ] 37% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8409838Z [===============                        ] 38% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8429715Z [===============                        ] 39% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8430304Z [===============                        ] 40% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8449682Z [================                       ] 40% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8469721Z [================                       ] 41% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8470591Z [================                       ] 42% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8471138Z [=================                      ] 43% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.9346269Z [=================                      ] 44% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.9356605Z [=================                      ] 44% Unzipping... platform-tools/etc1to
+2026-11-23T11:41:23.9399630Z [=================                      ] 45% Unzipping... platform-tools/etc1to
+2026-11-23T11:41:23.9439628Z [=================                      ] 45% Unzipping... platform-tools/fastbo
+2026-11-23T11:41:23.9479656Z [==================                     ] 45% Unzipping... platform-tools/fastbo
+2026-11-23T11:41:23.9509784Z [==================                     ] 46% Unzipping... platform-tools/fastbo
+2026-11-23T11:41:23.9560792Z [==================                     ] 47% Unzipping... platform-tools/fastbo
+2026-11-23T11:41:23.9687458Z [===================                    ] 48% Unzipping... platform-tools/fastbo
+2026-11-23T11:41:23.9692730Z [===================                    ] 48% Unzipping... platform-tools/hprof-
+2026-11-23T11:41:23.9736883Z [===================                    ] 48% Unzipping... platform-tools/lib64/
+2026-11-23T11:41:23.9779782Z [===================                    ] 49% Unzipping... platform-tools/lib64/
+2026-11-23T11:41:23.9819722Z [===================                    ] 49% Unzipping... platform-tools/make_f
+2026-11-23T11:41:23.9828770Z [===================                    ] 50% Unzipping... platform-tools/make_f
+2026-11-23T11:41:23.9843964Z [===================                    ] 50% Unzipping... platform-tools/mke2fs
+2026-11-23T11:41:23.9899881Z [====================                   ] 50% Unzipping... platform-tools/mke2fs
+2026-11-23T11:41:23.9914120Z [====================                   ] 51% Unzipping... platform-tools/mke2fs
+2026-11-23T11:41:24.0146641Z [====================                   ] 51% Unzipping... platform-tools/source
+2026-11-23T11:41:24.0171487Z [====================                   ] 51% Unzipping... platform-tools/sqlite
+2026-11-23T11:41:24.0218847Z [====================                   ] 52% Unzipping... platform-tools/sqlite
+2026-11-23T11:41:24.0271353Z [=====================                  ] 53% Unzipping... platform-tools/sqlite
+2026-11-23T11:41:24.0341096Z [=====================                  ] 54% Unzipping... platform-tools/sqlite
+2026-11-23T11:41:24.0627686Z [=====================                  ] 55% Unzipping... platform-tools/sqlite
+2026-11-23T11:41:24.0628433Z [=======================================] 100% Unzipping... platform-tools/sqlit
+2026-11-23T11:41:24.4601170Z 
+2026-11-23T11:41:24.4996483Z ##[group]Run gradle/actions/setup-gradle@v4
+2026-11-23T11:41:24.4996761Z with:
+2026-11-23T11:41:24.4996956Z   gradle-version: 9.3.1
+2026-11-23T11:41:24.4997181Z   cache-disabled: false
+2026-11-23T11:41:24.4997581Z   cache-read-only: false
+2026-11-23T11:41:24.4997797Z   cache-write-only: false
+2026-11-23T11:41:24.4998016Z   cache-overwrite-existing: false
+2026-11-23T11:41:24.4998250Z   cache-cleanup: on-success
+2026-11-23T11:41:24.4998517Z   gradle-home-cache-includes: caches
+notifications
+
+2026-11-23T11:41:24.4998791Z   add-job-summary: always
+2026-11-23T11:41:24.4999023Z   add-job-summary-as-pr-comment: never
+2026-11-23T11:41:24.4999403Z   dependency-graph: disabled
+2026-11-23T11:41:24.4999679Z   dependency-graph-report-dir: dependency-graph-reports
+2026-11-23T11:41:24.4999992Z   dependency-graph-continue-on-failure: true
+2026-11-23T11:41:24.5000251Z   build-scan-publish: false
+2026-11-23T11:41:24.5000466Z   validate-wrappers: true
+2026-11-23T11:41:24.5000733Z   allow-snapshot-wrappers: false
+2026-11-23T11:41:24.5001017Z   gradle-home-cache-strict-match: false
+2026-11-23T11:41:24.5001263Z   workflow-job-context: null
+2026-11-23T11:41:24.5003437Z   github-token: ***
+2026-11-23T11:41:24.5003625Z env:
+2026-11-23T11:41:24.5003809Z   APP_SLUG: ketikku
+2026-11-23T11:41:24.5004006Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:24.5004243Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:24.5004502Z   CI_VERSION_CODE: 47
+2026-11-23T11:41:24.5004696Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:41:24.5004902Z   VERSION_TAG: v1.1.35
+2026-11-23T11:41:24.5005183Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:24.5005572Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:24.5005904Z   ANDROID_HOME: /usr/local/lib/android/sdk
+2026-11-23T11:41:24.5006158Z   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+2026-11-23T11:41:24.5006400Z ##[endgroup]
+2026-11-23T11:41:25.0516965Z Merged default JDK locations into /home/runner/.m2/toolchains.xml
+2026-11-23T11:41:25.0518478Z Preparing cache for cleanup.
+2026-11-23T11:41:25.0521848Z ##[group]Restore Gradle state from cache
+2026-11-23T11:41:25.6250235Z Cache hit for: gradle-home-v1|Linux-X64|build-release[6cb0ca268bdbe7c83ca5c4b0a31704c8]-9fec7f89f6d8d7d89b8ba5f33d7852cf9602a8a4
+2026-11-23T11:41:26.8685503Z Received 6052922 of 6052922 (100.0%), 6.4 MBs/sec
+2026-11-23T11:41:26.8686668Z Cache Size: ~6 MB (6052922 B)
+2026-11-23T11:41:26.8714864Z [command]/usr/bin/tar -xf /home/runner/work/_temp/8fcf7c84-68c8-4cdc-91f9-07e3c609bcd7/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:27.1604307Z Cache restored successfully
+2026-11-23T11:41:27.1611881Z Restored cache entry with key gradle-home-v1|Linux-X64|build-release[6cb0ca268bdbe7c83ca5c4b0a31704c8]-9fec7f89f6d8d7d89b8ba5f33d7852cf9602a8a4 to /home/runner/.gradle/caches,/home/runner/.gradle/notifications,/home/runner/.gradle/.setup-gradle in 2107ms
+2026-11-23T11:41:27.3809574Z Cache hit for: gradle-dependencies-v1-2e9db1b9e6886d388ab22675ea452758
+2026-11-23T11:41:27.3861864Z Cache hit for: gradle-instrumented-jars-v1-0ef99a0a0d1605cfb282e6dd7bcee025
+2026-11-23T11:41:27.3881160Z Cache hit for: gradle-groovy-dsl-v1-814f7e1816b7efbc0c0af93a12b9626e
+2026-11-23T11:41:27.3886699Z Cache hit for: gradle-transforms-v1-9b2516ad19e5c7c1cd4d8172a9c63362
+2026-11-23T11:41:27.3939048Z Cache hit for: gradle-kotlin-dsl-v1-2cb0c88e9fad9110ffdf648dc3d2d9e3
+2026-11-23T11:41:27.3950784Z Cache hit for: gradle-generated-gradle-jars-v1-cb4b032a7d08b9bf1e84e9eacaebcc29
+2026-11-23T11:41:27.9060198Z Received 64642 of 64642 (100.0%), 0.2 MBs/sec
+2026-11-23T11:41:27.9063109Z Cache Size: ~0 MB (64642 B)
+2026-11-23T11:41:27.9083564Z [command]/usr/bin/tar -xf /home/runner/work/_temp/e0f6398a-7cde-4bd6-84dc-1eb886cdd20b/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:27.9192312Z Cache restored successfully
+2026-11-23T11:41:27.9194325Z Restored cache entry with key gradle-instrumented-jars-v1-0ef99a0a0d1605cfb282e6dd7bcee025 to /home/runner/.gradle/caches/jars-*/*/ in 757ms
+2026-11-23T11:41:27.9214341Z Received 97675 of 97675 (100.0%), 0.3 MBs/sec
+2026-11-23T11:41:27.9222206Z Cache Size: ~0 MB (97675 B)
+2026-11-23T11:41:27.9234011Z [command]/usr/bin/tar -xf /home/runner/work/_temp/a54101d0-2d63-4949-9d0a-14013e08c6fd/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:27.9397516Z Cache restored successfully
+2026-11-23T11:41:27.9399986Z Restored cache entry with key gradle-groovy-dsl-v1-814f7e1816b7efbc0c0af93a12b9626e to /home/runner/.gradle/caches/*/groovy-dsl/*/ in 777ms
+2026-11-23T11:41:28.0892039Z Received 254623 of 254623 (100.0%), 0.5 MBs/sec
+2026-11-23T11:41:28.0893084Z Cache Size: ~0 MB (254623 B)
+2026-11-23T11:41:28.0933561Z [command]/usr/bin/tar -xf /home/runner/work/_temp/950400a6-4103-47d2-9183-c9846df885c7/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:28.1794638Z Cache restored successfully
+2026-11-23T11:41:28.1800597Z Restored cache entry with key gradle-kotlin-dsl-v1-2cb0c88e9fad9110ffdf648dc3d2d9e3 to /home/runner/.gradle/caches/*/kotlin-dsl/accessors/*/,/home/runner/.gradle/caches/*/kotlin-dsl/scripts/*/ in 1017ms
+2026-11-23T11:41:28.5898039Z Received 29360128 of 189312230 (15.5%), 28.0 MBs/sec
+2026-11-23T11:41:28.6263671Z Received 25165824 of 631030960 (4.0%), 23.9 MBs/sec
+2026-11-23T11:41:28.6391911Z Received 29410490 of 41993402 (70.0%), 28.1 MBs/sec
+2026-11-23T11:41:29.6060800Z Received 41993402 of 41993402 (100.0%), 20.4 MBs/sec
+2026-11-23T11:41:29.6063255Z Cache Size: ~40 MB (41993402 B)
+2026-11-23T11:41:29.6068547Z Received 130023424 of 189312230 (68.7%), 61.5 MBs/sec
+2026-11-23T11:41:29.6253814Z [command]/usr/bin/tar -xf /home/runner/work/_temp/a5961ec1-528f-4f11-8bb1-bc142d7a8c37/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:29.6434562Z Received 130023424 of 631030960 (20.6%), 61.3 MBs/sec
+2026-11-23T11:41:30.2083566Z Cache restored successfully
+2026-11-23T11:41:30.2121978Z Restored cache entry with key gradle-generated-gradle-jars-v1-cb4b032a7d08b9bf1e84e9eacaebcc29 to /home/runner/.gradle/caches/9.3.1/generated-gradle-jars/gradle-api-9.3.1.jar in 3050ms
+2026-11-23T11:41:30.3555832Z Received 189312230 of 189312230 (100.0%), 65.3 MBs/sec
+2026-11-23T11:41:30.3560815Z Cache Size: ~181 MB (189312230 B)
+2026-11-23T11:41:30.4275696Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ac5dc8c4-5d03-4649-a251-d42eb943856a/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:30.6435904Z Received 239075328 of 631030960 (37.9%), 75.4 MBs/sec
+2026-11-23T11:41:31.6437154Z Received 293601280 of 631030960 (46.5%), 69.6 MBs/sec
+2026-11-23T11:41:34.3665125Z Received 402653184 of 631030960 (63.8%), 57.0 MBs/sec
+2026-11-23T11:41:35.3807921Z Received 532676608 of 631030960 (84.4%), 65.6 MBs/sec
+2026-11-23T11:41:36.8590520Z Received 536870912 of 631030960 (85.1%), 55.4 MBs/sec
+2026-11-23T11:41:36.8670044Z Cache restored successfully
+2026-11-23T11:41:36.8815339Z Restored cache entry with key gradle-transforms-v1-9b2516ad19e5c7c1cd4d8172a9c63362 to /home/runner/.gradle/caches/transforms-4/*/,/home/runner/.gradle/caches/*/transforms/*/ in 9718ms
+2026-11-23T11:41:37.7175712Z Received 631030960 of 631030960 (100.0%), 59.7 MBs/sec
+2026-11-23T11:41:37.7176183Z Cache Size: ~602 MB (631030960 B)
+2026-11-23T11:41:37.7300940Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ec03f905-c6bb-437e-9a58-3d6d6f1ae7b7/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:43.5457574Z Cache restored successfully
+2026-11-23T11:41:43.6078249Z Restored cache entry with key gradle-dependencies-v1-2e9db1b9e6886d388ab22675ea452758 to /home/runner/.gradle/caches/modules-*/files-*/*/*/*/* in 16445ms
+2026-11-23T11:41:43.6145383Z ##[endgroup]
+2026-11-23T11:41:43.6209845Z ##[group]All Gradle Wrapper jars are valid
+2026-11-23T11:41:43.6210964Z 
+2026-11-23T11:41:43.6211623Z ##[endgroup]
+2026-11-23T11:41:43.7783284Z ##[group]Provision Gradle 9.3.1
+2026-11-23T11:41:48.7678711Z Cache hit for: gradle-9.3.1
+2026-11-23T11:41:49.8215979Z Received 134217728 of 136943103 (98.0%), 128.0 MBs/sec
+2026-11-23T11:41:49.9516017Z Received 136943103 of 136943103 (100.0%), 115.6 MBs/sec
+2026-11-23T11:41:49.9516757Z Cache Size: ~131 MB (136943103 B)
+2026-11-23T11:41:49.9538216Z [command]/usr/bin/tar -xf /home/runner/work/_temp/269c1c7e-68e7-4208-9f24-b0b7e1bd7af2/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:50.1378646Z Cache restored successfully
+2026-11-23T11:41:50.1438711Z Restored Gradle distribution gradle-9.3.1 from cache to /home/runner/work/_temp/.gradle-actions/gradle-installations/downloads/gradle-9.3.1-bin.zip
+2026-11-23T11:41:50.1453557Z [command]/usr/bin/unzip -o -q /home/runner/work/_temp/.gradle-actions/gradle-installations/downloads/gradle-9.3.1-bin.zip
+2026-11-23T11:41:50.9990900Z Extracted Gradle 9.3.1 to /home/runner/work/_temp/.gradle-actions/gradle-installations/installs/gradle-9.3.1
+2026-11-23T11:41:50.9992366Z Provisioned Gradle executable /home/runner/work/_temp/.gradle-actions/gradle-installations/installs/gradle-9.3.1/bin/gradle
+2026-11-23T11:41:50.9993704Z ##[endgroup]
+2026-11-23T11:41:51.0262740Z ##[group]Run set -euo pipefail
+2026-11-23T11:41:51.0263107Z [36;1mset -euo pipefail[0m
+2026-11-23T11:41:51.0263366Z [36;1mumask 077[0m
+2026-11-23T11:41:51.0263637Z [36;1mif [ ! -f debug.keystore ]; then[0m
+2026-11-23T11:41:51.0263963Z [36;1m  if [ -f debug.keystore.base64 ]; then[0m
+2026-11-23T11:41:51.0264363Z [36;1m    tr -d '[:space:]' < debug.keystore.base64 | base64 -d > debug.keystore[0m
+2026-11-23T11:41:51.0264720Z [36;1m  else[0m
+2026-11-23T11:41:51.0264971Z [36;1m    keytool -genkeypair \[0m
+2026-11-23T11:41:51.0265261Z [36;1m      -keystore debug.keystore \[0m
+2026-11-23T11:41:51.0265563Z [36;1m      -alias androiddebugkey \[0m
+2026-11-23T11:41:51.0265897Z [36;1m      -keyalg RSA -keysize 2048 -validity 10000 \[0m
+2026-11-23T11:41:51.0266251Z [36;1m      -storepass android -keypass android \[0m
+2026-11-23T11:41:51.0266616Z [36;1m      -dname "CN=Android Debug, O=Android, C=US" >/dev/null 2>&1[0m
+2026-11-23T11:41:51.0266967Z [36;1m  fi[0m
+2026-11-23T11:41:51.0267218Z [36;1mfi[0m
+2026-11-23T11:41:51.0267441Z [36;1m[0m
+2026-11-23T11:41:51.0267701Z [36;1mif [ -n "$RELEASE_KEYSTORE_BASE64" ]; then[0m
+2026-11-23T11:41:51.0268184Z [36;1m  if ! printf '%s' "$RELEASE_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/upload.jks"; then[0m
+2026-11-23T11:41:51.0268874Z [36;1m    echo "::error::RELEASE_KEYSTORE_BASE64 is not valid base64. Re-copy the entire base64 string without missing or extra characters."[0m
+2026-11-23T11:41:51.0269822Z [36;1m    exit 1[0m
+2026-11-23T11:41:51.0270165Z [36;1m  fi[0m
+2026-11-23T11:41:51.0270540Z [36;1m  JKS_SIZE=$(wc -c < "$RUNNER_TEMP/upload.jks")[0m
+2026-11-23T11:41:51.0270936Z [36;1m  echo "Decoded release keystore size: ${JKS_SIZE} bytes"[0m
+2026-11-23T11:41:51.0271268Z [36;1m[0m
+2026-11-23T11:41:51.0271673Z [36;1m  CLEAN_STORE_PASSWORD=$(printf '%s' "$STORE_PASSWORD" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')[0m
+2026-11-23T11:41:51.0272333Z [36;1m  CLEAN_KEY_PASSWORD=$(printf '%s' "${KEY_PASSWORD:-$CLEAN_STORE_PASSWORD}" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')[0m
+2026-11-23T11:41:51.0272951Z [36;1m  SRC_ALIAS=$(printf '%s' "${KEY_ALIAS:-}" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')[0m
+2026-11-23T11:41:51.0273342Z [36;1m[0m
+2026-11-23T11:41:51.0273758Z [36;1m  if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storepass "$CLEAN_STORE_PASSWORD" >/dev/null 2>&1; then[0m
+2026-11-23T11:41:51.0274613Z [36;1m    echo "::error::Failed to open keystore (size=${JKS_SIZE} bytes). Either STORE_PASSWORD is wrong/swapped with KEY_PASSWORD, or RELEASE_KEYSTORE_BASE64 is incomplete/from a different .jks file."[0m
+2026-11-23T11:41:51.0275257Z [36;1m    exit 1[0m
+2026-11-23T11:41:51.0275499Z [36;1m  fi[0m
+2026-11-23T11:41:51.0275722Z [36;1m[0m
+2026-11-23T11:41:51.0275956Z [36;1m  if [ -z "$SRC_ALIAS" ]; then[0m
+2026-11-23T11:41:51.0276561Z [36;1m    SRC_ALIAS=$(keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storepass "$CLEAN_STORE_PASSWORD" 2>/dev/null | awk -F',' '/PrivateKeyEntry/{print $1; exit}' | xargs)[0m
+2026-11-23T11:41:51.0277338Z [36;1m  fi[0m
+2026-11-23T11:41:51.0277621Z [36;1m  if [ -n "$SRC_ALIAS" ] && [ "$SRC_ALIAS" != "upload" ]; then[0m
+2026-11-23T11:41:51.0277971Z [36;1m    if ! keytool -changealias \[0m
+2026-11-23T11:41:51.0278289Z [36;1m      -keystore "$RUNNER_TEMP/upload.jks" \[0m
+2026-11-23T11:41:51.0278604Z [36;1m      -alias "$SRC_ALIAS" \[0m
+2026-11-23T11:41:51.0278885Z [36;1m      -destalias upload \[0m
+2026-11-23T11:41:51.0279438Z [36;1m      -storepass "$CLEAN_STORE_PASSWORD" \[0m
+2026-11-23T11:41:51.0279759Z [36;1m      -keypass "$CLEAN_KEY_PASSWORD"; then[0m
+2026-11-23T11:41:51.0280295Z [36;1m      echo "::error::Keystore opened, but failed to access alias '$SRC_ALIAS' with KEY_PASSWORD. Check KEY_ALIAS and KEY_PASSWORD secrets."[0m
+2026-11-23T11:41:51.0280804Z [36;1m      exit 1[0m
+2026-11-23T11:41:51.0281039Z [36;1m    fi[0m
+2026-11-23T11:41:51.0281277Z [36;1m  fi[0m
+2026-11-23T11:41:51.0281732Z [36;1m  echo "KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:51.0282153Z [36;1m  echo "STORE_PASSWORD=$CLEAN_STORE_PASSWORD" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:51.0282553Z [36;1m  echo "KEY_PASSWORD=$CLEAN_KEY_PASSWORD" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:51.0282875Z [36;1melse[0m
+2026-11-23T11:41:51.0283118Z [36;1m  PASS="ketikku-ci-release"[0m
+2026-11-23T11:41:51.0283403Z [36;1m  keytool -genkeypair -v \[0m
+2026-11-23T11:41:51.0283714Z [36;1m    -keystore "$RUNNER_TEMP/upload.jks" \[0m
+2026-11-23T11:41:51.0284020Z [36;1m    -alias upload \[0m
+2026-11-23T11:41:51.0284327Z [36;1m    -keyalg RSA -keysize 2048 -validity 10000 \[0m
+2026-11-23T11:41:51.0284663Z [36;1m    -storepass "$PASS" -keypass "$PASS" \[0m
+2026-11-23T11:41:51.0285134Z [36;1m    -dname "CN=${APP_DISPLAY_NAME} Release, OU=Android, O=${APP_DISPLAY_NAME}, L=Jakarta, ST=Jakarta, C=ID"[0m
+2026-11-23T11:41:51.0285652Z [36;1m  echo "KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:51.0286033Z [36;1m  echo "STORE_PASSWORD=$PASS" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:51.0286380Z [36;1m  echo "KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:51.0286678Z [36;1mfi[0m
+2026-11-23T11:41:51.0315945Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-23T11:41:51.0316317Z env:
+2026-11-23T11:41:51.0316538Z   APP_SLUG: ketikku
+2026-11-23T11:41:51.0316787Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:51.0317082Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:51.0317389Z   CI_VERSION_CODE: 47
+2026-11-23T11:41:51.0317630Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:41:51.0317886Z   VERSION_TAG: v1.1.35
+2026-11-23T11:41:51.0318219Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:51.0318667Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:51.0319050Z   ANDROID_HOME: /usr/local/lib/android/sdk
+2026-11-23T11:41:51.0319590Z   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+2026-11-23T11:41:51.0319910Z   GRADLE_ACTION_ID: gradle/actions/setup-gradle
+2026-11-23T11:41:51.0320221Z   GRADLE_USER_HOME: /home/runner/.gradle
+2026-11-23T11:41:51.0320517Z   GRADLE_BUILD_ACTION_SETUP_COMPLETED: true
+2026-11-23T11:41:51.0320840Z   GRADLE_BUILD_ACTION_CACHE_RESTORED: true
+2026-11-23T11:41:51.0321250Z   DEVELOCITY_INJECTION_INIT_SCRIPT_NAME: gradle-actions.inject-develocity.init.gradle
+2026-11-23T11:41:51.0321694Z   DEVELOCITY_INJECTION_CUSTOM_VALUE: gradle-actions
+2026-11-23T11:41:51.0322007Z   GITHUB_DEPENDENCY_GRAPH_ENABLED: false
+2026-11-23T11:41:51.0335773Z   RELEASE_KEYSTORE_BASE64: ***
+
+2026-11-23T11:41:51.0336101Z   STORE_PASSWORD: ***
+
+2026-11-23T11:41:51.0336383Z   KEY_PASSWORD: ***
+
+2026-11-23T11:41:51.0336630Z   KEY_ALIAS: 
+2026-11-23T11:41:51.0336863Z ##[endgroup]
+2026-11-23T11:41:51.8238299Z Decoded release keystore size: 2227 bytes
+2026-11-23T11:41:52.5139936Z 
+2026-11-23T11:41:52.5149363Z Warning:
+2026-11-23T11:41:52.5158876Z The JKS keystore uses a proprietary format. It is recommended to migrate to PKCS12 which is an industry standard format using "keytool -importkeystore -srckeystore /home/runner/work/_temp/upload.jks -destkeystore /home/runner/work/_temp/upload.jks -deststoretype pkcs12".
+2026-11-23T11:41:52.5255129Z ##[group]Run actions/cache@v4
+2026-11-23T11:41:52.5255417Z with:
+2026-11-23T11:41:52.5255796Z   path: ~/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7
+2026-11-23T11:41:52.5256248Z   key: robolectric-sdk-16-13921718-i7
+2026-11-23T11:41:52.5256552Z   enableCrossOsArchive: false
+2026-11-23T11:41:52.5256821Z   fail-on-cache-miss: false
+2026-11-23T11:41:52.5257082Z   lookup-only: false
+2026-11-23T11:41:52.5257330Z   save-always: false
+2026-11-23T11:41:52.5257563Z env:
+2026-11-23T11:41:52.5257776Z   APP_SLUG: ketikku
+2026-11-23T11:41:52.5258020Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:52.5258308Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:52.5258631Z   CI_VERSION_CODE: 47
+2026-11-23T11:41:52.5258875Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:41:52.5259414Z   VERSION_TAG: v1.1.35
+2026-11-23T11:41:52.5259761Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:52.5260258Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:52.5260649Z   ANDROID_HOME: /usr/local/lib/android/sdk
+2026-11-23T11:41:52.5260969Z   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+2026-11-23T11:41:52.5261295Z   GRADLE_ACTION_ID: gradle/actions/setup-gradle
+2026-11-23T11:41:52.5261614Z   GRADLE_USER_HOME: /home/runner/.gradle
+2026-11-23T11:41:52.5261912Z   GRADLE_BUILD_ACTION_SETUP_COMPLETED: true
+2026-11-23T11:41:52.5262227Z   GRADLE_BUILD_ACTION_CACHE_RESTORED: true
+2026-11-23T11:41:52.5262644Z   DEVELOCITY_INJECTION_INIT_SCRIPT_NAME: gradle-actions.inject-develocity.init.gradle
+2026-11-23T11:41:52.5263094Z   DEVELOCITY_INJECTION_CUSTOM_VALUE: gradle-actions
+2026-11-23T11:41:52.5263414Z   GITHUB_DEPENDENCY_GRAPH_ENABLED: false
+2026-11-23T11:41:52.5263744Z   KEYSTORE_PATH: /home/runner/work/_temp/upload.jks
+2026-11-23T11:41:52.5264129Z   STORE_PASSWORD: ***
+2026-11-23T11:41:52.5264398Z   KEY_PASSWORD: ***
+2026-11-23T11:41:52.5264641Z ##[endgroup]
+2026-11-23T11:41:52.6195879Z (node:2555) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-23T11:41:52.6197054Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-23T11:41:52.8265821Z Cache hit for: robolectric-sdk-16-13921718-i7
+2026-11-23T11:41:52.8374506Z (node:2555) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-11-23T11:41:54.0344203Z Received 54525952 of 200121434 (27.2%), 51.9 MBs/sec
+2026-11-23T11:41:55.0352593Z Received 188743680 of 200121434 (94.3%), 89.9 MBs/sec
+2026-11-23T11:41:55.1377922Z Received 200121434 of 200121434 (100.0%), 90.7 MBs/sec
+2026-11-23T11:41:55.1380700Z Cache Size: ~191 MB (200121434 B)
+2026-11-23T11:41:55.1415097Z [command]/usr/bin/tar -xf /home/runner/work/_temp/b645af96-6cb5-4f9b-b3b3-71fbe8ad3e47/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:55.4329848Z Cache restored successfully
+2026-11-23T11:41:55.5014013Z Cache restored from key: robolectric-sdk-16-13921718-i7
+2026-11-23T11:41:55.5886856Z ##[group]Run set -euo pipefail
+2026-11-23T11:41:55.5887367Z [36;1mset -euo pipefail[0m
+2026-11-23T11:41:55.5888081Z [36;1mSDK_DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7"[0m
+2026-11-23T11:41:55.5889008Z [36;1mSDK_JAR="$SDK_DIR/android-all-instrumented-16-robolectric-13921718-i7.jar"[0m
+2026-11-23T11:41:55.5892651Z [36;1mif [ -s "$SDK_JAR" ]; then exit 0; fi[0m
+2026-11-23T11:41:55.5893129Z [36;1mmkdir -p "$SDK_DIR"[0m
+2026-11-23T11:41:55.5893571Z [36;1mTMP_JAR="${SDK_JAR}.tmp"[0m
+2026-11-23T11:41:55.5895089Z [36;1mPRIMARY_URL="https://maven-central.storage-download.googleapis.com/maven2/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7/android-all-instrumented-16-robolectric-13921718-i7.jar"[0m
+2026-11-23T11:41:55.5897002Z [36;1mFALLBACK_URL="https://repo.maven.apache.org/maven2/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7/android-all-instrumented-16-robolectric-13921718-i7.jar"[0m
+2026-11-23T11:41:55.5898436Z [36;1mif curl --fail --location --silent --show-error --retry 5 --retry-delay 5 --retry-all-errors -o "$TMP_JAR" "$PRIMARY_URL"; then[0m
+2026-11-23T11:41:55.5899373Z [36;1m  mv "$TMP_JAR" "$SDK_JAR"[0m
+2026-11-23T11:41:55.5900161Z [36;1melif curl --fail --location --silent --show-error --retry 5 --retry-delay 5 --retry-all-errors -o "$TMP_JAR" "$FALLBACK_URL"; then[0m
+2026-11-23T11:41:55.5900995Z [36;1m  mv "$TMP_JAR" "$SDK_JAR"[0m
+2026-11-23T11:41:55.5901392Z [36;1melse[0m
+2026-11-23T11:41:55.5901747Z [36;1m  rm -f "$TMP_JAR"[0m
+2026-11-23T11:41:55.5902155Z [36;1m  exit 1[0m
+2026-11-23T11:41:55.5902485Z [36;1mfi[0m
+2026-11-23T11:41:55.5942008Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-23T11:41:55.5942409Z env:
+2026-11-23T11:41:55.5942647Z   APP_SLUG: ketikku
+2026-11-23T11:41:55.5942901Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:55.5943217Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:55.5943553Z   CI_VERSION_CODE: 47
+2026-11-23T11:41:55.5943814Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:41:55.5944075Z   VERSION_TAG: v1.1.35
+2026-11-23T11:41:55.5944425Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:55.5944892Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:55.5945300Z   ANDROID_HOME: /usr/local/lib/android/sdk
+2026-11-23T11:41:55.5945608Z   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+2026-11-23T11:41:55.5945937Z   GRADLE_ACTION_ID: gradle/actions/setup-gradle
+2026-11-23T11:41:55.5946258Z   GRADLE_USER_HOME: /home/runner/.gradle
+2026-11-23T11:41:55.5946580Z   GRADLE_BUILD_ACTION_SETUP_COMPLETED: true
+2026-11-23T11:41:55.5946906Z   GRADLE_BUILD_ACTION_CACHE_RESTORED: true
+2026-11-23T11:41:55.5947335Z   DEVELOCITY_INJECTION_INIT_SCRIPT_NAME: gradle-actions.inject-develocity.init.gradle
+2026-11-23T11:41:55.5947786Z   DEVELOCITY_INJECTION_CUSTOM_VALUE: gradle-actions
+2026-11-23T11:41:55.5948139Z   GITHUB_DEPENDENCY_GRAPH_ENABLED: false
+2026-11-23T11:41:55.5948474Z   KEYSTORE_PATH: /home/runner/work/_temp/upload.jks
+2026-11-23T11:41:55.5948887Z   STORE_PASSWORD: ***
+2026-11-23T11:41:55.5949526Z   KEY_PASSWORD: ***
+2026-11-23T11:41:55.5949880Z ##[endgroup]
+2026-11-23T11:41:55.9421919Z ##[group]Run gradle :app:testDebugUnitTest --no-daemon --no-build-cache --stacktrace
+2026-11-23T11:41:55.9422558Z [36;1mgradle :app:testDebugUnitTest --no-daemon --no-build-cache --stacktrace[0m
+2026-11-23T11:41:55.9452038Z shell: /usr/bin/bash -e {0}
+2026-11-23T11:41:55.9452333Z env:
+2026-11-23T11:41:55.9452586Z   APP_SLUG: ketikku
+2026-11-23T11:41:55.9452843Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:55.9453145Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:55.9453469Z   CI_VERSION_CODE: 47
+2026-11-23T11:41:55.9453720Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:41:55.9453980Z   VERSION_TAG: v1.1.35
+2026-11-23T11:41:55.9454329Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:55.9454798Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:55.9455199Z   ANDROID_HOME: /usr/local/lib/android/sdk
+2026-11-23T11:41:55.9455510Z   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+2026-11-23T11:41:55.9455902Z   GRADLE_ACTION_ID: gradle/actions/setup-gradle
+2026-11-23T11:41:55.9456231Z   GRADLE_USER_HOME: /home/runner/.gradle
+2026-11-23T11:41:55.9456541Z   GRADLE_BUILD_ACTION_SETUP_COMPLETED: true
+2026-11-23T11:41:55.9456858Z   GRADLE_BUILD_ACTION_CACHE_RESTORED: true
+2026-11-23T11:41:55.9457294Z   DEVELOCITY_INJECTION_INIT_SCRIPT_NAME: gradle-actions.inject-develocity.init.gradle
+2026-11-23T11:41:55.9457931Z   DEVELOCITY_INJECTION_CUSTOM_VALUE: gradle-actions
+2026-11-23T11:41:55.9458262Z   GITHUB_DEPENDENCY_GRAPH_ENABLED: false
+2026-11-23T11:41:55.9458584Z   KEYSTORE_PATH: /home/runner/work/_temp/upload.jks
+2026-11-23T11:41:55.9458994Z   STORE_PASSWORD: ***
+2026-11-23T11:41:55.9459368Z   KEY_PASSWORD: ***
+2026-11-23T11:41:55.9459613Z ##[endgroup]
+2026-11-23T11:41:56.7824872Z To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.3.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+2026-11-23T11:41:58.2886773Z Daemon will be stopped at the end of the build 
+2026-11-23T11:41:59.7814604Z Calculating task graph as no cached configuration is available for tasks: :app:testDebugUnitTest
+2026-11-23T11:42:11.7855465Z > Task :app:preBuild UP-TO-DATE
+2026-11-23T11:42:11.7884166Z > Task :app:generateDebugAssets UP-TO-DATE
+2026-11-23T11:42:11.7901827Z > Task :app:preDebugBuild UP-TO-DATE
+2026-11-23T11:42:11.8806372Z > Task :app:generateDebugResources
+2026-11-23T11:42:11.8806982Z > Task :app:generateDebugBuildConfig
+2026-11-23T11:42:12.2808839Z > Task :app:javaPreCompileDebug
+2026-11-23T11:42:12.2810058Z > Task :app:packageDebugResources
+2026-11-23T11:42:12.2810753Z > Task :app:processDebugNavigationResources
+2026-11-23T11:42:12.2811277Z > Task :app:mapDebugSourceSetPaths
+2026-11-23T11:42:13.3820722Z > Task :app:compileDebugNavigationResources
+2026-11-23T11:42:13.4822498Z > Task :app:checkDebugAarMetadata
+2026-11-23T11:42:13.5828717Z > Task :app:createDebugCompatibleScreenManifests
+2026-11-23T11:42:13.5870395Z > Task :app:extractDeepLinksDebug
+2026-11-23T11:42:13.8820938Z > Task :app:parseDebugLocalResources
+2026-11-23T11:42:13.9800536Z > Task :app:generateDebugRFile
+2026-11-23T11:42:13.9840340Z > Task :app:preDebugUnitTestBuild UP-TO-DATE
+2026-11-23T11:42:14.0859929Z > Task :app:javaPreCompileDebugUnitTest
+2026-11-23T11:42:14.2820421Z > Task :app:mergeDebugAssets
+2026-11-23T11:42:14.2860065Z > Task :app:processDebugMainManifest
+2026-11-23T11:42:14.7840844Z > Task :app:processDebugUnitTestManifest
+2026-11-23T11:42:14.8800684Z > Task :app:processDebugManifest
+2026-11-23T11:42:14.8809766Z > Task :app:processDebugManifestForPackage
+2026-11-23T11:42:16.5841700Z > Task :app:mergeDebugResources
+2026-11-23T11:42:17.1809662Z > Task :app:processDebugResources
+2026-11-23T11:42:17.1849851Z > Task :app:packageDebugUnitTestForUnitTest
+2026-11-23T11:42:17.2820572Z > Task :app:generateDebugUnitTestConfig
+2026-11-23T11:42:22.4854138Z ##[error]Exception in thread "AWT-EventQueue-0" java.lang.NullPointerException: Cannot invoke "ksp.com.intellij.openapi.application.Application.getService(java.lang.Class)" because the return value of "ksp.com.intellij.openapi.application.ApplicationManager.getApplication()" is null
+2026-11-23T11:42:22.4857385Z 	at ksp.com.intellij.openapi.fileEditor.FileDocumentManager.getInstance(FileDocumentManager.java:35)
+2026-11-23T11:42:22.4871590Z 	at ksp.com.intellij.openapi.fileTypes.BinaryFileTypeDecompilers.lambda$notifyDecompilerSetChange$1(BinaryFileTypeDecompilers.java:29)
+2026-11-23T11:42:22.4873100Z 	at java.desktop/java.awt.event.InvocationEvent.dispatch(InvocationEvent.java:318)
+2026-11-23T11:42:22.4874170Z 	at java.desktop/java.awt.EventQueue.dispatchEventImpl(EventQueue.java:773)
+2026-11-23T11:42:22.5828101Z 	at java.desktop/java.awt.EventQueue$4.run(EventQueue.java:720)
+2026-11-23T11:42:22.5828746Z > Task :app:kspDebugKotlin
+2026-11-23T11:42:22.5836118Z 	at java.desktop/java.awt.EventQueue$4.run(EventQueue.java:714)
+2026-11-23T11:42:22.5851632Z 	at java.base/java.security.AccessController.doPrivileged(AccessController.java:400)
+2026-11-23T11:42:22.5871157Z 	at java.base/java.security.ProtectionDomain$JavaSecurityAccessImpl.doIntersectionPrivilege(ProtectionDomain.java:87)
+2026-11-23T11:42:22.5872261Z 	at java.desktop/java.awt.EventQueue.dispatchEvent(EventQueue.java:742)
+2026-11-23T11:42:22.5873734Z 	at java.desktop/java.awt.EventDispatchThread.pumpOneEventForFilters(EventDispatchThread.java:203)
+2026-11-23T11:42:22.5874823Z 	at java.desktop/java.awt.EventDispatchThread.pumpEventsForFilter(EventDispatchThread.java:124)
+2026-11-23T11:42:22.5875889Z 	at java.desktop/java.awt.EventDispatchThread.pumpEventsForHierarchy(EventDispatchThread.java:113)
+2026-11-23T11:42:22.5877004Z 	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:109)
+2026-11-23T11:42:22.5878856Z 	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:101)
+2026-11-23T11:42:22.5954936Z 	at java.desktop/java.awt.EventDispatchThread.run(EventDispatchThread.java:90)
+2026-11-23T11:42:52.6161333Z > Task :app:compileDebugKotlin
+2026-11-23T11:42:54.9820649Z > Task :app:processDebugJavaRes
+2026-11-23T11:42:57.7820491Z > Task :app:compileDebugJavaWithJavac
+2026-11-23T11:42:57.8800339Z > Task :app:bundleDebugClassesToRuntimeJar
+2026-11-23T11:42:57.8801297Z > Task :app:bundleDebugClassesToCompileJar
+2026-11-23T11:42:59.7799809Z > Task :app:kspDebugUnitTestKotlin
+2026-11-23T11:43:16.3824321Z > Task :app:compileDebugUnitTestKotlin
+2026-11-23T11:43:16.3839715Z > Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+2026-11-23T11:43:16.3861915Z > Task :app:processDebugUnitTestJavaRes
+2026-11-23T11:43:29.1877135Z 
+2026-11-23T11:43:29.1902171Z > Task :app:testDebugUnitTest
+2026-11-23T11:43:29.1919816Z 
+2026-11-23T11:43:29.1924297Z ExampleRobolectricTest > keyboardView_directCtrlCombosAndDoubleTapLockWorkOnMainKeyboard FAILED
+2026-11-23T11:43:29.1925791Z     java.lang.AssertionError at ExampleRobolectricTest.kt:687
+2026-11-23T11:43:34.6827937Z 
+2026-11-23T11:43:34.6870398Z 69 tests completed, 1 failed
+2026-11-23T11:43:34.7839687Z 
+2026-11-23T11:43:34.7860219Z > Task :app:testDebugUnitTest FAILED
+2026-11-23T11:43:34.8809463Z 
+2026-11-23T11:43:34.8830320Z gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_5-1795434120964.json
+2026-11-23T11:43:34.8899835Z FAILURE: Build failed with an exception.
+2026-11-23T11:43:34.8969367Z 
+2026-11-23T11:43:34.8969703Z 32 actionable tasks: 32 executed
+2026-11-23T11:43:34.8986069Z * What went wrong:
+2026-11-23T11:43:34.9009710Z Execution failed for task ':app:testDebugUnitTest'.
+2026-11-23T11:43:34.9028866Z > There were failing tests. See the report at: file:///home/runner/work/KetikKu/KetikKu/app/build/reports/tests/testDebugUnitTest/index.html
+2026-11-23T11:43:34.9029970Z 
+2026-11-23T11:43:34.9030329Z * Try:
+2026-11-23T11:43:34.9031034Z > Run with --scan to get full insights from a Build Scan (powered by Develocity).
+2026-11-23T11:43:34.9031642Z 
+2026-11-23T11:43:34.9031932Z * Exception is:
+2026-11-23T11:43:34.9033070Z org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:testDebugUnitTest'.
+2026-11-23T11:43:34.9034521Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:135)
+2026-11-23T11:43:34.9035794Z 	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:288)
+2026-11-23T11:43:34.9037039Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:133)
+2026-11-23T11:43:34.9038579Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:121)
+2026-11-23T11:43:34.9040294Z 	at org.gradle.api.internal.tasks.execution.ProblemsTaskPathTrackingTaskExecuter.execute(ProblemsTaskPathTrackingTaskExecuter.java:41)
+2026-11-23T11:43:34.9041690Z 	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+2026-11-23T11:43:34.9043207Z 	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+2026-11-23T11:43:34.9044765Z 	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+2026-11-23T11:43:34.9046208Z 	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:74)
+2026-11-23T11:43:34.9047894Z 	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
+2026-11-23T11:43:34.9049454Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
+2026-11-23T11:43:34.9050809Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
+2026-11-23T11:43:34.9052079Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
+2026-11-23T11:43:34.9053585Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+2026-11-23T11:43:34.9055279Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+2026-11-23T11:43:34.9056799Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+2026-11-23T11:43:34.9058173Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+2026-11-23T11:43:34.9059680Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+2026-11-23T11:43:34.9061557Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+2026-11-23T11:43:34.9062960Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+2026-11-23T11:43:34.9064368Z 	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter.execute(EventFiringTaskExecuter.java:52)
+2026-11-23T11:43:34.9065701Z 	at org.gradle.execution.plan.DefaultNodeExecutor.executeLocalTaskNode(DefaultNodeExecutor.java:55)
+2026-11-23T11:43:34.9066909Z 	at org.gradle.execution.plan.DefaultNodeExecutor.execute(DefaultNodeExecutor.java:34)
+2026-11-23T11:43:34.9068289Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:355)
+2026-11-23T11:43:34.9070070Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:343)
+2026-11-23T11:43:34.9071803Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.lambda$execute$0(DefaultTaskExecutionGraph.java:339)
+2026-11-23T11:43:34.9073356Z 	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:84)
+2026-11-23T11:43:34.9075068Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:339)
+2026-11-23T11:43:34.9076828Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:328)
+2026-11-23T11:43:34.9078344Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
+2026-11-23T11:43:34.9079698Z 	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+2026-11-23T11:43:34.9084932Z 	at org.gradle.execution.plan.DefaultPlanExecutor.process(DefaultPlanExecutor.java:111)
+2026-11-23T11:43:34.9086278Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.executeWithServices(DefaultTaskExecutionGraph.java:146)
+2026-11-23T11:43:34.9087703Z 	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph.execute(DefaultTaskExecutionGraph.java:131)
+2026-11-23T11:43:34.9089029Z 	at org.gradle.execution.SelectedTaskExecutionAction.execute(SelectedTaskExecutionAction.java:35)
+2026-11-23T11:43:34.9090648Z 	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:54)
+2026-11-23T11:43:34.9092318Z 	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor$ExecuteTasks.call(BuildOperationFiringBuildWorkerExecutor.java:43)
+2026-11-23T11:43:34.9094240Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+2026-11-23T11:43:34.9095786Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+2026-11-23T11:43:34.9097616Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+2026-11-23T11:43:34.9099018Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+2026-11-23T11:43:34.9100585Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+2026-11-23T11:43:34.9101957Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+2026-11-23T11:43:34.9103254Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+2026-11-23T11:43:34.9104698Z 	at org.gradle.execution.BuildOperationFiringBuildWorkerExecutor.execute(BuildOperationFiringBuildWorkerExecutor.java:40)
+2026-11-23T11:43:34.9106249Z 	at org.gradle.internal.build.DefaultBuildLifecycleController.lambda$executeTasks$10(DefaultBuildLifecycleController.java:313)
+2026-11-23T11:43:34.9107713Z 	at org.gradle.internal.model.StateTransitionController.doTransition(StateTransitionController.java:276)
+2026-11-23T11:43:34.9109057Z 	at org.gradle.internal.model.StateTransitionController.lambda$tryTransition$8(StateTransitionController.java:187)
+2026-11-23T11:43:34.9110541Z 	at org.gradle.internal.work.DefaultSynchronizer.withLock(DefaultSynchronizer.java:45)
+2026-11-23T11:43:34.9111762Z 	at org.gradle.internal.model.StateTransitionController.tryTransition(StateTransitionController.java:187)
+2026-11-23T11:43:34.9113267Z 	at org.gradle.internal.build.DefaultBuildLifecycleController.executeTasks(DefaultBuildLifecycleController.java:304)
+2026-11-23T11:43:34.9114809Z 	at org.gradle.internal.build.DefaultBuildWorkGraphController$DefaultBuildWorkGraph.runWork(DefaultBuildWorkGraphController.java:220)
+2026-11-23T11:43:34.9116383Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.lambda$withLocksAcquired$0(DefaultWorkerLeaseService.java:269)
+2026-11-23T11:43:34.9117713Z 	at org.gradle.internal.work.ResourceLockStatistics$1.measure(ResourceLockStatistics.java:42)
+2026-11-23T11:43:34.9118964Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocksAcquired(DefaultWorkerLeaseService.java:267)
+2026-11-23T11:43:34.9125267Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:259)
+2026-11-23T11:43:34.9126885Z 	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:127)
+2026-11-23T11:43:34.9128215Z 	at org.gradle.composite.internal.DefaultBuildController.doRun(DefaultBuildController.java:181)
+2026-11-23T11:43:34.9129562Z 	at org.gradle.composite.internal.DefaultBuildController.access$000(DefaultBuildController.java:50)
+2026-11-23T11:43:34.9130956Z 	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.lambda$run$0(DefaultBuildController.java:198)
+2026-11-23T11:43:34.9132363Z 	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:84)
+2026-11-23T11:43:34.9133692Z 	at org.gradle.composite.internal.DefaultBuildController$BuildOpRunnable.run(DefaultBuildController.java:198)
+2026-11-23T11:43:34.9135049Z 	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+2026-11-23T11:43:34.9136378Z 	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:47)
+2026-11-23T11:43:34.9138206Z Caused by: org.gradle.api.internal.exceptions.MarkedVerificationException: There were failing tests. See the report at: file:///home/runner/work/KetikKu/KetikKu/app/build/reports/tests/testDebugUnitTest/index.html
+2026-11-23T11:43:34.9140090Z 	at org.gradle.api.tasks.testing.AbstractTestTask.executeTests(AbstractTestTask.java:552)
+2026-11-23T11:43:34.9141324Z 	at org.gradle.api.tasks.testing.Test.executeTests(Test.java:722)
+2026-11-23T11:43:34.9142433Z 	at com.android.build.gradle.tasks.factory.AndroidUnitTest.executeTests(AndroidUnitTest.java:172)
+2026-11-23T11:43:34.9143513Z 	at org.gradle.internal.reflect.JavaMethod.invoke(JavaMethod.java:125)
+2026-11-23T11:43:34.9144634Z 	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.doExecute(StandardTaskAction.java:58)
+2026-11-23T11:43:34.9145980Z 	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.execute(StandardTaskAction.java:51)
+2026-11-23T11:43:34.9147287Z 	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.execute(StandardTaskAction.java:29)
+2026-11-23T11:43:34.9148505Z 	at org.gradle.api.internal.tasks.execution.TaskExecution$3.run(TaskExecution.java:259)
+2026-11-23T11:43:34.9149913Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:29)
+2026-11-23T11:43:34.9151279Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:26)
+2026-11-23T11:43:34.9152666Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+2026-11-23T11:43:34.9154053Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+2026-11-23T11:43:34.9155437Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+2026-11-23T11:43:34.9156809Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+2026-11-23T11:43:34.9158198Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.run(DefaultBuildOperationRunner.java:47)
+2026-11-23T11:43:34.9159588Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeAction(TaskExecution.java:244)
+2026-11-23T11:43:34.9161230Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeActions(TaskExecution.java:227)
+2026-11-23T11:43:34.9162570Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.executeWithPreviousOutputFiles(TaskExecution.java:210)
+2026-11-23T11:43:34.9163858Z 	at org.gradle.api.internal.tasks.execution.TaskExecution.execute(TaskExecution.java:176)
+2026-11-23T11:43:34.9165002Z 	at org.gradle.internal.execution.steps.ExecuteStep.executeInternal(ExecuteStep.java:110)
+2026-11-23T11:43:34.9166116Z 	at org.gradle.internal.execution.steps.ExecuteStep.access$000(ExecuteStep.java:47)
+2026-11-23T11:43:34.9167147Z 	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:64)
+2026-11-23T11:43:34.9168350Z 	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:61)
+2026-11-23T11:43:34.9169951Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+2026-11-23T11:43:34.9204155Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+2026-11-23T11:43:34.9221568Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+2026-11-23T11:43:34.9237646Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+2026-11-23T11:43:34.9260104Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+2026-11-23T11:43:34.9280161Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+2026-11-23T11:43:34.9290939Z 	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+2026-11-23T11:43:34.9308864Z 	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:61)
+2026-11-23T11:43:34.9329342Z 	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:47)
+2026-11-23T11:43:34.9332135Z 	at org.gradle.internal.execution.steps.CancelExecutionStep.execute(CancelExecutionStep.java:42)
+2026-11-23T11:43:34.9350029Z 	at org.gradle.internal.execution.steps.TimeoutStep.executeWithoutTimeout(TimeoutStep.java:75)
+2026-11-23T11:43:34.9361527Z 	at org.gradle.internal.execution.steps.TimeoutStep.execute(TimeoutStep.java:55)
+2026-11-23T11:43:34.9378122Z 	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:51)
+2026-11-23T11:43:34.9379864Z 	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:29)
+2026-11-23T11:43:34.9381094Z 	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.executeMutable(RemovePreviousOutputsStep.java:70)
+2026-11-23T11:43:34.9382529Z 	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.executeMutable(RemovePreviousOutputsStep.java:40)
+2026-11-23T11:43:34.9383768Z 	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+2026-11-23T11:43:34.9385178Z 	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:62)
+2026-11-23T11:43:34.9386516Z 	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:27)
+2026-11-23T11:43:34.9549398Z 	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:69)
+2026-11-23T11:43:34.9550875Z 	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:46)
+2026-11-23T11:43:34.9552198Z 	at org.gradle.internal.execution.steps.ResolveInputChangesStep.executeMutable(ResolveInputChangesStep.java:39)
+2026-11-23T11:43:34.9553477Z 	at org.gradle.internal.execution.steps.ResolveInputChangesStep.executeMutable(ResolveInputChangesStep.java:28)
+2026-11-23T11:43:34.9554576Z 	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+2026-11-23T11:43:34.9555679Z 	at org.gradle.internal.execution.steps.BuildCacheStep.executeWithoutCache(BuildCacheStep.java:192)
+2026-11-23T11:43:34.9556781Z 	at org.gradle.internal.execution.steps.BuildCacheStep.lambda$execute$1(BuildCacheStep.java:76)
+2026-11-23T11:43:34.9557645Z 	at org.gradle.internal.Either$Right.fold(Either.java:176)
+2026-11-23T11:43:34.9558426Z 	at org.gradle.internal.execution.caching.CachingState.fold(CachingState.java:62)
+2026-11-23T11:43:34.9580842Z 	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:74)
+2026-11-23T11:43:34.9581890Z 	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:49)
+2026-11-23T11:43:34.9583259Z 	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:46)
+2026-11-23T11:43:34.9584501Z 	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:35)
+2026-11-23T11:43:34.9585667Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.executeBecause(SkipUpToDateStep.java:75)
+2026-11-23T11:43:34.9586792Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.lambda$execute$2(SkipUpToDateStep.java:53)
+2026-11-23T11:43:34.9587858Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:53)
+2026-11-23T11:43:34.9588864Z 	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:35)
+2026-11-23T11:43:34.9590296Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:37)
+2026-11-23T11:43:34.9591881Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:27)
+2026-11-23T11:43:34.9593467Z 	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:49)
+2026-11-23T11:43:34.9595051Z 	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:27)
+2026-11-23T11:43:34.9596826Z 	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:71)
+2026-11-23T11:43:34.9598222Z 	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:39)
+2026-11-23T11:43:34.9619937Z 	at org.gradle.internal.execution.steps.ResolveChangesStep.executeMutable(ResolveChangesStep.java:63)
+2026-11-23T11:43:34.9621184Z 	at org.gradle.internal.execution.steps.ResolveChangesStep.executeMutable(ResolveChangesStep.java:34)
+2026-11-23T11:43:34.9622247Z 	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+2026-11-23T11:43:34.9623177Z 	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:64)
+2026-11-23T11:43:34.9624120Z 	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:42)
+2026-11-23T11:43:34.9625415Z 	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:77)
+2026-11-23T11:43:34.9627089Z 	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:46)
+2026-11-23T11:43:34.9628701Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.executeWithNonEmptySources(AbstractSkipEmptyWorkStep.java:133)
+2026-11-23T11:43:34.9630300Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:64)
+2026-11-23T11:43:34.9631571Z 	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:36)
+2026-11-23T11:43:34.9632996Z 	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsStartedStep.execute(MarkSnapshottingInputsStartedStep.java:38)
+2026-11-23T11:43:34.9634478Z 	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:36)
+2026-11-23T11:43:34.9635919Z 	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:23)
+2026-11-23T11:43:34.9637272Z 	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.executeMutable(HandleStaleOutputsStep.java:77)
+2026-11-23T11:43:34.9638558Z 	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.executeMutable(HandleStaleOutputsStep.java:43)
+2026-11-23T11:43:34.9660198Z 	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+2026-11-23T11:43:34.9661299Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.lambda$execute$0(AssignMutableWorkspaceStep.java:35)
+2026-11-23T11:43:34.9662780Z 	at org.gradle.api.internal.tasks.execution.TaskExecution$4.withWorkspace(TaskExecution.java:305)
+2026-11-23T11:43:34.9663999Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:31)
+2026-11-23T11:43:34.9665238Z 	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:22)
+2026-11-23T11:43:34.9666425Z 	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:40)
+2026-11-23T11:43:34.9667516Z 	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:23)
+2026-11-23T11:43:34.9668860Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.lambda$execute$2(ExecuteWorkBuildOperationFiringStep.java:67)
+2026-11-23T11:43:34.9670734Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:67)
+2026-11-23T11:43:34.9672331Z 	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:39)
+2026-11-23T11:43:34.9673661Z 	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:46)
+2026-11-23T11:43:34.9674754Z 	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:34)
+2026-11-23T11:43:34.9675768Z 	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:44)
+2026-11-23T11:43:34.9676895Z 	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:31)
+2026-11-23T11:43:34.9677925Z 	at org.gradle.internal.execution.impl.DefaultExecutionEngine$1.execute(DefaultExecutionEngine.java:68)
+2026-11-23T11:43:34.9699523Z 	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:132)
+2026-11-23T11:43:34.9700552Z 	... 61 more
+2026-11-23T11:43:34.9700769Z 
+2026-11-23T11:43:34.9700775Z 
+2026-11-23T11:43:34.9700941Z BUILD FAILED in 1m 38s
+2026-11-23T11:43:34.9800494Z Configuration cache entry stored.
+2026-11-23T11:43:35.2817170Z ##[error]Process completed with exit code 1.
+2026-11-23T11:43:35.2878684Z ##[group]Run rm -rf "$RUNNER_TEMP/upload.jks" "$RUNNER_TEMP/public-site-sync"
+2026-11-23T11:43:35.2879419Z [36;1mrm -rf "$RUNNER_TEMP/upload.jks" "$RUNNER_TEMP/public-site-sync"[0m
+2026-11-23T11:43:35.2908806Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-23T11:43:35.2909403Z env:
+2026-11-23T11:43:35.2909642Z   APP_SLUG: ketikku
+2026-11-23T11:43:35.2909899Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:43:35.2910200Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:43:35.2910525Z   CI_VERSION_CODE: 47
+2026-11-23T11:43:35.2910774Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:43:35.2911040Z   VERSION_TAG: v1.1.35
+2026-11-23T11:43:35.2911394Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:43:35.2911854Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:43:35.2912249Z   ANDROID_HOME: /usr/local/lib/android/sdk
+2026-11-23T11:43:35.2912611Z   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+2026-11-23T11:43:35.2912949Z   GRADLE_ACTION_ID: gradle/actions/setup-gradle
+2026-11-23T11:43:35.2913266Z   GRADLE_USER_HOME: /home/runner/.gradle
+2026-11-23T11:43:35.2913565Z   GRADLE_BUILD_ACTION_SETUP_COMPLETED: true
+2026-11-23T11:43:35.2913878Z   GRADLE_BUILD_ACTION_CACHE_RESTORED: true
+2026-11-23T11:43:35.2914313Z   DEVELOCITY_INJECTION_INIT_SCRIPT_NAME: gradle-actions.inject-develocity.init.gradle
+2026-11-23T11:43:35.2914759Z   DEVELOCITY_INJECTION_CUSTOM_VALUE: gradle-actions
+2026-11-23T11:43:35.2915087Z   GITHUB_DEPENDENCY_GRAPH_ENABLED: false
+2026-11-23T11:43:35.2915408Z   KEYSTORE_PATH: /home/runner/work/_temp/upload.jks
+2026-11-23T11:43:35.2915798Z   STORE_PASSWORD: ***
+2026-11-23T11:43:35.2916074Z   KEY_PASSWORD: ***
+2026-11-23T11:43:35.2916317Z ##[endgroup]
+2026-11-23T11:43:35.3093368Z Post job cleanup.
+2026-11-23T11:43:35.5280221Z In post-action step
+2026-11-23T11:43:35.5290151Z ##[group]Stopping Gradle daemons
+2026-11-23T11:43:35.5297920Z Stopping Gradle daemons for /home/runner/work/_temp/.gradle-actions/gradle-installations/installs/gradle-9.3.1
+2026-11-23T11:43:35.5323443Z [command]/home/runner/work/_temp/.gradle-actions/gradle-installations/installs/gradle-9.3.1/bin/gradle --stop
+2026-11-23T11:43:36.4128118Z No Gradle daemons are running.
+2026-11-23T11:43:36.4234681Z ##[endgroup]
+2026-11-23T11:43:36.4249756Z Not performing cache-cleanup due to build failure
+2026-11-23T11:43:36.4250623Z ##[group]Caching Gradle state
+2026-11-23T11:43:36.4251979Z Cache hit occurred on the cache key gradle-home-v1|Linux-X64|build-release[6cb0ca268bdbe7c83ca5c4b0a31704c8]-9fec7f89f6d8d7d89b8ba5f33d7852cf9602a8a4, not saving cache.
+2026-11-23T11:43:36.4253551Z ##[endgroup]
+2026-11-23T11:43:36.4254149Z Generating Job Summary
+2026-11-23T11:43:36.4264512Z Completed post-action step
+2026-11-23T11:43:36.4472097Z Post job cleanup.
+2026-11-23T11:43:36.5716783Z (node:2857) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-23T11:43:36.5718053Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-23T11:43:36.5952982Z Post job cleanup.
+2026-11-23T11:43:36.6889676Z [command]/usr/bin/git version
+2026-11-23T11:43:36.6945539Z git version 2.56.1
+2026-11-23T11:43:36.6996744Z Temporarily overriding HOME='/home/runner/work/_temp/0b186164-af56-430f-bcdc-19af79190e54' before making global git config changes
+2026-11-23T11:43:36.7004371Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-23T11:43:36.7008031Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/KetikKu/KetikKu
+2026-11-23T11:43:36.7072892Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-23T11:43:36.7129413Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-23T11:43:36.7488597Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-23T11:43:36.7542144Z http.https://github.com/.extraheader
+2026-11-23T11:43:36.7550599Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-23T11:43:36.7640654Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-23T11:43:36.7936990Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-23T11:43:36.7997991Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-23T11:43:36.8385149Z Cleaning up orphan processes
+2026-11-23T11:43:36.8665988Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/cache@v4, actions/checkout@v4, actions/setup-java@v4, gradle/actions/setup-gradle@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

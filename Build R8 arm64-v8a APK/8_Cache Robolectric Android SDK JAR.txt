@@ -1,0 +1,41 @@
+﻿2026-11-23T11:41:52.5255123Z ##[group]Run actions/cache@v4
+2026-11-23T11:41:52.5255415Z with:
+2026-11-23T11:41:52.5255793Z   path: ~/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7
+2026-11-23T11:41:52.5256246Z   key: robolectric-sdk-16-13921718-i7
+2026-11-23T11:41:52.5256550Z   enableCrossOsArchive: false
+2026-11-23T11:41:52.5256819Z   fail-on-cache-miss: false
+2026-11-23T11:41:52.5257080Z   lookup-only: false
+2026-11-23T11:41:52.5257329Z   save-always: false
+2026-11-23T11:41:52.5257562Z env:
+2026-11-23T11:41:52.5257775Z   APP_SLUG: ketikku
+2026-11-23T11:41:52.5258017Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:52.5258306Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:52.5258628Z   CI_VERSION_CODE: 47
+2026-11-23T11:41:52.5258874Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:41:52.5259412Z   VERSION_TAG: v1.1.35
+2026-11-23T11:41:52.5259758Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:52.5260222Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:52.5260647Z   ANDROID_HOME: /usr/local/lib/android/sdk
+2026-11-23T11:41:52.5260967Z   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+2026-11-23T11:41:52.5261294Z   GRADLE_ACTION_ID: gradle/actions/setup-gradle
+2026-11-23T11:41:52.5261613Z   GRADLE_USER_HOME: /home/runner/.gradle
+2026-11-23T11:41:52.5261910Z   GRADLE_BUILD_ACTION_SETUP_COMPLETED: true
+2026-11-23T11:41:52.5262224Z   GRADLE_BUILD_ACTION_CACHE_RESTORED: true
+2026-11-23T11:41:52.5262642Z   DEVELOCITY_INJECTION_INIT_SCRIPT_NAME: gradle-actions.inject-develocity.init.gradle
+2026-11-23T11:41:52.5263092Z   DEVELOCITY_INJECTION_CUSTOM_VALUE: gradle-actions
+2026-11-23T11:41:52.5263412Z   GITHUB_DEPENDENCY_GRAPH_ENABLED: false
+2026-11-23T11:41:52.5263743Z   KEYSTORE_PATH: /home/runner/work/_temp/upload.jks
+2026-11-23T11:41:52.5264127Z   STORE_PASSWORD: ***
+2026-11-23T11:41:52.5264397Z   KEY_PASSWORD: ***
+2026-11-23T11:41:52.5264639Z ##[endgroup]
+2026-11-23T11:41:52.6195790Z (node:2555) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-23T11:41:52.6197049Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-23T11:41:52.8265794Z Cache hit for: robolectric-sdk-16-13921718-i7
+2026-11-23T11:41:52.8374476Z (node:2555) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-11-23T11:41:54.0344160Z Received 54525952 of 200121434 (27.2%), 51.9 MBs/sec
+2026-11-23T11:41:55.0352550Z Received 188743680 of 200121434 (94.3%), 89.9 MBs/sec
+2026-11-23T11:41:55.1377882Z Received 200121434 of 200121434 (100.0%), 90.7 MBs/sec
+2026-11-23T11:41:55.1380691Z Cache Size: ~191 MB (200121434 B)
+2026-11-23T11:41:55.1415051Z [command]/usr/bin/tar -xf /home/runner/work/_temp/b645af96-6cb5-4f9b-b3b3-71fbe8ad3e47/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:55.4329801Z Cache restored successfully
+2026-11-23T11:41:55.5013968Z Cache restored from key: robolectric-sdk-16-13921718-i7

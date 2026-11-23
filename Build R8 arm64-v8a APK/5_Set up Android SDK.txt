@@ -1,0 +1,106 @@
+﻿2026-11-23T11:41:13.4047780Z ##[group]Run SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+2026-11-23T11:41:13.4048554Z [36;1mSDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"[0m
+2026-11-23T11:41:13.4049633Z [36;1mSDKMANAGER=$(find "$SDK_DIR/cmdline-tools" -name sdkmanager -type f 2>/dev/null | sort -V | tail -n 1)[0m
+2026-11-23T11:41:13.4050337Z [36;1mif [ -z "$SDKMANAGER" ]; then[0m
+2026-11-23T11:41:13.4050819Z [36;1m  echo "sdkmanager not found under $SDK_DIR/cmdline-tools" >&2[0m
+2026-11-23T11:41:13.4051308Z [36;1m  exit 1[0m
+2026-11-23T11:41:13.4051585Z [36;1mfi[0m
+2026-11-23T11:41:13.4051922Z [36;1m(yes || true) | "$SDKMANAGER" --licenses >/dev/null[0m
+2026-11-23T11:41:13.4052654Z [36;1m"$SDKMANAGER" "platform-tools" "platforms;android-36" "platforms;android-36.1" "build-tools;36.0.0"[0m
+2026-11-23T11:41:13.4053372Z [36;1mecho "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:13.4053860Z [36;1mecho "ANDROID_SDK_ROOT=$SDK_DIR" >> "$GITHUB_ENV"[0m
+2026-11-23T11:41:13.4113889Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-11-23T11:41:13.4114341Z env:
+2026-11-23T11:41:13.4114603Z   APP_SLUG: ketikku
+2026-11-23T11:41:13.4114891Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:13.4115250Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:13.4115648Z   CI_VERSION_CODE: 47
+2026-11-23T11:41:13.4115940Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:41:13.4116248Z   VERSION_TAG: v1.1.35
+2026-11-23T11:41:13.4116675Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:13.4117299Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:13.4117794Z ##[endgroup]
+2026-11-23T11:41:20.8376908Z yes: standard output: Broken pipe
+2026-11-23T11:41:21.7359282Z Loading package information...                                                  
+2026-11-23T11:41:21.8455829Z Loading local repository...                                                     
+2026-11-23T11:41:21.8478271Z [                                       ] 3% Loading local repository...        
+2026-11-23T11:41:21.8494231Z [                                       ] 3% Fetch remote repository...         
+2026-11-23T11:41:22.2456765Z [=                                      ] 3% Fetch remote repository...         
+2026-11-23T11:41:22.3451175Z [=                                      ] 4% Fetch remote repository...         
+2026-11-23T11:41:22.3870577Z [=                                      ] 5% Fetch remote repository...         
+2026-11-23T11:41:22.4450324Z [==                                     ] 5% Fetch remote repository...         
+2026-11-23T11:41:22.5134129Z [==                                     ] 6% Fetch remote repository...         
+2026-11-23T11:41:22.5500474Z [==                                     ] 7% Fetch remote repository...         
+2026-11-23T11:41:22.5540111Z [==                                     ] 7% Computing updates...               
+2026-11-23T11:41:22.5589910Z [===                                    ] 8% Computing updates...               
+2026-11-23T11:41:22.5860918Z [===                                    ] 10% Computing updates...              
+2026-11-23T11:41:23.0745330Z [===                                    ] 10% Installing Android SDK Platform-To
+2026-11-23T11:41:23.0858602Z [===                                    ] 10% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.1428881Z [====                                   ] 10% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.1630128Z [====                                   ] 11% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.1970495Z [====                                   ] 12% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.2125199Z [=====                                  ] 13% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.2381054Z [=====                                  ] 14% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.2534217Z [=====                                  ] 15% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.2648814Z [======                                 ] 15% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.2870655Z [======                                 ] 16% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.3146204Z [======                                 ] 17% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.3366132Z [=======                                ] 18% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.3668402Z [=======                                ] 19% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.3727906Z [=======                                ] 20% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.3822179Z [========                               ] 20% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4072678Z [========                               ] 21% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4260843Z [========                               ] 22% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4439464Z [=========                              ] 23% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4648331Z [=========                              ] 24% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4724432Z [=========                              ] 25% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.4809489Z [==========                             ] 25% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5008424Z [==========                             ] 26% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5170904Z [==========                             ] 27% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5354422Z [===========                            ] 28% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5514526Z [===========                            ] 29% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5582593Z [===========                            ] 30% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5700609Z [============                           ] 30% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.5847396Z [============                           ] 31% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.6019847Z [============                           ] 32% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.6020742Z [============                           ] 33% Downloading platform-tools_r37.0.3
+2026-11-23T11:41:23.7534059Z [============                           ] 33% Unzipping...                      
+2026-11-23T11:41:23.7545705Z [============                           ] 33% Unzipping... platform-tools/NOTICE
+2026-11-23T11:41:23.7724769Z [=============                          ] 33% Unzipping... platform-tools/NOTICE
+2026-11-23T11:41:23.7731569Z [=============                          ] 33% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.7799464Z [=============                          ] 34% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.7816514Z [=============                          ] 35% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8046627Z [==============                         ] 35% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8079620Z [==============                         ] 36% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8300037Z [==============                         ] 37% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8409817Z [===============                        ] 38% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8429704Z [===============                        ] 39% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8430300Z [===============                        ] 40% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8449669Z [================                       ] 40% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8469709Z [================                       ] 41% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8470336Z [================                       ] 42% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.8471126Z [=================                      ] 43% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.9346218Z [=================                      ] 44% Unzipping... platform-tools/adb   
+2026-11-23T11:41:23.9356592Z [=================                      ] 44% Unzipping... platform-tools/etc1to
+2026-11-23T11:41:23.9399615Z [=================                      ] 45% Unzipping... platform-tools/etc1to
+2026-11-23T11:41:23.9439611Z [=================                      ] 45% Unzipping... platform-tools/fastbo
+2026-11-23T11:41:23.9479638Z [==================                     ] 45% Unzipping... platform-tools/fastbo
+2026-11-23T11:41:23.9509760Z [==================                     ] 46% Unzipping... platform-tools/fastbo
+2026-11-23T11:41:23.9560773Z [==================                     ] 47% Unzipping... platform-tools/fastbo
+2026-11-23T11:41:23.9687422Z [===================                    ] 48% Unzipping... platform-tools/fastbo
+2026-11-23T11:41:23.9692693Z [===================                    ] 48% Unzipping... platform-tools/hprof-
+2026-11-23T11:41:23.9736871Z [===================                    ] 48% Unzipping... platform-tools/lib64/
+2026-11-23T11:41:23.9779765Z [===================                    ] 49% Unzipping... platform-tools/lib64/
+2026-11-23T11:41:23.9819706Z [===================                    ] 49% Unzipping... platform-tools/make_f
+2026-11-23T11:41:23.9828758Z [===================                    ] 50% Unzipping... platform-tools/make_f
+2026-11-23T11:41:23.9843952Z [===================                    ] 50% Unzipping... platform-tools/mke2fs
+2026-11-23T11:41:23.9899856Z [====================                   ] 50% Unzipping... platform-tools/mke2fs
+2026-11-23T11:41:23.9914108Z [====================                   ] 51% Unzipping... platform-tools/mke2fs
+2026-11-23T11:41:24.0146612Z [====================                   ] 51% Unzipping... platform-tools/source
+2026-11-23T11:41:24.0171446Z [====================                   ] 51% Unzipping... platform-tools/sqlite
+2026-11-23T11:41:24.0218835Z [====================                   ] 52% Unzipping... platform-tools/sqlite
+2026-11-23T11:41:24.0271335Z [=====================                  ] 53% Unzipping... platform-tools/sqlite
+2026-11-23T11:41:24.0341076Z [=====================                  ] 54% Unzipping... platform-tools/sqlite
+2026-11-23T11:41:24.0627641Z [=====================                  ] 55% Unzipping... platform-tools/sqlite
+2026-11-23T11:41:24.0628429Z [=======================================] 100% Unzipping... platform-tools/sqlit
+2026-11-23T11:41:24.4601107Z 

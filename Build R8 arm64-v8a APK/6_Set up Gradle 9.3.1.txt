@@ -1,0 +1,105 @@
+﻿2026-11-23T11:41:24.4996468Z ##[group]Run gradle/actions/setup-gradle@v4
+2026-11-23T11:41:24.4996758Z with:
+2026-11-23T11:41:24.4996955Z   gradle-version: 9.3.1
+2026-11-23T11:41:24.4997179Z   cache-disabled: false
+2026-11-23T11:41:24.4997579Z   cache-read-only: false
+2026-11-23T11:41:24.4997796Z   cache-write-only: false
+2026-11-23T11:41:24.4998014Z   cache-overwrite-existing: false
+2026-11-23T11:41:24.4998249Z   cache-cleanup: on-success
+2026-11-23T11:41:24.4998514Z   gradle-home-cache-includes: caches
+notifications
+
+2026-11-23T11:41:24.4998790Z   add-job-summary: always
+2026-11-23T11:41:24.4999021Z   add-job-summary-as-pr-comment: never
+2026-11-23T11:41:24.4999400Z   dependency-graph: disabled
+2026-11-23T11:41:24.4999678Z   dependency-graph-report-dir: dependency-graph-reports
+2026-11-23T11:41:24.4999990Z   dependency-graph-continue-on-failure: true
+2026-11-23T11:41:24.5000250Z   build-scan-publish: false
+2026-11-23T11:41:24.5000465Z   validate-wrappers: true
+2026-11-23T11:41:24.5000695Z   allow-snapshot-wrappers: false
+2026-11-23T11:41:24.5001015Z   gradle-home-cache-strict-match: false
+2026-11-23T11:41:24.5001262Z   workflow-job-context: null
+2026-11-23T11:41:24.5003435Z   github-token: ***
+2026-11-23T11:41:24.5003623Z env:
+2026-11-23T11:41:24.5003807Z   APP_SLUG: ketikku
+2026-11-23T11:41:24.5004004Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:24.5004241Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:24.5004500Z   CI_VERSION_CODE: 47
+2026-11-23T11:41:24.5004694Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:41:24.5004901Z   VERSION_TAG: v1.1.35
+2026-11-23T11:41:24.5005181Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:24.5005569Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:24.5005902Z   ANDROID_HOME: /usr/local/lib/android/sdk
+2026-11-23T11:41:24.5006156Z   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+2026-11-23T11:41:24.5006398Z ##[endgroup]
+2026-11-23T11:41:25.0516879Z Merged default JDK locations into /home/runner/.m2/toolchains.xml
+2026-11-23T11:41:25.0518472Z Preparing cache for cleanup.
+2026-11-23T11:41:25.0521838Z ##[group]Restore Gradle state from cache
+2026-11-23T11:41:25.6250211Z Cache hit for: gradle-home-v1|Linux-X64|build-release[6cb0ca268bdbe7c83ca5c4b0a31704c8]-9fec7f89f6d8d7d89b8ba5f33d7852cf9602a8a4
+2026-11-23T11:41:26.8685461Z Received 6052922 of 6052922 (100.0%), 6.4 MBs/sec
+2026-11-23T11:41:26.8686661Z Cache Size: ~6 MB (6052922 B)
+2026-11-23T11:41:26.8714850Z [command]/usr/bin/tar -xf /home/runner/work/_temp/8fcf7c84-68c8-4cdc-91f9-07e3c609bcd7/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:27.1604262Z Cache restored successfully
+2026-11-23T11:41:27.1611855Z Restored cache entry with key gradle-home-v1|Linux-X64|build-release[6cb0ca268bdbe7c83ca5c4b0a31704c8]-9fec7f89f6d8d7d89b8ba5f33d7852cf9602a8a4 to /home/runner/.gradle/caches,/home/runner/.gradle/notifications,/home/runner/.gradle/.setup-gradle in 2107ms
+2026-11-23T11:41:27.3809518Z Cache hit for: gradle-dependencies-v1-2e9db1b9e6886d388ab22675ea452758
+2026-11-23T11:41:27.3861846Z Cache hit for: gradle-instrumented-jars-v1-0ef99a0a0d1605cfb282e6dd7bcee025
+2026-11-23T11:41:27.3881145Z Cache hit for: gradle-groovy-dsl-v1-814f7e1816b7efbc0c0af93a12b9626e
+2026-11-23T11:41:27.3886691Z Cache hit for: gradle-transforms-v1-9b2516ad19e5c7c1cd4d8172a9c63362
+2026-11-23T11:41:27.3939035Z Cache hit for: gradle-kotlin-dsl-v1-2cb0c88e9fad9110ffdf648dc3d2d9e3
+2026-11-23T11:41:27.3950775Z Cache hit for: gradle-generated-gradle-jars-v1-cb4b032a7d08b9bf1e84e9eacaebcc29
+2026-11-23T11:41:27.9060143Z Received 64642 of 64642 (100.0%), 0.2 MBs/sec
+2026-11-23T11:41:27.9063090Z Cache Size: ~0 MB (64642 B)
+2026-11-23T11:41:27.9083540Z [command]/usr/bin/tar -xf /home/runner/work/_temp/e0f6398a-7cde-4bd6-84dc-1eb886cdd20b/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:27.9192273Z Cache restored successfully
+2026-11-23T11:41:27.9193930Z Restored cache entry with key gradle-instrumented-jars-v1-0ef99a0a0d1605cfb282e6dd7bcee025 to /home/runner/.gradle/caches/jars-*/*/ in 757ms
+2026-11-23T11:41:27.9214326Z Received 97675 of 97675 (100.0%), 0.3 MBs/sec
+2026-11-23T11:41:27.9222194Z Cache Size: ~0 MB (97675 B)
+2026-11-23T11:41:27.9233996Z [command]/usr/bin/tar -xf /home/runner/work/_temp/a54101d0-2d63-4949-9d0a-14013e08c6fd/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:27.9397473Z Cache restored successfully
+2026-11-23T11:41:27.9399975Z Restored cache entry with key gradle-groovy-dsl-v1-814f7e1816b7efbc0c0af93a12b9626e to /home/runner/.gradle/caches/*/groovy-dsl/*/ in 777ms
+2026-11-23T11:41:28.0891991Z Received 254623 of 254623 (100.0%), 0.5 MBs/sec
+2026-11-23T11:41:28.0893076Z Cache Size: ~0 MB (254623 B)
+2026-11-23T11:41:28.0933534Z [command]/usr/bin/tar -xf /home/runner/work/_temp/950400a6-4103-47d2-9183-c9846df885c7/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:28.1794011Z Cache restored successfully
+2026-11-23T11:41:28.1800585Z Restored cache entry with key gradle-kotlin-dsl-v1-2cb0c88e9fad9110ffdf648dc3d2d9e3 to /home/runner/.gradle/caches/*/kotlin-dsl/accessors/*/,/home/runner/.gradle/caches/*/kotlin-dsl/scripts/*/ in 1017ms
+2026-11-23T11:41:28.5897991Z Received 29360128 of 189312230 (15.5%), 28.0 MBs/sec
+2026-11-23T11:41:28.6263626Z Received 25165824 of 631030960 (4.0%), 23.9 MBs/sec
+2026-11-23T11:41:28.6391885Z Received 29410490 of 41993402 (70.0%), 28.1 MBs/sec
+2026-11-23T11:41:29.6060746Z Received 41993402 of 41993402 (100.0%), 20.4 MBs/sec
+2026-11-23T11:41:29.6063246Z Cache Size: ~40 MB (41993402 B)
+2026-11-23T11:41:29.6068535Z Received 130023424 of 189312230 (68.7%), 61.5 MBs/sec
+2026-11-23T11:41:29.6253772Z [command]/usr/bin/tar -xf /home/runner/work/_temp/a5961ec1-528f-4f11-8bb1-bc142d7a8c37/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:29.6434522Z Received 130023424 of 631030960 (20.6%), 61.3 MBs/sec
+2026-11-23T11:41:30.2083479Z Cache restored successfully
+2026-11-23T11:41:30.2121949Z Restored cache entry with key gradle-generated-gradle-jars-v1-cb4b032a7d08b9bf1e84e9eacaebcc29 to /home/runner/.gradle/caches/9.3.1/generated-gradle-jars/gradle-api-9.3.1.jar in 3050ms
+2026-11-23T11:41:30.3555786Z Received 189312230 of 189312230 (100.0%), 65.3 MBs/sec
+2026-11-23T11:41:30.3560802Z Cache Size: ~181 MB (189312230 B)
+2026-11-23T11:41:30.4275633Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ac5dc8c4-5d03-4649-a251-d42eb943856a/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:30.6435857Z Received 239075328 of 631030960 (37.9%), 75.4 MBs/sec
+2026-11-23T11:41:31.6437110Z Received 293601280 of 631030960 (46.5%), 69.6 MBs/sec
+2026-11-23T11:41:34.3665074Z Received 402653184 of 631030960 (63.8%), 57.0 MBs/sec
+2026-11-23T11:41:35.3807866Z Received 532676608 of 631030960 (84.4%), 65.6 MBs/sec
+2026-11-23T11:41:36.8590477Z Received 536870912 of 631030960 (85.1%), 55.4 MBs/sec
+2026-11-23T11:41:36.8669968Z Cache restored successfully
+2026-11-23T11:41:36.8815294Z Restored cache entry with key gradle-transforms-v1-9b2516ad19e5c7c1cd4d8172a9c63362 to /home/runner/.gradle/caches/transforms-4/*/,/home/runner/.gradle/caches/*/transforms/*/ in 9718ms
+2026-11-23T11:41:37.7175656Z Received 631030960 of 631030960 (100.0%), 59.7 MBs/sec
+2026-11-23T11:41:37.7176180Z Cache Size: ~602 MB (631030960 B)
+2026-11-23T11:41:37.7300898Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ec03f905-c6bb-437e-9a58-3d6d6f1ae7b7/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:43.5457529Z Cache restored successfully
+2026-11-23T11:41:43.6078205Z Restored cache entry with key gradle-dependencies-v1-2e9db1b9e6886d388ab22675ea452758 to /home/runner/.gradle/caches/modules-*/files-*/*/*/*/* in 16445ms
+2026-11-23T11:41:43.6145344Z ##[endgroup]
+2026-11-23T11:41:43.6209811Z ##[group]All Gradle Wrapper jars are valid
+2026-11-23T11:41:43.6210959Z 
+2026-11-23T11:41:43.6211349Z ##[endgroup]
+2026-11-23T11:41:43.7783243Z ##[group]Provision Gradle 9.3.1
+2026-11-23T11:41:48.7678685Z Cache hit for: gradle-9.3.1
+2026-11-23T11:41:49.8215938Z Received 134217728 of 136943103 (98.0%), 128.0 MBs/sec
+2026-11-23T11:41:49.9515972Z Received 136943103 of 136943103 (100.0%), 115.6 MBs/sec
+2026-11-23T11:41:49.9516752Z Cache Size: ~131 MB (136943103 B)
+2026-11-23T11:41:49.9538202Z [command]/usr/bin/tar -xf /home/runner/work/_temp/269c1c7e-68e7-4208-9f24-b0b7e1bd7af2/cache.tzst -P -C /home/runner/work/KetikKu/KetikKu --use-compress-program unzstd
+2026-11-23T11:41:50.1378623Z Cache restored successfully
+2026-11-23T11:41:50.1438696Z Restored Gradle distribution gradle-9.3.1 from cache to /home/runner/work/_temp/.gradle-actions/gradle-installations/downloads/gradle-9.3.1-bin.zip
+2026-11-23T11:41:50.1453544Z [command]/usr/bin/unzip -o -q /home/runner/work/_temp/.gradle-actions/gradle-installations/downloads/gradle-9.3.1-bin.zip
+2026-11-23T11:41:50.9990814Z Extracted Gradle 9.3.1 to /home/runner/work/_temp/.gradle-actions/gradle-installations/installs/gradle-9.3.1
+2026-11-23T11:41:50.9992346Z Provisioned Gradle executable /home/runner/work/_temp/.gradle-actions/gradle-installations/installs/gradle-9.3.1/bin/gradle
+2026-11-23T11:41:50.9993699Z ##[endgroup]

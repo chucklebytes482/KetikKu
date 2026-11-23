@@ -1,0 +1,37 @@
+﻿2026-11-23T11:41:13.1959359Z ##[group]Run actions/setup-java@v4
+2026-11-23T11:41:13.1959807Z with:
+2026-11-23T11:41:13.1960092Z   distribution: temurin
+2026-11-23T11:41:13.1960422Z   java-version: 21
+2026-11-23T11:41:13.1960716Z   java-package: jdk
+2026-11-23T11:41:13.1961012Z   check-latest: false
+2026-11-23T11:41:13.1961301Z   server-id: github
+2026-11-23T11:41:13.1961605Z   server-username: GITHUB_ACTOR
+2026-11-23T11:41:13.1961942Z   server-password: GITHUB_TOKEN
+2026-11-23T11:41:13.1962297Z   overwrite-settings: true
+2026-11-23T11:41:13.1962594Z   job-status: success
+2026-11-23T11:41:13.1966290Z   token: ***
+2026-11-23T11:41:13.1966599Z env:
+2026-11-23T11:41:13.1966875Z   APP_SLUG: ketikku
+2026-11-23T11:41:13.1967188Z   APP_DISPLAY_NAME: KetikKu
+2026-11-23T11:41:13.1967555Z   PUBLIC_SITE_REPO: chucklebytes482/ketikku-site
+2026-11-23T11:41:13.1967996Z   CI_VERSION_CODE: 47
+2026-11-23T11:41:13.1968309Z   CI_VERSION_NAME: 1.1.35
+2026-11-23T11:41:13.1968624Z   VERSION_TAG: v1.1.35
+2026-11-23T11:41:13.1968924Z ##[endgroup]
+2026-11-23T11:41:13.3559399Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+2026-11-23T11:41:13.3566605Z ##[group]Installed distributions
+2026-11-23T11:41:13.3731044Z (node:2151) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-23T11:41:13.3731966Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-23T11:41:13.3732527Z Resolved Java 21.0.13+9 from tool-cache
+2026-11-23T11:41:13.3740101Z Setting Java 21.0.13+9 as the default
+2026-11-23T11:41:13.3741838Z Creating toolchains.xml for JDK version 21 from temurin
+2026-11-23T11:41:13.3791953Z Writing to /home/runner/.m2/toolchains.xml
+2026-11-23T11:41:13.3792586Z 
+2026-11-23T11:41:13.3793304Z Java configuration:
+2026-11-23T11:41:13.3794020Z   Distribution: temurin
+2026-11-23T11:41:13.3794909Z   Version: 21.0.13+9
+2026-11-23T11:41:13.3795685Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.13-9/x64
+2026-11-23T11:41:13.3796662Z 
+2026-11-23T11:41:13.3797460Z ##[endgroup]
+2026-11-23T11:41:13.3842368Z Creating settings.xml with server-id: github
+2026-11-23T11:41:13.3864837Z Writing to /home/runner/.m2/settings.xml
