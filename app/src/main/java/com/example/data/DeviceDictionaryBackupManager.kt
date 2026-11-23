@@ -64,7 +64,7 @@ class DirectoryDeviceBackupStorage(
             if (!file.exists()) return BackupReadResult.NotFound
             if (!file.canRead()) {
                 return BackupReadResult.NeedsFolderAccess(
-                    "File cadangan ditemukan. Pilih folder Documents/KetikKu sekali untuk memberi akses."
+                    "File cadangan ditemukan. Pilih folder di dalam Documents untuk memberi akses."
                 )
             }
             BackupReadResult.Found(
@@ -101,22 +101,22 @@ class AndroidDeviceBackupStorage(
 
     private fun legacyPublicBackupFile(): File {
         val docs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        return File(File(docs, DeviceDictionaryBackupManager.BACKUP_FOLDER_NAME), DeviceDictionaryBackupManager.BACKUP_FILE_NAME)
+        return File(docs, DeviceDictionaryBackupManager.BACKUP_FILE_NAME)
     }
 
     override fun readBackup(persistedTreeUri: String?): BackupReadResult {
-        // Tier 1: Persisted SAF folder URI (if granted by user for cross-install/external files)
+        // Tier 1: Persisted SAF folder URI (bebas memilih jalur di dalam Documents/)
         if (!persistedTreeUri.isNullOrBlank()) {
             val safResult = readViaSafTree(Uri.parse(persistedTreeUri))
             if (safResult != null) return safResult
         }
 
-        // Tier 2: Android 10+ (API 29+) MediaStore.Files in Documents/KetikKu (zero runtime permissions)
+        // Tier 2: Android 10+ (API 29+) MediaStore.Files langsung di Documents/ (tanpa folder otomatis)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             return readViaMediaStore()
         }
 
-        // Tier 3: Legacy Android 7-9 (API 24-28) direct Documents/KetikKu file
+        // Tier 3: Legacy Android 7-9 (API 24-28) langsung di Documents/ketikku_dictionary.json
         return readViaLegacyFile()
     }
 
@@ -127,7 +127,7 @@ class AndroidDeviceBackupStorage(
             if (safResult != null) return safResult
         }
 
-        // Tier 2: Android 10+ (API 29+) MediaStore.Files in Documents/KetikKu (strict in-place replace)
+        // Tier 2: Android 10+ (API 29+) MediaStore.Files langsung di Documents/ (strict in-place replace)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             return writeViaMediaStore(json)
         }
@@ -259,7 +259,7 @@ class AndroidDeviceBackupStorage(
                 val latest = matches.first()
                 val text = resolver.openInputStream(latest.uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
                     ?: return BackupReadResult.NeedsFolderAccess(
-                        "File cadangan lama ditemukan. Pilih folder Documents/KetikKu sekali untuk sinkronisasi penuh."
+                        "File cadangan lama ditemukan. Pilih folder di dalam Documents sekali untuk sinkronisasi penuh."
                     )
                 return BackupReadResult.Found(StoredBackupFile(text, latest.lastModifiedMillis))
             }
@@ -276,7 +276,7 @@ class AndroidDeviceBackupStorage(
                     )
                 } else {
                     BackupReadResult.NeedsFolderAccess(
-                        "File ketikku_dictionary.json lama ditemukan di Documents/KetikKu. Pilih folder sekali untuk memulihkan & menimpa file yang sama."
+                        "File ketikku_dictionary.json ditemukan di Documents. Pilih folder di dalam Documents untuk memulihkan & menimpa file yang sama."
                     )
                 }
             }
@@ -284,7 +284,7 @@ class AndroidDeviceBackupStorage(
         }.getOrElse { err ->
             if (err is SecurityException) {
                 BackupReadResult.NeedsFolderAccess(
-                    "Pilih folder Documents/KetikKu sekali agar KetikKu dapat membaca & menimpa file cadangan yang ada."
+                    "Pilih folder di dalam Documents sekali agar KetikKu dapat membaca & menimpa file cadangan yang ada."
                 )
             } else {
                 BackupReadResult.Error("Gagal membaca cadangan perangkat: ${err.message.orEmpty()}")
@@ -316,7 +316,7 @@ class AndroidDeviceBackupStorage(
                     BackupWriteResult.Success(diskFile.lastModified().coerceAtLeast(System.currentTimeMillis()))
                 } else {
                     BackupWriteResult.NeedsFolderAccess(
-                        "File ketikku_dictionary.json lama ada di Documents/KetikKu. Pilih folder sekali agar file diganti tanpa membuat duplikat."
+                        "File ketikku_dictionary.json lama ada di Documents. Pilih folder di dalam Documents agar file diganti tanpa duplikat."
                     )
                 }
             }
@@ -329,7 +329,7 @@ class AndroidDeviceBackupStorage(
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
             val insertedUri = resolver.insert(collection, values)
-                ?: return BackupWriteResult.Error("Gagal membuat file di Documents/KetikKu.")
+                ?: return BackupWriteResult.Error("Gagal membuat file di Documents.")
             try {
                 writeTextTruncating(insertedUri, json)
                 val ready = ContentValues().apply {
@@ -344,10 +344,10 @@ class AndroidDeviceBackupStorage(
         }.getOrElse { err ->
             if (err is SecurityException) {
                 BackupWriteResult.NeedsFolderAccess(
-                    "Pilih folder Documents/KetikKu sekali agar KetikKu dapat menimpa file cadangan lama tanpa duplikat."
+                    "Pilih folder di dalam Documents sekali agar KetikKu dapat menimpa file cadangan lama tanpa duplikat."
                 )
             } else {
-                BackupWriteResult.Error("Gagal menyimpan ke Documents/KetikKu: ${err.message.orEmpty()}")
+                BackupWriteResult.Error("Gagal menyimpan ke Documents: ${err.message.orEmpty()}")
             }
         }
     }
@@ -358,7 +358,7 @@ class AndroidDeviceBackupStorage(
             if (!file.exists()) return BackupReadResult.NotFound
             if (!file.canRead()) {
                 return BackupReadResult.NeedsFolderAccess(
-                    "Pilih folder Documents/KetikKu sekali untuk memberi akses file cadangan."
+                    "Pilih folder di dalam Documents sekali untuk memberi akses file cadangan."
                 )
             }
             BackupReadResult.Found(
@@ -370,7 +370,7 @@ class AndroidDeviceBackupStorage(
         }.getOrElse { err ->
             if (err is SecurityException) {
                 BackupReadResult.NeedsFolderAccess(
-                    "Pilih folder Documents/KetikKu sekali untuk memberi akses file cadangan."
+                    "Pilih folder di dalam Documents sekali untuk memberi akses file cadangan."
                 )
             } else {
                 BackupReadResult.Error("Gagal membaca file cadangan: ${err.message.orEmpty()}")
@@ -389,7 +389,7 @@ class AndroidDeviceBackupStorage(
         }.getOrElse { err ->
             if (err is SecurityException) {
                 BackupWriteResult.NeedsFolderAccess(
-                    "Pilih folder Documents/KetikKu sekali untuk menyimpan cadangan kamus."
+                    "Pilih folder di dalam Documents sekali untuk menyimpan cadangan kamus."
                 )
             } else {
                 BackupWriteResult.Error("Gagal menyimpan file cadangan: ${err.message.orEmpty()}")
@@ -440,7 +440,7 @@ class DeviceDictionaryBackupManager(
                     is BackupReadResult.NeedsFolderAccess -> {
                         settingsRepository.updateSyncState(
                             lastSyncedAtMillis = syncState.lastSyncedAtMillis,
-                            message = "Perlu izin folder Documents/KetikKu",
+                            message = "Perlu izin folder ${formatBackupShortFolder(treeUri)}",
                             pendingChanges = true
                         )
                         return@withContext DeviceSyncResult.NeedsFolderAccess(existingRead.reason)
@@ -514,7 +514,7 @@ class DeviceDictionaryBackupManager(
                 is BackupReadResult.NeedsFolderAccess -> {
                     settingsRepository.updateSyncState(
                         lastSyncedAtMillis = syncState.lastSyncedAtMillis,
-                        message = "Perlu izin folder Documents/KetikKu",
+                        message = "Perlu izin folder ${formatBackupShortFolder(treeUri)}",
                         pendingChanges = syncState.pendingChanges
                     )
                     return@withContext DeviceSyncResult.NeedsFolderAccess(readResult.reason)
@@ -875,7 +875,7 @@ class DeviceDictionaryBackupManager(
             is BackupWriteResult.NeedsFolderAccess -> {
                 settingsRepository.updateSyncState(
                     lastSyncedAtMillis = previousSyncedAt,
-                    message = "Perlu izin folder Documents/KetikKu",
+                    message = "Perlu izin folder Documents",
                     pendingChanges = previousPending
                 )
                 DeviceSyncResult.NeedsFolderAccess(writeResult.reason)
@@ -917,12 +917,69 @@ class DeviceDictionaryBackupManager(
     }
 
     companion object {
-        const val BACKUP_FOLDER_NAME = "KetikKu"
-        const val BACKUP_RELATIVE_PATH = "Documents/KetikKu"
+        const val BACKUP_RELATIVE_PATH = "Documents"
         const val BACKUP_FILE_NAME = "ketikku_dictionary.json"
-        const val BACKUP_SHORT_PATH = "Documents/KetikKu/ketikku_dictionary.json"
-        const val BACKUP_DISPLAY_PATH = "/storage/emulated/0/Documents/KetikKu/ketikku_dictionary.json"
-        val INITIAL_DOCUMENTS_KETIKKU_URI: Uri =
-            Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADocuments%2FKetikKu")
+        const val BACKUP_SHORT_PATH = "Documents/ketikku_dictionary.json"
+        const val BACKUP_DISPLAY_PATH = "/storage/emulated/0/Documents/ketikku_dictionary.json"
+        private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
+        private const val PRIMARY_DOCUMENTS_PREFIX = "primary:Documents"
+
+        val INITIAL_DOCUMENTS_URI: Uri =
+            Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADocuments")
+
+        /**
+         * Mengekstrak jalur folder relatif di dalam `/storage/emulated/0/Documents/` dari SAF tree URI.
+         * Mengembalikan `"Documents"` untuk root Documents atau `"Documents/Subfolder/..."` untuk subfolder,
+         * atau `null` jika URI berada di luar `/storage/emulated/0/Documents/`.
+         */
+        fun extractDocumentsRelativeFolder(treeUriString: String?): String? {
+            val raw = treeUriString?.trim().orEmpty()
+            if (raw.isEmpty()) return null
+            val uri = runCatching { Uri.parse(raw) }.getOrNull() ?: return null
+            if (!EXTERNAL_STORAGE_AUTHORITY.equals(uri.authority, ignoreCase = true)) return null
+
+            val rawDocId = runCatching { DocumentsContract.getTreeDocumentId(uri) }.getOrNull()
+                ?.takeIf { it.isNotBlank() }
+                ?: run {
+                    val segments = uri.pathSegments
+                    val treeIndex = segments.indexOf("tree")
+                    if (treeIndex >= 0 && treeIndex + 1 < segments.size) {
+                        segments[treeIndex + 1]
+                    } else {
+                        null
+                    }
+                }
+                ?: return null
+
+            val decodedId = Uri.decode(rawDocId).trim()
+            if (!decodedId.startsWith("primary:", ignoreCase = true)) return null
+            val relativeRaw = decodedId.substringAfter(':').trim('/')
+            if (relativeRaw.isEmpty()) return null
+
+            val isRootDocs = relativeRaw.equals("Documents", ignoreCase = true)
+            val isSubfolderOfDocs = relativeRaw.startsWith("Documents/", ignoreCase = true)
+            if (!isRootDocs && !isSubfolderOfDocs) return null
+
+            val normalizedSegments = relativeRaw.split('/').map { it.trim() }
+            if (normalizedSegments.any { it.isEmpty() || it == "." || it == ".." }) return null
+
+            return if (normalizedSegments.size == 1) {
+                BACKUP_RELATIVE_PATH
+            } else {
+                "$BACKUP_RELATIVE_PATH/${normalizedSegments.drop(1).joinToString("/")}"
+            }
+        }
+
+        fun isValidDocumentsTreeUri(treeUriString: String?): Boolean =
+            extractDocumentsRelativeFolder(treeUriString) != null
+
+        fun formatBackupShortFolder(treeUriString: String?): String =
+            extractDocumentsRelativeFolder(treeUriString) ?: BACKUP_RELATIVE_PATH
+
+        fun formatBackupShortFilePath(treeUriString: String?): String =
+            "${formatBackupShortFolder(treeUriString)}/$BACKUP_FILE_NAME"
+
+        fun formatBackupDisplayPath(treeUriString: String?): String =
+            "/storage/emulated/0/${formatBackupShortFilePath(treeUriString)}"
     }
 }

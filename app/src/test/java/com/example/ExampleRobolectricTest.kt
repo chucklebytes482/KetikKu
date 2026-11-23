@@ -1561,7 +1561,10 @@ class ExampleRobolectricTest {
     fun deviceBackupSheetBody_rendersStatusPathSyncAndConditionalFolderAccessButton() {
         var syncClicks = 0
         var folderClicks = 0
+        var resetClicks = 0
         var needsAccess by mutableStateOf(false)
+        var hasCustomFolder by mutableStateOf(false)
+        var customPath by mutableStateOf(com.example.data.DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH)
 
         composeRule.setContent {
             KetikKuTheme(darkTheme = false) {
@@ -1571,8 +1574,11 @@ class ExampleRobolectricTest {
                     statusDotColor = androidx.compose.material3.MaterialTheme.colorScheme.secondary,
                     isSyncing = false,
                     needsFolderAccess = needsAccess,
+                    backupDisplayPath = customPath,
+                    hasCustomFolder = hasCustomFolder,
                     onSyncNow = { syncClicks++ },
-                    onRequestFolderAccess = { folderClicks++ }
+                    onRequestFolderAccess = { folderClicks++ },
+                    onResetFolderToDefault = { resetClicks++ }
                 )
             }
         }
@@ -1582,12 +1588,16 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
         composeRule.onNodeWithTag("device_sync_now_button").assertIsDisplayed()
         composeRule.onNodeWithText(
-            com.example.data.DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH,
+            "/storage/emulated/0/Documents/ketikku_dictionary.json",
             substring = true
         ).assertIsDisplayed()
 
+        // Folder picker button is always available (consistent layout) so user can pick any subfolder inside Documents/
+        composeRule.onNodeWithTag("device_grant_folder_button").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, folderClicks)
+
         // No Google Drive login / disconnect / background schedule clutter
-        assertTrue(composeRule.onAllNodesWithTag("device_grant_folder_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("drive_disconnect_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("drive_connect_google_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Google Drive", substring = true).fetchSemanticsNodes().isEmpty())
@@ -1597,12 +1607,15 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertEquals(1, syncClicks)
 
-        // When folder access is required (e.g., cross-install existing file), show grant folder button
+        // Custom subfolder displays dynamically and offers reset button to return to Documents/ root
+        hasCustomFolder = true
+        customPath = "/storage/emulated/0/Documents/Catatan/ketikku_dictionary.json"
         needsAccess = true
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("device_grant_folder_button").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText(customPath, substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag("device_reset_folder_button").assertIsDisplayed().performClick()
         composeRule.waitForIdle()
-        assertEquals(1, folderClicks)
+        assertEquals(1, resetClicks)
     }
 
     @Test
@@ -2278,6 +2291,146 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("key_backspace").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("typed_preview_text").assertTextEquals("qwertyuiopasd")
+    }
+
+    @Test
+    fun deviceDictionaryBackup_validatesFreeDocumentsPathsWithoutAutoKetikKuSubfolder() {
+        // Default path goes directly into Documents/ without auto-creating KetikKu/ subfolder
+        assertEquals(
+            "Documents",
+            com.example.data.DeviceDictionaryBackupManager.BACKUP_RELATIVE_PATH
+        )
+        assertEquals(
+            "/storage/emulated/0/Documents/ketikku_dictionary.json",
+            com.example.data.DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH
+        )
+        assertEquals(
+            "/storage/emulated/0/Documents/ketikku_dictionary.json",
+            com.example.data.DeviceDictionaryBackupManager.formatBackupDisplayPath(null)
+        )
+
+        val docsRootUri = "content://com.android.externalstorage.documents/tree/primary%3ADocuments"
+        val customSubUri = "content://com.android.externalstorage.documents/tree/primary%3ADocuments%2FCatatan%2FKamus"
+        val outsideDownloadUri = "content://com.android.externalstorage.documents/tree/primary%3ADownload"
+        val traversalUri = "content://com.android.externalstorage.documents/tree/primary%3ADocuments%2F..%2FDownload"
+        val wrongProviderUri = "content://com.other.provider/tree/primary%3ADocuments"
+
+        assertTrue(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(docsRootUri))
+        assertTrue(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(customSubUri))
+        assertFalse(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(outsideDownloadUri))
+        assertFalse(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(traversalUri))
+        assertFalse(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(wrongProviderUri))
+
+        assertEquals(
+            "Documents/Catatan/Kamus",
+            com.example.data.DeviceDictionaryBackupManager.formatBackupShortFolder(customSubUri)
+        )
+        assertEquals(
+            "/storage/emulated/0/Documents/Catatan/Kamus/ketikku_dictionary.json",
+            com.example.data.DeviceDictionaryBackupManager.formatBackupDisplayPath(customSubUri)
+        )
+    }
+
+    @Test
+    fun keyboard_previewShowsSelectedTextWithMatchingFontSizeAndFullHeightDividers() {
+        var value by mutableStateOf(TextFieldValue("halo dunia ", TextRange(11)))
+        val settings = KeyboardSettings()
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "e1", word = "Halo pagi", shortcut = "hp", updatedAtMillis = 1L),
+            PersonalDictionaryEntry(id = "e2", word = "Terima kasih", shortcut = "tk", updatedAtMillis = 2L)
+        )
+        val controller = KeyboardController(
+            target = TextFieldImeTarget(
+                getValue = { value },
+                setValue = { value = it }
+            )
+        )
+        controller.configureForEditor(
+            isNumeric = false,
+            isPassword = false,
+            actionType = com.example.ime.EnterActionType.ENTER,
+            settings = settings,
+            personalEntries = entries
+        )
+
+        composeRule.setContent {
+            KetikKuTheme {
+                KetikKuKeyboardView(
+                    controller = controller,
+                    settings = settings,
+                    personalEntries = entries,
+                    clipboardItems = emptyList(),
+                    onPasteClipboard = {},
+                    onCopySelectionToClipboard = {}
+                )
+            }
+        }
+
+        // 1. Type 'h' -> Column 1 matches "Halo pagi", Column 3 shows typed preview "h"
+        composeRule.onNodeWithTag("key_h").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("typed_preview_text").assertTextEquals("h")
+
+        // 2. Highlight/select text -> Column 3 immediately shows selected text "dunia"
+        value = value.copy(selection = TextRange(5, 10)) // "dunia"
+        controller.onSelectionUpdatedFromIme(hasSelection = true, externalJump = true)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("typed_preview_text").assertTextEquals("dunia")
+
+        // 3. Verify preview text fontSize matches suggestion_chip fontSize (13.sp docked)
+        val previewLayoutResults = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        composeRule.onNodeWithTag("typed_preview_text", useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult]
+            .action?.invoke(previewLayoutResults)
+        val chipTextLayoutResults = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        composeRule.onAllNodesWithText("Halo pagi", useUnmergedTree = true)
+            .fetchSemanticsNodes()
+            .first()
+            .config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult]
+            .action?.invoke(chipTextLayoutResults)
+        assertEquals(
+            chipTextLayoutResults.first().layoutInput.style.fontSize.value,
+            previewLayoutResults.first().layoutInput.style.fontSize.value,
+            0.05f
+        )
+
+        // 4. Verify dividers span full top-to-bottom height of the suggestion strip
+        val stripBounds = composeRule.onNodeWithTag("suggestion_strip_slot").fetchSemanticsNode().boundsInRoot
+        val div1Bounds = composeRule.onNodeWithTag("suggestion_divider_1").fetchSemanticsNode().boundsInRoot
+        val div2Bounds = composeRule.onNodeWithTag("suggestion_divider_2").fetchSemanticsNode().boundsInRoot
+        val toolbarDivBounds = composeRule.onNodeWithTag("suggestion_toolbar_divider").fetchSemanticsNode().boundsInRoot
+        assertTrue("Divider 1 must connect top-to-bottom", abs(div1Bounds.height - stripBounds.height) < 2f)
+        assertTrue("Divider 2 must connect top-to-bottom", abs(div2Bounds.height - stripBounds.height) < 2f)
+        assertTrue("Toolbar divider must connect top-to-bottom", abs(toolbarDivBounds.height - stripBounds.height) < 2f)
+
+        // 5. Release selection -> Column 3 returns to active typed preview ("h")
+        value = value.copy(selection = TextRange(value.text.length))
+        controller.onSelectionUpdatedFromIme(hasSelection = false, externalJump = true)
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("typed_preview_text").assertTextEquals("h")
+    }
+
+    @Test
+    fun keyboard_passwordFieldNeverLeaksSelectedTextIntoPreview() {
+        var value by mutableStateOf(TextFieldValue("rahasia123", TextRange(0, 10)))
+        val settings = KeyboardSettings()
+        val controller = KeyboardController(
+            target = TextFieldImeTarget(
+                getValue = { value },
+                setValue = { value = it }
+            )
+        )
+        controller.configureForEditor(
+            isNumeric = false,
+            isPassword = true,
+            actionType = com.example.ime.EnterActionType.DONE,
+            settings = settings,
+            personalEntries = emptyList()
+        )
+        controller.onSelectionUpdatedFromIme(hasSelection = true, externalJump = true)
+        assertEquals("", controller.selectedPreviewText)
+        assertEquals("", controller.activePreviewText)
     }
 
     @Test

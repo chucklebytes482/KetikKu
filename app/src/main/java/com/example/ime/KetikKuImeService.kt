@@ -353,9 +353,11 @@ class KetikKuImeService : InputMethodService() {
     ) {
         super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
         val externalJump = target.onSelectionUpdated(newSelStart, newSelEnd)
-        if (externalJump) {
-            controller.invalidateLocalWordCache()
-        }
+        val hasSelection = newSelStart >= 0 && newSelEnd >= 0 && newSelStart != newSelEnd
+        controller.onSelectionUpdatedFromIme(
+            hasSelection = hasSelection,
+            externalJump = externalJump
+        )
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

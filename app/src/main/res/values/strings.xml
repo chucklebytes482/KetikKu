@@ -11,6 +11,6 @@
     <string name="action_select_ime">Pilih KetikKu</string>
 
     <string name="device_backup_title">Cadangan Perangkat</string>
-    <string name="device_backup_desc">Sinkronisasi otomatis dua arah kamus pribadi ke /storage/emulated/0/Documents/KetikKu/ketikku_dictionary.json saat aplikasi dibuka.</string>
+    <string name="device_backup_desc">Sinkronisasi otomatis kamus pribadi ke /storage/emulated/0/Documents/ketikku_dictionary.json atau folder pilihan Anda di dalam Documents.</string>
     <string name="device_backup_sync_now">Sinkron Sekarang</string>
 </resources>

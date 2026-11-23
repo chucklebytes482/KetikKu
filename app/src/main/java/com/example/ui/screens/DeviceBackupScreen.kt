@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -67,20 +68,30 @@ fun DeviceBackupSheetContent(
     deviceSyncUiState: DeviceSyncUiState,
     onSyncNow: () -> Unit,
     onFolderAuthorized: (String) -> Unit,
+    onResetFolderToDefault: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val activeWordCount = remember(dictionary) { dictionary.count { !it.deleted } }
+    val hasCustomFolder = remember(syncLocalState.deviceBackupTreeUri) {
+        DeviceDictionaryBackupManager.isValidDocumentsTreeUri(syncLocalState.deviceBackupTreeUri)
+    }
+    val backupDisplayPath = remember(syncLocalState.deviceBackupTreeUri) {
+        DeviceDictionaryBackupManager.formatBackupDisplayPath(syncLocalState.deviceBackupTreeUri)
+    }
 
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { selectedUri: Uri? ->
         if (selectedUri != null) {
-            runCatching {
-                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(selectedUri, flags)
+            val uriString = selectedUri.toString()
+            if (DeviceDictionaryBackupManager.isValidDocumentsTreeUri(uriString)) {
+                runCatching {
+                    val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    context.contentResolver.takePersistableUriPermission(selectedUri, flags)
+                }
             }
-            onFolderAuthorized(selectedUri.toString())
+            onFolderAuthorized(uriString)
         }
     }
 
@@ -110,6 +121,8 @@ fun DeviceBackupSheetContent(
 
     DeviceBackupSheetBody(
         activeWordCount = activeWordCount,
+        backupDisplayPath = backupDisplayPath,
+        hasCustomFolder = hasCustomFolder,
         statusHeadline = statusHeadline,
         statusDotColor = statusDotColor,
         isSyncing = isSyncing,
@@ -117,12 +130,13 @@ fun DeviceBackupSheetContent(
         onSyncNow = onSyncNow,
         onRequestFolderAccess = {
             val initialUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                DeviceDictionaryBackupManager.INITIAL_DOCUMENTS_KETIKKU_URI
+                DeviceDictionaryBackupManager.INITIAL_DOCUMENTS_URI
             } else {
                 null
             }
             folderPickerLauncher.launch(initialUri)
         },
+        onResetFolderToDefault = onResetFolderToDefault,
         modifier = modifier
     )
 }
@@ -136,6 +150,9 @@ internal fun DeviceBackupSheetBody(
     needsFolderAccess: Boolean,
     onSyncNow: () -> Unit,
     onRequestFolderAccess: () -> Unit,
+    backupDisplayPath: String = DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH,
+    hasCustomFolder: Boolean = false,
+    onResetFolderToDefault: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -172,7 +189,7 @@ internal fun DeviceBackupSheetBody(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Otomatis saat aplikasi dibuka • Hanya Kamus Pribadi",
+                    text = "Otomatis saat dibuka & saat diubah • Hanya Kamus Pribadi",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
@@ -181,12 +198,13 @@ internal fun DeviceBackupSheetBody(
             }
         }
 
-        // Status 1 baris
+        // Status 1 baris (dimensi kartu tetap konsisten)
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 52.dp)
                 .border(
                     width = 1.dp,
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
@@ -216,7 +234,7 @@ internal fun DeviceBackupSheetBody(
             }
         }
 
-        // Lokasi file tunggal
+        // Lokasi file tunggal di dalam /storage/emulated/0/Documents/
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
@@ -233,19 +251,43 @@ internal fun DeviceBackupSheetBody(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Lokasi file tunggal ($activeWordCount kata aktif)",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (hasCustomFolder) {
+                        TextButton(
+                            onClick = onResetFolderToDefault,
+                            enabled = !isSyncing,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            modifier = Modifier
+                                .heightIn(min = 32.dp)
+                                .testTag("device_reset_folder_button")
+                        ) {
+                            Text(
+                                text = "Bawaan",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
                 Text(
-                    text = "Lokasi file tunggal ($activeWordCount kata aktif)",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH,
+                    text = backupDisplayPath,
                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.testTag("device_backup_path_text")
                 )
                 Text(
-                    text = "Selalu menimpa file yang sama agar tidak ada duplikat.",
+                    text = "Bebas pilih folder di dalam Documents tanpa dibuatkan folder otomatis.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -254,30 +296,34 @@ internal fun DeviceBackupSheetBody(
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
 
-        if (needsFolderAccess) {
-            OutlinedButton(
-                onClick = onRequestFolderAccess,
-                shape = RoundedCornerShape(28.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 52.dp)
-                    .testTag("device_grant_folder_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.FolderOpen,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "Izinkan Akses Folder Documents/KetikKu",
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+        // Selalu tampil dengan ukuran konsisten agar pengguna bebas memilih jalur di dalam Documents kapan saja
+        OutlinedButton(
+            onClick = onRequestFolderAccess,
+            enabled = !isSyncing,
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 52.dp)
+                .testTag("device_grant_folder_button")
+        ) {
+            Icon(
+                imageVector = Icons.Default.FolderOpen,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = if (needsFolderAccess) {
+                    "Izinkan & Pilih Folder Documents"
+                } else {
+                    "Pilih Folder di Documents"
+                },
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
 
         Button(

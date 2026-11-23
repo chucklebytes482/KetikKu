@@ -401,8 +401,8 @@
         kamus pribadi berbasis <em>personality</em>, serta cadangan otomatis kamus pribadi ke perangkat yang mudah diedit dengan AI.
       </p>
       <div class="hero-actions">
-        <a class="btn btn-white" href="https://github.com/chucklebytes482/KetikKu/releases/latest" target="_blank" rel="noopener">
-          Unduh APK Rilis Terbaru
+        <a class="btn btn-white" href="https://github.com/chucklebytes482/ketikku-site/releases/latest/download/ketikku-latest-arm64-v8a.apk" download>
+          Unduh Aplikasi KetikKu (APK)
         </a>
         <a class="btn btn-ghost" href="#instruksi-ai">Salin Variasi Instruksi AI</a>
       </div>
@@ -410,10 +410,11 @@
 
     <nav class="toc" aria-label="Navigasi Halaman">
       <a href="#cara-penggunaan">1. Cara Penggunaan</a>
-      <a href="#pintasan-ctrl">2. Pintasan Ctrl</a>
-      <a href="#panel-simbol">3. Panel Simbol &amp; Gestur</a>
-      <a href="#sinkronisasi-perangkat">4. Cadangan Perangkat</a>
-      <a href="#instruksi-ai">5. Variasi Instruksi AI</a>
+      <a href="#arti-ikon">2. Arti Ikon</a>
+      <a href="#pintasan-ctrl">3. Pintasan Ctrl</a>
+      <a href="#panel-simbol">4. Panel Simbol &amp; Gestur</a>
+      <a href="#sinkronisasi-perangkat">5. Cadangan Perangkat</a>
+      <a href="#instruksi-ai">6. Variasi Instruksi AI</a>
     </nav>
 
     <section id="cara-penggunaan" class="card">
@@ -439,7 +440,7 @@
             <li>Kelola kamus satu tingkat (tanpa subfolder) dengan 6 folder utama permanen di urutan atas: <strong>Gmail</strong>, <strong>Nomor</strong>, <strong>Pribadi</strong>, <strong>Kata Sandi</strong>, <strong>Kredensial</strong>, dan <strong>Balasan Cepat</strong> (folder utama terlindungi agar tidak dapat diubah nama, dipindahkan, atau dihapus).</li>
             <li>Entri di folder <strong>Kata Sandi</strong> dan <strong>Kredensial</strong> dijaga privasinya: tidak pernah muncul saat kolom kosong maupun saat mengetik awalan isinya, dan <strong>hanya muncul di bilah saran jika pintasannya diketik</strong>.</li>
             <li>Mengetik pintasan <strong>tidak mengganti teks secara otomatis</strong> saat menekan Spasi/Enter — entri muncul di Kolom 1 &amp; 2 bilah saran di <strong>semua kolom teks (termasuk kolom kata sandi)</strong> dan masuk saat chip diketuk.</li>
-            <li><strong>Kolom saran ketiga</strong> (di sebelah bilah alat) menampilkan pratinjau karakter yang sedang diketik dengan <strong>gulir horizontal otomatis</strong> agar ketikan panjang maupun pintasan di kolom sandi tetap mudah dipantau.</li>
+            <li><strong>Kolom pratinjau ketiga</strong> (di sebelah bilah alat) menampilkan pratinjau <strong>teks yang sedang dipilih (disorot)</strong> maupun <strong>karakter yang sedang diketik</strong> dengan ukuran huruf setara saran teks, gulir horizontal otomatis, serta pembatas kolom yang tegas dari atas hingga bawah.</li>
           </ul>
         </div>
 
@@ -463,8 +464,58 @@
       </div>
     </section>
 
+    <section id="arti-ikon" class="card">
+      <h2>2. Arti Ikon di Keyboard &amp; Aplikasi</h2>
+      <p class="section-desc">
+        Panduan ringkas arti setiap ikon pada bilah atas keyboard dan layar pengaturan agar penggunaan makin cepat.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ikon / Simbol</th>
+              <th>Nama</th>
+              <th>Fungsi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>📋</kbd></td>
+              <td>Papan Klip</td>
+              <td>Membuka riwayat teks yang baru disalin untuk ditempel kembali dengan satu ketukan.</td>
+            </tr>
+            <tr>
+              <td><kbd>▣</kbd></td>
+              <td>Mode Melayang</td>
+              <td>Mengubah keyboard menjadi ukuran mengambang yang bebas digeser ke posisi mana saja di layar.</td>
+            </tr>
+            <tr>
+              <td><kbd>⚙</kbd></td>
+              <td>Setelan</td>
+              <td>Membuka layar utama KetikKu untuk mengatur kamus pribadi, cadangan perangkat, dan uji ketik.</td>
+            </tr>
+            <tr>
+              <td><kbd>Ω</kbd></td>
+              <td>Panel Simbol</td>
+              <td>Beralih ke angka, tanda baca, simbol matematika, panah kursor, dan emoji.</td>
+            </tr>
+            <tr>
+              <td><kbd>Ctrl</kbd></td>
+              <td>Kontrol Pintasan</td>
+              <td>Mengaktifkan kombinasi cepat seperti Salin, Tempel, Pilih Semua, dan Urungkan hingga 2 huruf beruntun.</td>
+            </tr>
+            <tr>
+              <td><kbd>📁</kbd></td>
+              <td>Cadangan Perangkat</td>
+              <td>Memilih lokasi bebas di dalam <code>Documents/</code> dan menyinkronkan kamus pribadi secara luring.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section id="pintasan-ctrl" class="card">
-      <h2>2. Pintasan Tombol Ctrl</h2>
+      <h2>3. Pintasan Tombol Ctrl</h2>
       <p class="section-desc">
         KetikKu menyediakan tombol <kbd>Ctrl</kbd> langsung di baris bawah keyboard agar pengeditan teks secepat keyboard fisik.
       </p>
@@ -526,7 +577,7 @@
     </section>
 
     <section id="panel-simbol" class="card">
-      <h2>3. Panel Simbol 2 Halaman &amp; Gestur Cepat</h2>
+      <h2>4. Panel Simbol 2 Halaman &amp; Gestur Cepat</h2>
       <p class="section-desc">
         Ketuk tombol <kbd>Ω</kbd> untuk membuka simbol standar, lalu ketuk <kbd>1/2</kbd> di baris ke-3 untuk berpindah ke Panel 2 tanpa simbol ganda.
       </p>
@@ -556,30 +607,30 @@
     </section>
 
     <section id="sinkronisasi-perangkat" class="card">
-      <h2>4. Sinkronisasi Otomatis Kamus Pribadi ke Perangkat</h2>
+      <h2>5. Sinkronisasi Otomatis Kamus Pribadi ke Perangkat</h2>
       <p class="section-desc">
-        KetikKu bekerja <strong>100% luring tanpa izin internet</strong> sehingga seluruh ketikan dan kata sandi tetap aman di perangkat Anda. Setiap perubahan kamus atau folder di dalam aplikasi <strong>langsung menimpa</strong> 1 berkas tunggal di <code>/storage/emulated/0/Documents/KetikKu/ketikku_dictionary.json</code> (folder yang dihapus tidak akan kembali lagi), sekaligus memeriksa pemulihan otomatis setiap kali aplikasi dibuka — tanpa salinan ganda, tanpa akun Google, dan tanpa layanan latar belakang.
+        KetikKu bekerja <strong>100% luring tanpa izin internet</strong> sehingga seluruh ketikan dan kata sandi tetap aman di perangkat Anda. Secara bawaan cadangan disimpan langsung di <code>/storage/emulated/0/Documents/ketikku_dictionary.json</code> <strong>tanpa membuat folder otomatis</strong>, dan Anda bebas memilih subfolder mana saja di dalam <code>/storage/emulated/0/Documents/</code> kapan saja. Setiap perubahan kamus atau folder di aplikasi <strong>langsung menimpa</strong> berkas tunggal tersebut agar folder yang dihapus tidak kembali lagi.
       </p>
       <div class="grid-2">
         <div class="subcard">
-          <h3>1 Berkas Tunggal &amp; Replace Seketika</h3>
+          <h3>1 Berkas Tunggal &amp; Jalur Bebas di Documents</h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Hanya mencadangkan <strong>Kamus Pribadi</strong>: daftar <code>"folders"</code> serta array <code>"entries"</code> dengan 6 field seragam (<code>id</code>, <code>word</code>, <code>shortcut</code>, <code>folder</code>, <code>updatedAtMillis</code>, <code>deleted</code>) tanpa field <code>"language"</code>. Menambah, mengedit, atau menghapus kata/folder di aplikasi langsung mengganti berkas perangkat seketika.
+            Hanya mencadangkan <strong>Kamus Pribadi</strong>: daftar <code>"folders"</code> serta array <code>"entries"</code> dengan 6 field seragam (<code>id</code>, <code>word</code>, <code>shortcut</code>, <code>folder</code>, <code>updatedAtMillis</code>, <code>deleted</code>) tanpa field <code>"language"</code>. Anda bebas memilih folder mana saja di dalam <code>Documents/</code> atau kembali ke bawaan kapan saja.
           </p>
         </div>
         <div class="subcard">
           <h3>Pemulihan Otomatis &amp; Pengaman Entri Terbanyak</h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Saat aplikasi dibuka, KetikKu memulihkan penuh bila kamus lokal kosong atau bila berkas di <code>Documents/KetikKu</code> lebih baru dengan entri lengkap (misalnya setelah diedit dengan AI). Berkas kosong atau terpotong dengan entri lebih sedikit <strong>tidak akan pernah menimpa kamus lokal</strong> — entri lokal tetap diselamatkan melalui penggabungan aman.
+            Saat aplikasi dibuka, KetikKu memulihkan penuh bila kamus lokal kosong atau bila berkas cadangan di folder <code>Documents</code> pilihan Anda lebih baru dengan entri lengkap (misalnya setelah diedit dengan AI). Berkas kosong atau terpotong dengan entri lebih sedikit <strong>tidak akan pernah menimpa kamus lokal</strong> — entri lokal tetap diselamatkan melalui penggabungan aman.
           </p>
         </div>
       </div>
     </section>
 
     <section id="instruksi-ai" class="card">
-      <h2>5. Variasi Instruksi AI untuk Edit Kamus JSON</h2>
+      <h2>6. Variasi Instruksi AI untuk Edit Kamus JSON</h2>
       <p class="section-desc">
-        Pilih variasi instruksi di bawah, klik tombol <strong>Salin Instruksi</strong> (atau klik langsung kotak kodenya), lalu kirim bersama file <code>ketikku_dictionary.json</code> dari <code>/storage/emulated/0/Documents/KetikKu</code> ke AI pilihan Anda.
+        Pilih variasi instruksi di bawah, klik tombol <strong>Salin Instruksi</strong> (atau klik langsung kotak kodenya), lalu kirim bersama file <code>ketikku_dictionary.json</code> dari <code>/storage/emulated/0/Documents/</code> (atau subfolder pilihan Anda) ke AI pilihan Anda.
       </p>
 
       <div class="prompt-list">
@@ -688,7 +739,7 @@ Aturan pemfolderan:
      "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
      "deleted": false
    }
-5. Kembalikan hanya 1 blok kode JSON valid siap simpan ke /storage/emulated/0/Documents/KetikKu/ketikku_dictionary.json.
+5. Kembalikan hanya 1 blok kode JSON valid siap simpan ke /storage/emulated/0/Documents/ketikku_dictionary.json (atau folder pilihan Anda di dalam Documents).
 
 Kategori folder atau daftar kamus tambahan yang ingin difolderkan:
 - [tulis pembagian kategori/folder atau tempel beberapa daftar kamus di sini]</pre>
@@ -698,9 +749,7 @@ Kategori folder atau daftar kamus tambahan yang ingin difolderkan:
 
     <footer>
       <p>
-        KetikKu Open Repository •
-        <a href="https://github.com/chucklebytes482/KetikKu" target="_blank" rel="noopener">GitHub Repository</a> •
-        <a href="https://github.com/chucklebytes482/KetikKu/releases" target="_blank" rel="noopener">Daftar Rilis APK</a>
+        KetikKu • Keyboard Android 100% Luring &amp; Ringan
       </p>
     </footer>
   </div>

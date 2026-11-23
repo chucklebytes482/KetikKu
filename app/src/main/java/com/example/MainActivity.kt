@@ -249,6 +249,9 @@ private fun KetikKuMainScaffold(
                 onSyncNow = { mainViewModel.syncDictionaryWithDevice(force = true) },
                 onFolderAuthorized = { uriString ->
                     mainViewModel.onDeviceBackupFolderGranted(uriString)
+                },
+                onResetFolderToDefault = {
+                    mainViewModel.resetDeviceBackupFolderToDefault()
                 }
             )
         }

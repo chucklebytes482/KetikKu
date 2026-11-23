@@ -290,6 +290,10 @@ class KeyboardController(
         private set
     var currentTypedText by mutableStateOf("")
         private set
+    var selectedPreviewText by mutableStateOf("")
+        private set
+    val activePreviewText: String
+        get() = selectedPreviewText.ifEmpty { currentTypedText }
     var ctrlActionsRemaining by mutableIntStateOf(0)
         private set
     var dismissedClipboardId by mutableStateOf<String?>(null)
@@ -367,6 +371,64 @@ class KeyboardController(
         localContextValid = false
         clearLocalWordBuffer()
         clearLivePreviewBuffer()
+    }
+
+    fun onSelectionUpdatedFromIme(hasSelection: Boolean, externalJump: Boolean) {
+        val hadSelection = selectedPreviewText.isNotEmpty()
+        if (hasSelection) {
+            localContextValid = false
+            clearLocalWordBuffer()
+            syncSelectedPreviewFromTarget(hasSelectionHint = true)
+        } else {
+            syncSelectedPreviewFromTarget(hasSelectionHint = false)
+            if (externalJump && !hadSelection) {
+                invalidateLocalWordCache()
+            } else if (externalJump) {
+                localContextValid = false
+                clearLocalWordBuffer()
+            }
+        }
+    }
+
+    fun syncSelectedPreviewFromTarget(hasSelectionHint: Boolean? = null) {
+        if (isPasswordField || hasSelectionHint == false) {
+            if (selectedPreviewText.isNotEmpty()) {
+                selectedPreviewText = ""
+            }
+            return
+        }
+        val raw = runCatching { target.getSelectedText() }.getOrDefault("")
+        val normalized = normalizeSelectionForPreview(raw)
+        if (selectedPreviewText != normalized) {
+            selectedPreviewText = normalized
+        }
+    }
+
+    private fun clearSelectedPreview() {
+        if (selectedPreviewText.isNotEmpty()) {
+            selectedPreviewText = ""
+        }
+    }
+
+    private fun normalizeSelectionForPreview(raw: String): String {
+        if (raw.isEmpty()) return ""
+        val singleLine = buildString(raw.length.coerceAtMost(MAX_LIVE_PREVIEW_CHARS)) {
+            var lastWasSpace = false
+            for (ch in raw) {
+                val mapped = if (ch == '\n' || ch == '\r' || ch == '\t') ' ' else ch
+                if (mapped == ' ') {
+                    if (!lastWasSpace && isNotEmpty()) {
+                        append(' ')
+                        lastWasSpace = true
+                    }
+                } else {
+                    append(mapped)
+                    lastWasSpace = false
+                }
+                if (length >= MAX_LIVE_PREVIEW_CHARS) break
+            }
+        }.trim()
+        return singleLine
     }
 
     private fun clearLocalWordBuffer() {
@@ -525,6 +587,7 @@ class KeyboardController(
 
         val output = formatOutput(letterTransformed, settings)
         target.commitText(output)
+        clearSelectedPreview()
 
         if (shiftState == ShiftState.SHIFTED) {
             shiftState = ShiftState.OFF
@@ -578,6 +641,7 @@ class KeyboardController(
         if (ctrlState != CtrlState.OFF) resetCtrlMode()
         recordCompletedTypedWordIfEligible(personalEntries)
         target.commitText(" ")
+        clearSelectedPreview()
         localContextValid = true
         clearLocalWordBuffer()
         clearLivePreviewBuffer()
@@ -590,6 +654,7 @@ class KeyboardController(
     ) {
         if (ctrlState != CtrlState.OFF) resetCtrlMode()
         target.deleteSingleCodePointBeforeCursor()
+        clearSelectedPreview()
         if (livePreviewBuffer.isNotEmpty()) {
             popLivePreviewCodePoint()
         }
@@ -615,6 +680,7 @@ class KeyboardController(
         if (ctrlState != CtrlState.OFF) resetCtrlMode()
         recordCompletedTypedWordIfEligible(personalEntries)
         target.insertNewline()
+        clearSelectedPreview()
         localContextValid = true
         clearLocalWordBuffer()
         clearLivePreviewBuffer()
@@ -628,6 +694,7 @@ class KeyboardController(
         if (ctrlState != CtrlState.OFF) resetCtrlMode()
         recordCompletedTypedWordIfEligible(personalEntries)
         target.performEnterAction(enterActionType)
+        clearSelectedPreview()
         localContextValid = true
         clearLocalWordBuffer()
         clearLivePreviewBuffer()
@@ -657,6 +724,7 @@ class KeyboardController(
             target.commitText(commitValue)
         }
         recordWordUsageInternal(word, personalEntries, forceRecord = true)
+        clearSelectedPreview()
         localContextValid = true
         clearLocalWordBuffer()
         clearLivePreviewBuffer()
@@ -666,24 +734,35 @@ class KeyboardController(
     fun onSpacebarTrackpadStep(steps: Int) {
         if (steps != 0) {
             invalidateLocalWordCache()
+            clearSelectedPreview()
             target.moveCursor(steps, extendSelection = false)
         }
     }
 
     fun onArrowMove(dx: Int, dy: Int) {
-        invalidateLocalWordCache()
         if (dx != 0) target.moveCursor(dx, extendSelection = isSelectionMode)
         if (dy != 0) target.moveCursorVertical(dy)
+        if (isSelectionMode && dx != 0) {
+            localContextValid = false
+            clearLocalWordBuffer()
+            syncSelectedPreviewFromTarget(hasSelectionHint = null)
+        } else {
+            invalidateLocalWordCache()
+            clearSelectedPreview()
+        }
     }
 
     fun onMoveEdge(toStart: Boolean) {
         invalidateLocalWordCache()
+        clearSelectedPreview()
         target.moveCursorToEdge(toStart)
     }
 
     fun onSelectAll() {
-        invalidateLocalWordCache()
+        localContextValid = false
+        clearLocalWordBuffer()
         target.selectAll()
+        syncSelectedPreviewFromTarget(hasSelectionHint = null)
     }
 
     fun onCtrlUndo(
@@ -789,6 +868,7 @@ class KeyboardController(
         // Paste path strictly separated from typing suggestion path
         clearLocalWordBuffer()
         clearLivePreviewBuffer()
+        clearSelectedPreview()
         localContextValid = true
         if (suggestions.isNotEmpty()) suggestions = emptyList()
         if (primaryAutoCorrect != null) primaryAutoCorrect = null
@@ -805,6 +885,7 @@ class KeyboardController(
         if (converted != selected) {
             target.commitText(converted)
             invalidateLocalWordCache()
+            clearSelectedPreview()
         }
     }
 
@@ -827,6 +908,7 @@ class KeyboardController(
         if (!isPasswordField && !localContextValid) {
             seedLocalWordFromTarget()
         }
+        syncSelectedPreviewFromTarget()
         applySuggestionResult(personalEntries)
     }
 

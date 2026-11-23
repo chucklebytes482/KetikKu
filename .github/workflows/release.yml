@@ -23,8 +23,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  APP_SLUG: "KetikKu"
+  APP_SLUG: "ketikku"
   APP_DISPLAY_NAME: "KetikKu"
+  PUBLIC_SITE_REPO: "chucklebytes482/ketikku-site"
 
 jobs:
   build-release:
@@ -162,6 +163,32 @@ jobs:
             echo "KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
           fi
 
+      - name: Cache Robolectric Android SDK JAR
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7
+          key: robolectric-sdk-16-13921718-i7
+
+      - name: Pre-fetch Robolectric Android SDK JAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_DIR="$HOME/.m2/repository/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7"
+          SDK_JAR="$SDK_DIR/android-all-instrumented-16-robolectric-13921718-i7.jar"
+          if [ -s "$SDK_JAR" ]; then exit 0; fi
+          mkdir -p "$SDK_DIR"
+          TMP_JAR="${SDK_JAR}.tmp"
+          PRIMARY_URL="https://maven-central.storage-download.googleapis.com/maven2/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7/android-all-instrumented-16-robolectric-13921718-i7.jar"
+          FALLBACK_URL="https://repo.maven.apache.org/maven2/org/robolectric/android-all-instrumented/16-robolectric-13921718-i7/android-all-instrumented-16-robolectric-13921718-i7.jar"
+          if curl --fail --location --silent --show-error --retry 5 --retry-delay 5 --retry-all-errors -o "$TMP_JAR" "$PRIMARY_URL"; then
+            mv "$TMP_JAR" "$SDK_JAR"
+          elif curl --fail --location --silent --show-error --retry 5 --retry-delay 5 --retry-all-errors -o "$TMP_JAR" "$FALLBACK_URL"; then
+            mv "$TMP_JAR" "$SDK_JAR"
+          else
+            rm -f "$TMP_JAR"
+            exit 1
+          fi
+
       - name: Run Unit & Robolectric Tests
         run: gradle :app:testDebugUnitTest --no-daemon --no-build-cache --stacktrace
 
@@ -171,10 +198,13 @@ jobs:
       - name: Verify APK Signature & Package Release Artifacts
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p dist
           APK_SRC="app/build/outputs/apk/release/app-release.apk"
-          APK_OUT="dist/${APP_SLUG}-${VERSION_TAG}-arm64-v8a-release.apk"
-          cp "$APK_SRC" "$APK_OUT"
+          APK_VERSIONED="${APP_SLUG}-${VERSION_TAG}-arm64-v8a-release.apk"
+          APK_LATEST="${APP_SLUG}-latest-arm64-v8a.apk"
+          cp "$APK_SRC" "dist/$APK_VERSIONED"
+          cp "$APK_SRC" "dist/$APK_LATEST"
 
           SDK_DIR="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
           APKSIGNER=$(find "$SDK_DIR/build-tools" -name apksigner 2>/dev/null | sort -V | tail -n 1)
@@ -182,16 +212,17 @@ jobs:
             echo "apksigner not found under $SDK_DIR/build-tools" >&2
             exit 1
           fi
-          "$APKSIGNER" verify --print-certs "$APK_OUT" | tee dist/CERT_FINGERPRINT.txt
-          sha256sum "$APK_OUT" | tee dist/CHECKSUMS.txt
+          "$APKSIGNER" verify --print-certs "dist/$APK_VERSIONED" | tee dist/CERT_FINGERPRINT.txt
+          (cd dist && sha256sum "$APK_VERSIONED" "$APK_LATEST") | tee dist/CHECKSUMS.txt
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ketikku-release-apk
+          name: ${{ env.APP_SLUG }}-release-apk
           path: dist/*
+          retention-days: 7
 
-      - name: Create GitHub Release
+      - name: Create Private Backup Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION_TAG }}
@@ -202,7 +233,58 @@ jobs:
             dist/CERT_FINGERPRINT.txt
           generate_release_notes: true
 
-      - name: Clean Private Key on Runner
+      - name: Publish Web Panduan to Public Site
+        id: public_site
+        shell: bash
+        env:
+          PUBLIC_DIST_TOKEN: ${{ secrets.PUBLIC_DIST_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PUBLIC_DIST_TOKEN" ]; then
+            echo "::warning::Secret PUBLIC_DIST_TOKEN belum diatur; publikasi situs publik dilewati."
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          WORK_DIR="$RUNNER_TEMP/public-site-sync"
+          rm -rf "$WORK_DIR"
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUBLIC_DIST_TOKEN" | base64 | tr -d '\n')"
+          REMOTE_URL="https://github.com/${PUBLIC_SITE_REPO}.git"
+          if git -c http.extraheader="$AUTH_HEADER" ls-remote --exit-code --heads "$REMOTE_URL" main >/dev/null 2>&1; then
+            git -c http.extraheader="$AUTH_HEADER" clone --depth 1 --branch main "$REMOTE_URL" "$WORK_DIR"
+          else
+            mkdir -p "$WORK_DIR"
+            git init -b main "$WORK_DIR"
+            git -C "$WORK_DIR" remote add origin "$REMOTE_URL"
+          fi
+          find "$WORK_DIR" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          cp -R docs/. "$WORK_DIR/"
+          touch "$WORK_DIR/.nojekyll"
+          git -C "$WORK_DIR" config user.name "github-actions[bot]"
+          git -C "$WORK_DIR" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$WORK_DIR" add -A
+          if ! git -C "$WORK_DIR" diff --cached --quiet; then
+            git -C "$WORK_DIR" commit -m "chore: perbarui situs (${VERSION_TAG})"
+            git -C "$WORK_DIR" -c http.extraheader="$AUTH_HEADER" push -u origin main
+          fi
+          rm -rf "$WORK_DIR"
+          echo "published=true" >> "$GITHUB_OUTPUT"
+
+      - name: Publish Public APK Release
+        if: steps.public_site.outputs.published == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: ${{ env.PUBLIC_SITE_REPO }}
+          token: ${{ secrets.PUBLIC_DIST_TOKEN }}
+          tag_name: ${{ env.VERSION_TAG }}
+          target_commitish: main
+          name: ${{ env.APP_DISPLAY_NAME }} ${{ env.VERSION_TAG }}
+          body: |
+            Rilis terbaru **${{ env.APP_DISPLAY_NAME }} ${{ env.VERSION_TAG }}**.
+          files: |
+            dist/${{ env.APP_SLUG }}-latest-arm64-v8a.apk
+          generate_release_notes: false
+
+      - name: Clean Private Key & Temp Sync
         if: always()
         shell: bash
-        run: rm -f "$RUNNER_TEMP/upload.jks"
+        run: rm -rf "$RUNNER_TEMP/upload.jks" "$RUNNER_TEMP/public-site-sync"

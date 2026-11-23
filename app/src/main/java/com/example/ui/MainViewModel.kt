@@ -112,9 +112,17 @@ class MainViewModel(
     }
 
     fun updatePlaygroundText(value: TextFieldValue) {
+        val textChanged = value.text != playgroundText.text
         playgroundText = value
-        playgroundController.invalidateLocalWordCache()
-        playgroundController.refreshState(settings.value, dictionary.value)
+        if (textChanged) {
+            playgroundController.invalidateLocalWordCache()
+            playgroundController.refreshState(settings.value, dictionary.value)
+        } else {
+            playgroundController.onSelectionUpdatedFromIme(
+                hasSelection = !value.selection.collapsed,
+                externalJump = true
+            )
+        }
     }
 
     fun clearPlaygroundText() {
@@ -330,8 +338,21 @@ class MainViewModel(
 
     fun onDeviceBackupFolderGranted(treeUri: String) {
         if (treeUri.isBlank()) return
+        if (!DeviceDictionaryBackupManager.isValidDocumentsTreeUri(treeUri)) {
+            _deviceSyncUiState.value = DeviceSyncUiState.Error(
+                "Pilih folder di dalam /storage/emulated/0/Documents/"
+            )
+            return
+        }
         viewModelScope.launch {
             settingsRepository.saveDeviceBackupTreeUri(treeUri)
+            syncDictionaryWithDevice(force = true)
+        }
+    }
+
+    fun resetDeviceBackupFolderToDefault() {
+        viewModelScope.launch {
+            settingsRepository.saveDeviceBackupTreeUri("")
             syncDictionaryWithDevice(force = true)
         }
     }

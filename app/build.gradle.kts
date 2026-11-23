@@ -16,7 +16,7 @@ plugins {
   // alias(libs.plugins.google.services)
 }
 
-val robolectricSdk by configurations.creating {
+val robolectricSdk = configurations.create("robolectricSdk") {
   isCanBeConsumed = false
   isCanBeResolved = true
   isTransitive = false
@@ -121,7 +121,10 @@ android {
           file("/home/appuser/$robolectricRelPath"),
           System.getenv("HOME")?.let { file("$it/$robolectricRelPath") },
         ).distinctBy { it.absolutePath }
-        val localSdkDir = candidateDirs.firstOrNull { it.resolve(robolectricJarName).isFile }
+        val localSdkDir = candidateDirs.firstOrNull { dir ->
+          val jar = dir.resolve(robolectricJarName)
+          jar.isFile && jar.length() > 0L
+        }
         if (localSdkDir != null) {
           test.systemProperty("robolectric.offline", "true")
           test.systemProperty("robolectric.dependency.dir", localSdkDir.absolutePath)

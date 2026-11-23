@@ -1137,12 +1137,31 @@ private fun TopUtilityAndSuggestionBar(
     val btnSize = if (isFloating) 28.dp else 34.dp
     val iconSize = if (isFloating) 15.dp else 18.dp
     val statusMsg = controller.clipboardStatusMessage
+    val dividerColor = palette.keyHintText.copy(alpha = 0.55f)
+    val previewText = controller.activePreviewText
+    val isSelectionPreview = controller.selectedPreviewText.isNotEmpty()
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(barHeight)
             .background(palette.stripBg)
+            .drawBehind {
+                val strokePx = 1.dp.toPx()
+                val halfStroke = strokePx / 2f
+                drawLine(
+                    color = dividerColor,
+                    start = Offset(0f, halfStroke),
+                    end = Offset(size.width, halfStroke),
+                    strokeWidth = strokePx
+                )
+                drawLine(
+                    color = dividerColor,
+                    start = Offset(0f, size.height - halfStroke),
+                    end = Offset(size.width, size.height - halfStroke),
+                    strokeWidth = strokePx
+                )
+            }
             .padding(horizontal = hPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(if (isFloating) 4.dp else 6.dp)
@@ -1173,7 +1192,9 @@ private fun TopUtilityAndSuggestionBar(
                     SuggestionChipsRow(
                         suggestions = controller.suggestions,
                         primaryAutoCorrect = controller.primaryAutoCorrect,
-                        typedText = controller.currentTypedText,
+                        previewText = previewText,
+                        isSelectionPreview = isSelectionPreview,
+                        dividerColor = dividerColor,
                         palette = palette,
                         fontFamily = chipFontFamily,
                         fontStyle = keyFontStyle,
@@ -1190,6 +1211,15 @@ private fun TopUtilityAndSuggestionBar(
                 }
             }
         }
+
+        // Full-height divider separating suggestion/preview strip from fixed right utility toolbar
+        Box(
+            modifier = Modifier
+                .width(1.5.dp)
+                .fillMaxHeight()
+                .background(dividerColor)
+                .testTag("suggestion_toolbar_divider")
+        )
 
         // Right side: Fixed-position, fixed-size utility toolbar (never shifts or wraps)
         FixedToolbarIconRow(
@@ -1301,9 +1331,9 @@ private fun SuggestionColumnDivider(
 ) {
     Box(
         modifier = Modifier
-            .width(1.dp)
-            .height(18.dp)
-            .background(color.copy(alpha = 0.55f))
+            .width(1.5.dp)
+            .fillMaxHeight()
+            .background(color)
             .testTag(tag)
     )
 }
@@ -1312,7 +1342,9 @@ private fun SuggestionColumnDivider(
 private fun SuggestionChipsRow(
     suggestions: List<String>,
     primaryAutoCorrect: String?,
-    typedText: String,
+    previewText: String,
+    isSelectionPreview: Boolean,
+    dividerColor: Color,
     palette: KeyboardPalette,
     fontFamily: FontFamily,
     fontStyle: FontStyle,
@@ -1321,13 +1353,16 @@ private fun SuggestionChipsRow(
     modifier: Modifier = Modifier
 ) {
     val chipHeight = if (isFloating) 30.dp else 32.dp
+    val stripFontSize = if (isFloating) 11.sp else 13.sp
     val previewScrollState = rememberScrollState()
 
-    LaunchedEffect(typedText, previewScrollState.maxValue) {
-        if (typedText.isNotEmpty()) {
+    LaunchedEffect(previewText, isSelectionPreview, previewScrollState.maxValue) {
+        if (previewText.isEmpty() || isSelectionPreview) {
+            if (previewScrollState.value != 0) {
+                previewScrollState.scrollTo(0)
+            }
+        } else {
             previewScrollState.scrollTo(previewScrollState.maxValue)
-        } else if (previewScrollState.value != 0) {
-            previewScrollState.scrollTo(0)
         }
     }
 
@@ -1336,11 +1371,11 @@ private fun SuggestionChipsRow(
         horizontalArrangement = Arrangement.spacedBy(if (isFloating) 2.dp else 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Columns 1 & 2: borderless interactive dictionary suggestions separated by permanent subtle | dividers
+        // Columns 1 & 2: borderless interactive dictionary suggestions separated by full-height dividers
         (0 until 2).forEach { index ->
             if (index > 0) {
                 SuggestionColumnDivider(
-                    color = palette.borderColor,
+                    color = dividerColor,
                     tag = "suggestion_divider_1"
                 )
             }
@@ -1366,7 +1401,7 @@ private fun SuggestionChipsRow(
                 Text(
                     text = word,
                     color = if (isHighlighted) palette.accentBg else palette.keyText,
-                    fontSize = if (isFloating) 11.sp else 13.sp,
+                    fontSize = stripFontSize,
                     fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Medium,
                     fontFamily = fontFamily,
                     fontStyle = fontStyle,
@@ -1376,13 +1411,13 @@ private fun SuggestionChipsRow(
             }
         }
 
-        // Permanent thin | divider between Column 2 and Column 3
+        // Permanent full-height divider between Column 2 and Column 3
         SuggestionColumnDivider(
-            color = palette.borderColor,
+            color = dividerColor,
             tag = "suggestion_divider_2"
         )
 
-        // Column 3 (nearest to right utility toolbar): borderless auto-scrolling live typed characters preview (read-only)
+        // Column 3 (nearest to right utility toolbar): auto-scrolling live preview of selected or typed text
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -1390,15 +1425,20 @@ private fun SuggestionChipsRow(
                 .testTag("typed_preview_slot")
                 .padding(horizontal = if (isFloating) 4.dp else 6.dp)
                 .then(
-                    if (typedText.isNotEmpty()) {
-                        Modifier.semantics { contentDescription = "Pratinjau karakter diketik: $typedText" }
+                    if (previewText.isNotEmpty()) {
+                        val prefix = if (isSelectionPreview) {
+                            "Pratinjau teks terpilih: "
+                        } else {
+                            "Pratinjau karakter diketik: "
+                        }
+                        Modifier.semantics { contentDescription = "$prefix$previewText" }
                     } else {
                         Modifier
                     }
                 ),
             contentAlignment = Alignment.CenterStart
         ) {
-            if (typedText.isNotEmpty()) {
+            if (previewText.isNotEmpty()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1406,10 +1446,10 @@ private fun SuggestionChipsRow(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = typedText,
-                        color = palette.keyText.copy(alpha = 0.85f),
-                        fontSize = if (isFloating) 11.sp else 12.sp,
-                        fontWeight = FontWeight.Normal,
+                        text = previewText,
+                        color = if (isSelectionPreview) palette.accentBg else palette.keyText,
+                        fontSize = stripFontSize,
+                        fontWeight = FontWeight.Medium,
                         fontFamily = fontFamily,
                         fontStyle = fontStyle,
                         maxLines = 1,

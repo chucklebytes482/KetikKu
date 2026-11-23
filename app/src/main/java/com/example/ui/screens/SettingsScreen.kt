@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.data.DeviceDictionaryBackupManager
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
@@ -75,7 +76,7 @@ import com.example.ui.theme.AmberPending
 import com.example.ui.theme.MintSynced
 import kotlinx.coroutines.delay
 
-internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/KetikKu/"
+internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/ketikku-site/"
 
 internal const val KETIKKU_GENERAL_AI_PROMPT = """Struktur berkas JSON kamus pribadi KetikKu (ketikku_dictionary.json):
 {
@@ -138,14 +139,17 @@ fun SettingsScreen(
         ) {
             // 1. Paling atas: Cadangan Perangkat Otomatis (ModalBottomSheet)
             item {
+                val activeFolderLabel = remember(syncLocalState.deviceBackupTreeUri) {
+                    DeviceDictionaryBackupManager.formatBackupShortFolder(syncLocalState.deviceBackupTreeUri)
+                }
                 val backupSubtitle = when (deviceSyncUiState) {
-                    is DeviceSyncUiState.Syncing -> "Documents/KetikKu • Menyinkronkan..."
-                    is DeviceSyncUiState.NeedsFolderAccess -> "Documents/KetikKu • Perlu izin folder"
-                    is DeviceSyncUiState.Error -> "Documents/KetikKu • Gagal sinkronisasi"
+                    is DeviceSyncUiState.Syncing -> "$activeFolderLabel • Menyinkronkan..."
+                    is DeviceSyncUiState.NeedsFolderAccess -> "$activeFolderLabel • Perlu izin folder"
+                    is DeviceSyncUiState.Error -> "$activeFolderLabel • Gagal sinkronisasi"
                     is DeviceSyncUiState.Idle -> if (syncLocalState.lastSyncedAtMillis > 0L) {
-                        "Documents/KetikKu • Tersinkronisasi"
+                        "$activeFolderLabel • Tersinkronisasi"
                     } else {
-                        "Documents/KetikKu • Otomatis saat dibuka"
+                        "$activeFolderLabel • Otomatis saat dibuka"
                     }
                 }
                 Surface(
@@ -200,7 +204,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 2. Nomor 2: Web Panduan (GitHub Pages)
+            // 2. Nomor 2: Web Panduan
             item {
                 Surface(
                     shape = RoundedCornerShape(18.dp),
@@ -245,7 +249,7 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "GitHub Pages",
+                                text = "Panduan & Arti Ikon",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -356,7 +360,10 @@ fun SettingsScreen(
 
             // 6. 1 Prompt AI Umum untuk edit ketikku_dictionary.json
             item {
-                GeneralAiPromptCard(context = context)
+                val activeFilePath = remember(syncLocalState.deviceBackupTreeUri) {
+                    DeviceDictionaryBackupManager.formatBackupShortFilePath(syncLocalState.deviceBackupTreeUri)
+                }
+                GeneralAiPromptCard(context = context, activeFilePath = activeFilePath)
             }
 
             item { Spacer(Modifier.height(24.dp)) }
@@ -365,7 +372,10 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun GeneralAiPromptCard(context: Context) {
+private fun GeneralAiPromptCard(
+    context: Context,
+    activeFilePath: String = DeviceDictionaryBackupManager.BACKUP_SHORT_PATH
+) {
     var copied by remember { mutableStateOf(false) }
 
     LaunchedEffect(copied) {
@@ -412,7 +422,7 @@ private fun GeneralAiPromptCard(context: Context) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Referensi struktur Documents/KetikKu/ketikku_dictionary.json",
+                        text = "Referensi struktur $activeFilePath",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
