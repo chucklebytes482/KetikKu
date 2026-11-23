@@ -1,39 +1,41 @@
-# Prompt Generator Kredensial Rilis & Pengunduh HTML VeraCrypt (Umum)
+# Dokumentasi & Instruksi Kredensial Rilis & VeraCrypt HTML (Umum)
 
-Panduan singkat untuk meminta AI membuat kredensial rilis permanen Android, mengemas **berkas rahasia saja** ke kontainer **VeraCrypt v5** (`<slug_app>_secrets.hc`), lalu menyediakannya dalam **1 berkas HTML di root** (`<slug_app>_secrets_download.html`) agar dapat diunduh lewat browser dan langsung dihapus pengguna setelah selesai.
-
----
-
-## 1. Perintah Siap Salin untuk AI
-
-```text
-Buatkan kredensial rilis permanen untuk aplikasi Android yang sedang kita buat, kemas HANYA berkas rahasianya ke kontainer standar VeraCrypt v5 (`<slug_app>_secrets.hc`, ukuran 1,00 MiB) di `/tmp`, lalu bungkus ke dalam 1 berkas HTML mandiri di root repositori (`<slug_app>_secrets_download.html`) agar bisa diunduh lewat browser.
-
-Berkas rahasia yang wajib dimasukkan ke folder `release/` di dalam kontainer `.hc`:
-1. `<slug_app>-release.jks`: keystore permanen RSA 2048-bit, berlaku 30 tahun (`-validity 10950`), alias `upload`, dengan `STORE_PASSWORD` dan `KEY_PASSWORD` acak 24 karakter alfanumerik.
-2. `keystore.properties`: berisi `storeFile`, `storePassword`, `keyAlias`, dan `keyPassword`.
-3. `GITHUB_SECRETS.md`: hanya berisi kotak kode terpisah 1-ketuk untuk `RELEASE_KEYSTORE_BASE64` (1 baris tanpa spasi/baris baru), `STORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS` (`upload`), serta pengingat opsional `PUBLIC_DIST_TOKEN` (1 Fine-grained PAT bersama dengan izin `Contents: Read and write` untuk semua repo publik `*-site` — cukup tambah centang repo baru pada PAT yang sama atau pilih *All repositories* tanpa perlu buat PAT baru).
-4. *(Opsional)* `.env` hanya jika aplikasi memakai API key eksternal (aplikasi 100% luring cukup 3 berkas di atas).
-
-Aturan Enkripsi, HTML Pengunduh & Keamanan:
-- Format kontainer: VeraCrypt v5, AES-256-XTS, PBKDF2-HMAC-SHA512 (500.000 iterasi / PIM default), header utama + cadangan valid, filesystem internal `ext2`.
-- Bungkus biner `.hc` (Base64 dibungkus 76 karakter/baris) ke 1 berkas HTML mandiri di root: `<slug_app>_secrets_download.html` dengan tombol unduh utama (Blob), tautan cadangan (Data URL), serta verifikasi SHA-256 otomatis di browser. Jangan simpan file biner `.hc` terpisah atau folder `secret/`.
-- Jangan ubah `debug.keystore`, `debug.keystore.base64`, atau `signingConfigs` / `signingConfig` di `app/build.gradle.kts`.
-- Proses seluruh berkas mentah dan `.hc` di `/tmp` lalu hapus bersih setelah masuk ke `<slug_app>_secrets_download.html`.
-- JANGAN menyembunyikan `<slug_app>_secrets_download.html` di `.gitignore` agar terlihat di root dan dapat langsung dihapus pengguna setelah `.hc` diunduh; tetap blokir rahasia mentah (`*.jks`, `*.keystore`, `*.b64`, `keystore.properties`, `google-services.json`, `.env`) di `.gitignore`.
-- Verifikasi dekripsi kontainer (header utama & cadangan, CRC-32, `e2fsck`, `keytool` SHA-1/SHA-256) serta verifikasi round-trip Base64 HTML cocok 100% SHA-256, lalu tampilkan password kontainer di respons chat saja (jangan pernah tulis password ke HTML atau berkas repositori mana pun).
-```
+Panduan operasional bagi pengembang untuk menghasilkan kredensial rilis permanen Android, mengemas berkas rahasia ke kontainer **VeraCrypt v5** (`<slug_app>_secrets.hc`), lalu membungkusnya menjadi **1 berkas HTML mandiri di root** (`<slug_app>_secrets_download.html`) agar dapat diunduh lewat browser dan langsung dihapus dari repositori setelah selesai.
 
 ---
 
-## 2. Daftar Isi Standar Kontainer `<slug_app>_secrets.hc` (di dalam `<slug_app>_secrets_download.html`)
+## 1. Cara Penggunaan Dokumen Ini
 
-Hanya berisi berkas rahasia (tanpa panduan umum, tanpa setup Google Cloud, dan tanpa file publik):
+Cukup kirimkan file panduan ini atau instruksi singkat ke AI, lalu ketik:
+> **"jalankan"** atau **"jalankan yang sesuai saja"**
+
+AI akan secara otomatis memahami spesifikasi di bawah dan menjalankan seluruh proses pembuatan kredensial, kontainer VeraCrypt, serta berkas HTML pengunduh di root.
+
+---
+
+## 2. Spesifikasi Otomatis yang Dijalankan oleh AI
+
+1. **Keystore & Kredensial Rilis (`release/`)**:
+   - `<slug_app>-release.jks`: Keystore permanen RSA 2048-bit, berlaku 30 tahun (`-validity 10950`), alias `upload`, dengan `STORE_PASSWORD` dan `KEY_PASSWORD` acak 24 karakter alfanumerik.
+   - `keystore.properties`: Berisi konfigurasi penandatanganan lokal (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`).
+   - `GITHUB_SECRETS.md`: Kotak kode 1-ketuk untuk `RELEASE_KEYSTORE_BASE64` (1 baris tanpa spasi/baris baru), `STORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS`, serta pengingat `PUBLIC_DIST_TOKEN` (1 Fine-grained PAT bersama untuk semua repo `*-site`).
+
+2. **Kontainer VeraCrypt (`<slug_app>_secrets.hc`)**:
+   - Format: VeraCrypt v5, AES-256-XTS, PBKDF2-HMAC-SHA512 (500.000 iterasi), filesystem internal `ext2`, ukuran 1,00 MiB.
+   - Diproses di `/tmp` dan langsung dikemas ke HTML mandiri.
+
+3. **Berkas HTML Pengunduh di Root (`<slug_app>_secrets_download.html`)**:
+   - Berisi biner `.hc` (Base64 dibungkus 76 karakter/baris) dengan tombol unduh utama (Blob), tautan cadangan (Data URL), dan verifikasi SHA-256 otomatis di browser.
+   - **Tidak disembunyikan di `.gitignore`** agar terlihat di root repo privat, sehingga pengguna dapat mengunduhnya lewat browser lalu menghapusnya dengan aman.
+   - RAHASIA MENTAH (`*.jks`, `*.keystore`, `*.b64`, `keystore.properties`, `.env`, dll.) tetap diblokir total di `.gitignore`.
+
+---
+
+## 3. Daftar Isi Standar Kontainer `<slug_app>_secrets.hc`
 
 | Lokasi di Dalam `.hc` | Isi |
 |---|---|
 | `release/<slug_app>-release.jks` | Keystore rilis permanen (RSA 2048-bit, alias `upload`, berlaku 30 tahun) |
 | `release/keystore.properties` | Konfigurasi signing lokal (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`) |
-| `release/GITHUB_SECRETS.md` | Nilai 1-ketuk salin: `RELEASE_KEYSTORE_BASE64`, `STORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS` (+ catatan 1 Fine-grained PAT bersama `PUBLIC_DIST_TOKEN` untuk semua repo Dual-Repo) |
+| `release/GITHUB_SECRETS.md` | Nilai 1-ketuk salin: `RELEASE_KEYSTORE_BASE64`, `STORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS` (+ info `PUBLIC_DIST_TOKEN`) |
 | *(Opsional)* `release/.env` | Hanya bila aplikasi memakai API key eksternal (tidak diperlukan untuk aplikasi 100% luring) |
-| *(Opsional)* `katasandi/` | Daftar kata sandi tambahan bila diminta |
