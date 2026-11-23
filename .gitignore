@@ -24,6 +24,7 @@ firebase-applet-config.json
 *.jks
 *.keystore
 *.b64
+*.hc
 dist/
 releases/
 *.apk

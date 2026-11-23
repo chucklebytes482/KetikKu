@@ -491,7 +491,7 @@ fun SelectionActionBar(
 
 ## 5. Template Unit Test & Robolectric (`AppVerificationTest.kt`)
 
-Jalankan `gradle :app:testDebugUnitTest --no-daemon` dengan cache lokal Robolectric offline-first + mirror Google Maven Central (`apk_Release_Setup_Guide_(umum).md`).
+Jalankan `gradle :app:testDebugUnitTest --no-daemon` dengan cache lokal Robolectric offline-first + mirror Google Maven Central (`03_apk_Release_Setup_Guide_(umum).md`).
 
 ```kotlin
 package com.contoh.aplikasi

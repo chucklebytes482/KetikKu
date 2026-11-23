@@ -3,11 +3,11 @@
 **Kotlin + Jetpack Compose + Material 3 | MVVM | Rilis APK & Situs Publik via GitHub Actions**
 
 ### Daftar Dokumen di `panduan/`
-1. `Panduan_Personality_Build_APK_(umum).md` — Aturan inti, alur kerja, template prompt, dan checklist rilis.
-2. `Template_Source_Code_UI_Sync_(umum).md` — Contoh kode Kotlin siap salin (tema sistem, Beranda, sinkronisasi otomatis perangkat, mode pilih, & test).
-3. `apk_Release_Setup_Guide_(umum).md` — Setup keystore, GitHub Secrets, `.gitignore`, mirror Maven anti-429, `gradle.properties`, Gradle R8, ProGuard, `.github/workflows/release.yml`, dan `.github/workflows/publish-site.yml`.
-4. `Prompt_Generator_Kredensial_Rilis_(umum).md` — Prompt generator kredensial rilis permanen ke 1 file HTML pengunduh kontainer VeraCrypt (`.hc`) di root.
-5. `Alur_Mindmap_Build_APK_(umum).json` — Ringkasan visual alur build.
+1. `01_Panduan_Personality_Build_APK_(umum).md` — Aturan inti, alur kerja, template prompt, dan checklist rilis.
+2. `02_Template_Source_Code_UI_Sync_(umum).md` — Contoh kode Kotlin siap salin (tema sistem, Beranda, sinkronisasi otomatis perangkat, mode pilih, & test).
+3. `03_apk_Release_Setup_Guide_(umum).md` — Setup keystore, GitHub Secrets, `.gitignore`, mirror Maven anti-429, `gradle.properties`, Gradle R8, ProGuard, `.github/workflows/release.yml`, dan `.github/workflows/publish-site.yml`.
+4. `04_Prompt_Generator_Kredensial_Rilis_(umum).md` — Spesifikasi siap-jalankan (cukup kirim + ketik *"jalankan"*) untuk 3 berkas rahasia (`GITHUB_SECRETS.md`, `apk Fingerprint.md`, `release.jks`) di dalam kontainer VeraCrypt v5 asli (1–2 MiB) yang dibungkus 1 file HTML pengunduh di root.
+5. `05_Alur_Mindmap_Build_APK_(umum).json` — Ringkasan visual alur build.
 
 ---
 

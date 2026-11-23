@@ -1,8 +1,0 @@
-2026-11-23T11:41:03.9260000Z Evaluating build-release.if
-2026-11-23T11:41:03.9260000Z Evaluating: success()
-2026-11-23T11:41:03.9260000Z Result: true
-2026-11-23T11:41:03.9310000Z Requested labels: ubuntu-latest
-2026-11-23T11:41:03.9310000Z Job defined at: chucklebytes482/KetikKu/.github/workflows/release.yml@refs/heads/main
-2026-11-23T11:41:03.9310000Z Waiting for a runner to pick up this job...
-2026-11-23T11:41:04.3680000Z Job is waiting for a hosted runner to come online.
-2026-11-23T11:41:04.3710000Z Job is about to start running on the hosted runner: GitHub Actions 1000000477

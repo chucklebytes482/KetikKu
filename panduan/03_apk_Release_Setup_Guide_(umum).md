@@ -6,7 +6,7 @@ Referensi teknis siap salin untuk keystore rilis, GitHub Secrets, `.gitignore`, 
 
 ## 1. Keystore Rilis & Encode Base64
 
-Buat keystore di luar repositori Git (atau gunakan `Prompt_Generator_Kredensial_Rilis_(umum).md` untuk generate otomatis ke 1 file HTML pengunduh `.hc` di root):
+Buat keystore di luar repositori Git (atau gunakan `04_Prompt_Generator_Kredensial_Rilis_(umum).md` untuk generate otomatis ke 1 file HTML pengunduh `.hc` di root):
 
 ```bash
 keytool -genkeypair -v \
@@ -44,6 +44,7 @@ local.properties
 *.jks
 *.keystore
 *.b64
+*.hc
 keystore.properties
 debug.keystore
 google-services.json

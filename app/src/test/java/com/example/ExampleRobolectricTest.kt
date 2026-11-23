@@ -685,6 +685,10 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertEquals("Halo ", value.text)
         composeRule.onNodeWithContentDescription("Ctrl nonaktif").assertIsDisplayed()
+        assertTrue(
+            composeRule.onAllNodesWithTag("ctrl_armed_indicator", useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty()
+        )
 
         // Redo needs its own Ctrl tap (1/1, auto-OFF)
         composeRule.onNodeWithTag("key_ctrl").performClick()
@@ -723,7 +727,7 @@ class ExampleRobolectricTest {
         assertEquals("KetikKu", value.text)
         composeRule.onNodeWithContentDescription("Ctrl nonaktif").assertIsDisplayed()
 
-        // Tapping Ctrl again immediately cancels Ctrl (no lock mode), and Backspace also resets Ctrl
+        // Tapping Ctrl again immediately cancels Ctrl (no lock mode), and Backspace also resets armed Ctrl
         composeRule.onNodeWithTag("key_ctrl").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("ctrl_armed_indicator", useUnmergedTree = true).assertIsDisplayed()
@@ -732,7 +736,8 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithContentDescription("Ctrl nonaktif").assertIsDisplayed()
 
         composeRule.onNodeWithTag("key_ctrl").performClick()
-        composeRule.onNodeWithTag("key_a").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithContentDescription("Ctrl aktif").assertIsDisplayed()
         composeRule.onNodeWithTag("key_backspace").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithContentDescription("Ctrl nonaktif").assertIsDisplayed()
