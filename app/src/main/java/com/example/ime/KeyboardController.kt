@@ -1003,7 +1003,7 @@ class KeyboardController(
     companion object {
         const val MAX_ACTIVE_WORD_CHARS = 30
         const val MAX_LIVE_PREVIEW_CHARS = 120
-        const val CTRL_STICKY_CHAR_LIMIT = 2
+        const val CTRL_STICKY_CHAR_LIMIT = 1
         private const val MAX_ACTIVE_WORD_READ_UTF16 = 60
         private val BOUNDARY_PUNCTUATION = charArrayOf('.', ',', '!', '?', ';', ':')
 

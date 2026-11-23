@@ -30,7 +30,9 @@ Tambahkan secret berikut di **Settings → Secrets and variables → Actions** p
 | `STORE_PASSWORD` | Password keystore |
 | `KEY_PASSWORD` | Password key/alias |
 | `KEY_ALIAS` | `upload` |
-| `PUBLIC_DIST_TOKEN` | *(Dual-Repo)* Fine-grained PAT dengan akses **hanya 1 repo publik `<user>/<slug>-site`** dan izin **Contents: Read and write** |
+| `PUBLIC_DIST_TOKEN` | *(Dual-Repo — 1 PAT untuk semua repo)* Fine-grained PAT tunggal dengan izin **`Contents: Read and write`** saja. **Opsi aman (disarankan):** pilih *Only select repositories* untuk repo publik `*-site` (tiap ada app baru cukup edit PAT yang sama & tambah centang `<slug>-site`, nilai token tidak berubah). **Opsi nol-klik:** pilih *All repositories* (izin tetap terbatas pada `Contents` saja) agar bisa langsung ditempel di semua repo tanpa edit PAT ulang. |
+
+> **Tips 1 PAT untuk Semua Aplikasi:** Simpan nilai `PUBLIC_DIST_TOKEN` sekali saja di kontainer VeraCrypt Anda. Saat membuat proyek baru, tinggal salin-tempel nilai yang sama ke GitHub Secret repo baru tersebut.
 
 Tambahkan ke `.gitignore` (jangan blokir `<slug_app>_secrets_download.html` di root agar bisa langsung diunduh lewat browser lalu dihapus pengguna):
 
@@ -407,6 +409,10 @@ jobs:
           fi
           find "$WORK_DIR" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
           cp -R docs/. "$WORK_DIR/"
+          RELEASE_STAMP=$(TZ='Asia/Jakarta' date '+%d %b %Y, %H:%M WIB')
+          if [ -f "$WORK_DIR/index.html" ]; then
+            sed -i -E "s|<!-- RELEASE_UPDATED_META -->.*<!-- /RELEASE_UPDATED_META -->|<!-- RELEASE_UPDATED_META -->Diperbarui: ${VERSION_TAG} • ${RELEASE_STAMP}<!-- /RELEASE_UPDATED_META -->|g" "$WORK_DIR/index.html"
+          fi
           touch "$WORK_DIR/.nojekyll"
           git -C "$WORK_DIR" config user.name "github-actions[bot]"
           git -C "$WORK_DIR" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -482,8 +488,26 @@ jobs:
             git init -b main "$WORK_DIR"
             git -C "$WORK_DIR" remote add origin "$REMOTE_URL"
           fi
+          PREV_META=""
+          if [ -f "$WORK_DIR/index.html" ]; then
+            PREV_META=$(grep -oE '<!-- RELEASE_UPDATED_META -->.*<!-- /RELEASE_UPDATED_META -->' "$WORK_DIR/index.html" | head -n1 || true)
+          fi
           find "$WORK_DIR" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
           cp -R docs/. "$WORK_DIR/"
+          if [ -n "$PREV_META" ] && [ -f "$WORK_DIR/index.html" ]; then
+            PREV_META="$PREV_META" python3 - "$WORK_DIR/index.html" <<'PY'
+import os, re, sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+updated = re.sub(
+    r"<!-- RELEASE_UPDATED_META -->.*?<!-- /RELEASE_UPDATED_META -->",
+    lambda _: os.environ["PREV_META"],
+    text,
+    flags=re.S,
+)
+open(path, "w", encoding="utf-8").write(updated)
+PY
+          fi
           touch "$WORK_DIR/.nojekyll"
           git -C "$WORK_DIR" config user.name "github-actions[bot]"
           git -C "$WORK_DIR" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -493,6 +517,38 @@ jobs:
             git -C "$WORK_DIR" -c http.extraheader="$AUTH_HEADER" push -u origin main
           fi
           rm -rf "$WORK_DIR"
+```
+
+### Detail Tanggal & Jam:Menit di Bawah Tombol Unduh (`docs/index.html`)
+
+Letakkan elemen keterangan waktu rilis tepat di bawah tombol unduh APK pada `docs/index.html`. Penanda `<!-- RELEASE_UPDATED_META -->` akan diisi otomatis saat rilis APK (`release.yml`), dipertahankan saat edit situs saja (`publish-site.yml`), sekaligus disinkronkan dengan waktu lokal perangkat pengunjung dari metadata rilis terbaru:
+
+```html
+<div class="hero-actions">
+  <a class="btn btn-white" href="https://github.com/<username>/<slug>-site/releases/latest/download/<slug>-latest-arm64-v8a.apk" download>
+    Unduh Aplikasi (APK)
+  </a>
+</div>
+<p class="download-meta" id="release-updated">
+  <!-- RELEASE_UPDATED_META -->Versi terbaru siap diunduh<!-- /RELEASE_UPDATED_META -->
+</p>
+```
+
+```js
+// Opsional: format otomatis tanggal + jam:menit rilis APK terbaru sesuai zona waktu perangkat
+fetch("https://api.github.com/repos/<username>/<slug>-site/releases/latest")
+  .then(function (r) { return r.ok ? r.json() : null; })
+  .then(function (data) {
+    if (!data || !data.published_at) return;
+    var el = document.getElementById("release-updated");
+    if (!el) return;
+    var dt = new Date(data.published_at);
+    var tgl = dt.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+    var jam = dt.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false });
+    var ver = data.tag_name ? data.tag_name + " • " : "";
+    el.textContent = "Diperbarui: " + ver + tgl + ", " + jam;
+  })
+  .catch(function () {});
 ```
 
 > **Aktivasi GitHub Pages (Satu Kali):** Di repo publik `<username>/<slug>-site` → **Settings → Pages** → pilih **Deploy from a branch**, branch **`main`**, folder **`/ (root)`**. Tombol unduh langsung di `docs/index.html` cukup mengarah ke:

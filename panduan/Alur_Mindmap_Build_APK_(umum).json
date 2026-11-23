@@ -22,9 +22,9 @@
     "    - Unit Test & Robolectric UI Test lulus 100% via cache lokal offline-first + actions/cache & pre-fetch mirror CI (kompatibel Gradle 9)",
     "    - Aktifkan R8, shrinkResources, ABI arm64-v8a (< 10 MB), lalu verifikasi apksigner & SHA-256",
     "  - 5. Rilis Dual-Repo (Privat -> <slug>-site) & Keamanan Secret",
-    "    - Jaga repo kode utama Private; publikasikan docs/ & APK terbaru (<slug>-latest-arm64-v8a.apk) otomatis ke repo publik <slug>-site via PUBLIC_DIST_TOKEN",
+    "    - Jaga repo kode utama Private; publikasikan docs/ & APK terbaru (<slug>-latest-arm64-v8a.apk) otomatis ke repo publik <slug>-site via 1 Fine-grained PAT bersama (PUBLIC_DIST_TOKEN) untuk semua repo",
     "    - Sediakan workflow ringan publish-site.yml untuk pembaruan cepat docs/ dan retention-days: 7 untuk hemat kuota artefak repo privat",
-    "    - Situs publik non-teknis ramah HP (tombol unduh langsung + legenda ikon, tanpa tautan halaman rilis GitHub) & hapus HTML kontainer .hc setelah diunduh"
+    "    - Situs publik non-teknis ramah HP (tombol unduh langsung + detail tanggal & jam:menit rilis di bawah tombol unduh + legenda ikon, tanpa tautan halaman rilis GitHub) & hapus HTML kontainer .hc setelah diunduh"
   ],
   "tree": {
     "id": "a1b2c3d4-0000-4000-8000-000000000001",
@@ -131,7 +131,7 @@
         "children": [
           {
             "id": "a1b2c3d4-5100-4000-8000-000000000001",
-            "title": "Jaga repo kode utama Private; publikasikan docs/ & APK terbaru (<slug>-latest-arm64-v8a.apk) otomatis ke repo publik <slug>-site via PUBLIC_DIST_TOKEN",
+            "title": "Jaga repo kode utama Private; publikasikan docs/ & APK terbaru (<slug>-latest-arm64-v8a.apk) otomatis ke repo publik <slug>-site via 1 Fine-grained PAT bersama (PUBLIC_DIST_TOKEN) untuk semua repo",
             "color": "plum"
           },
           {
@@ -141,7 +141,7 @@
           },
           {
             "id": "a1b2c3d4-5300-4000-8000-000000000001",
-            "title": "Situs publik non-teknis ramah HP (tombol unduh langsung + legenda ikon, tanpa tautan halaman rilis GitHub) & hapus HTML kontainer .hc setelah diunduh",
+            "title": "Situs publik non-teknis ramah HP (tombol unduh langsung + detail tanggal & jam:menit rilis di bawah tombol unduh + legenda ikon, tanpa tautan halaman rilis GitHub) & hapus HTML kontainer .hc setelah diunduh",
             "link": "https://docs.github.com/en/pages",
             "color": "plum"
           }

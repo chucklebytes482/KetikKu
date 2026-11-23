@@ -107,6 +107,13 @@
       gap: 10px;
     }
 
+    header.hero p.download-meta {
+      margin: 10px 0 0;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.88);
+      overflow-wrap: anywhere;
+    }
+
     .btn {
       display: inline-flex;
       align-items: center;
@@ -406,6 +413,7 @@
         </a>
         <a class="btn btn-ghost" href="#instruksi-ai">Salin Variasi Instruksi AI</a>
       </div>
+      <p class="download-meta" id="release-updated"><!-- RELEASE_UPDATED_META -->Versi terbaru siap diunduh<!-- /RELEASE_UPDATED_META --></p>
     </header>
 
     <nav class="toc" aria-label="Navigasi Halaman">
@@ -502,7 +510,7 @@
             <tr>
               <td><kbd>Ctrl</kbd></td>
               <td>Kontrol Pintasan</td>
-              <td>Mengaktifkan kombinasi cepat seperti Salin, Tempel, Pilih Semua, dan Urungkan hingga 2 huruf beruntun.</td>
+              <td>Mengaktifkan kombinasi cepat seperti Salin, Tempel, Pilih Semua, dan Urungkan untuk 1 kombinasi huruf.</td>
             </tr>
             <tr>
               <td><kbd>📁</kbd></td>
@@ -521,8 +529,8 @@
       </p>
 
       <div class="pill-row" style="margin-bottom: 14px;">
-        <span class="pill">1× Ketuk Ctrl = Aktif hingga 2 Kombinasi Huruf (mis. Ctrl+A lalu Ctrl+C)</span>
-        <span class="pill">Otomatis Mati setelah 2 Huruf, Hapus, Spasi, atau Enter</span>
+        <span class="pill">1× Ketuk Ctrl = Aktif untuk 1 Kombinasi Huruf (mis. Ctrl+A, Ctrl+C, atau Ctrl+V)</span>
+        <span class="pill">Otomatis Mati setelah 1 Huruf, Hapus, Spasi, atau Enter</span>
         <span class="pill">Ketuk Ctrl Lagi = Mati Seketika</span>
       </div>
 
@@ -807,6 +815,21 @@ Kategori folder atau daftar kamus tambahan yang ingin difolderkan:
           copyText(box.textContent, btn);
         });
       });
+      var releaseEl = document.getElementById("release-updated");
+      if (releaseEl && typeof fetch === "function") {
+        fetch("https://api.github.com/repos/chucklebytes482/ketikku-site/releases/latest")
+          .then(function (res) { return res.ok ? res.json() : null; })
+          .then(function (data) {
+            if (!data || !data.published_at) return;
+            var dt = new Date(data.published_at);
+            if (isNaN(dt.getTime())) return;
+            var tgl = dt.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+            var jam = String(dt.getHours()).padStart(2, "0") + ":" + String(dt.getMinutes()).padStart(2, "0");
+            var ver = data.tag_name ? data.tag_name + " • " : "";
+            releaseEl.textContent = "Diperbarui: " + ver + tgl + ", " + jam;
+          })
+          .catch(function () {});
+      }
     })();
   </script>
 </body>

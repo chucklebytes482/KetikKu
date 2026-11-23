@@ -315,7 +315,7 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
-    fun keyboardController_ctrlPersistsForTwoLettersAndAutoResetsOnNonLetterOrToggle() {
+    fun keyboardController_ctrlPersistsForOneLetterAndAutoResetsOnNonLetterOrToggle() {
         var tf = TextFieldValue("abc", TextRange(3))
         var targetRef: TextFieldImeTarget? = null
         targetRef = TextFieldImeTarget(
@@ -328,23 +328,30 @@ class KeyboardEngineUnitTest {
         assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
         assertEquals(0, controller.ctrlActionsRemaining)
 
-        // Single tap arms Ctrl for up to 2 letter combos (e.g. Ctrl+A then Ctrl+C)
+        // Single tap arms Ctrl for exactly 1 letter combo (e.g. Ctrl+A)
         controller.onCtrlTap()
         assertEquals(com.example.ime.CtrlState.ARMED, controller.ctrlState)
-        assertEquals(2, controller.ctrlActionsRemaining)
-
-        // 1st letter: Ctrl+A selects all and keeps Ctrl ARMED with 1 remaining
-        controller.onCharacterTap("a", settings, emptyList())
-        assertEquals(com.example.ime.CtrlState.ARMED, controller.ctrlState)
         assertEquals(1, controller.ctrlActionsRemaining)
+
+        // 1st letter: Ctrl+A selects all and automatically turns Ctrl OFF
+        controller.onCharacterTap("a", settings, emptyList())
+        assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
+        assertEquals(0, controller.ctrlActionsRemaining)
         assertEquals(TextRange(0, 3), tf.selection)
 
-        // 2nd letter: Ctrl+C copies and automatically turns Ctrl OFF
+        // Tapping Ctrl again arms for 1 more combo: Ctrl+C copies and turns OFF immediately
         var copied = ""
+        controller.onCtrlTap()
+        assertEquals(com.example.ime.CtrlState.ARMED, controller.ctrlState)
+        assertEquals(1, controller.ctrlActionsRemaining)
         controller.onCharacterTap("c", settings, emptyList(), onCopyResult = { copied = it })
         assertEquals("abc", copied)
         assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
         assertEquals(0, controller.ctrlActionsRemaining)
+
+        // Next letter after Ctrl turns OFF types normally instead of triggering another shortcut
+        controller.onCharacterTap("x", settings, emptyList())
+        assertEquals("x", tf.text)
 
         // Tapping Ctrl a second time toggles it OFF immediately (no lock mode)
         controller.onCtrlTap()
@@ -352,9 +359,8 @@ class KeyboardEngineUnitTest {
         controller.onCtrlTap()
         assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
 
-        // After 1 combo (Ctrl+A), tapping Backspace / Space / Enter immediately resets Ctrl to OFF
+        // While armed, tapping Backspace / Space / Enter immediately resets Ctrl to OFF
         controller.onCtrlTap()
-        controller.onCharacterTap("a", settings, emptyList())
         assertEquals(com.example.ime.CtrlState.ARMED, controller.ctrlState)
         controller.onBackspaceTap(settings, emptyList())
         assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
@@ -368,10 +374,14 @@ class KeyboardEngineUnitTest {
         controller.onEnterTap(settings, emptyList())
         assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
 
-        // Switching editor resets Ctrl cleanly
+        // Generic Ctrl+letter sends combo and turns OFF immediately; switching editor resets armed Ctrl cleanly
         controller.onCtrlTap()
         controller.onCharacterTap("b", settings, emptyList())
         assertEquals("Ctrl+B", targetRef.lastSentCtrlCombo)
+        assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
+        assertEquals(0, controller.ctrlActionsRemaining)
+
+        controller.onCtrlTap()
         assertEquals(com.example.ime.CtrlState.ARMED, controller.ctrlState)
         controller.configureForEditor(
             isNumeric = false,

@@ -258,6 +258,10 @@ jobs:
           fi
           find "$WORK_DIR" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
           cp -R docs/. "$WORK_DIR/"
+          RELEASE_STAMP=$(TZ='Asia/Jakarta' date '+%d %b %Y, %H:%M WIB')
+          if [ -f "$WORK_DIR/index.html" ]; then
+            sed -i -E "s|<!-- RELEASE_UPDATED_META -->.*<!-- /RELEASE_UPDATED_META -->|<!-- RELEASE_UPDATED_META -->Diperbarui: ${VERSION_TAG} • ${RELEASE_STAMP}<!-- /RELEASE_UPDATED_META -->|g" "$WORK_DIR/index.html"
+          fi
           touch "$WORK_DIR/.nojekyll"
           git -C "$WORK_DIR" config user.name "github-actions[bot]"
           git -C "$WORK_DIR" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
