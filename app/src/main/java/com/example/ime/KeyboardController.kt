@@ -911,7 +911,7 @@ class KeyboardController(
         convertSelectionToMonospace(enableItalic)
     }
 
-    fun onOpenSettings() {
+    fun onOpenDictionary() {
         target.openAppSettings()
     }
 
