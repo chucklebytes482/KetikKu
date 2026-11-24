@@ -11,6 +11,7 @@ on:
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradle.properties'
+      - 'scripts/**'
       - '.env.example'
       - '.github/workflows/release.yml'
   workflow_dispatch:
@@ -34,6 +35,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Verify offline-only policy
+        run: python3 scripts/check_offline.py
 
       - name: Compute Automatic Version
         shell: bash

@@ -67,7 +67,7 @@ class ExampleRobolectricTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun readAppNameAndSerializeDriveBackupJson() = runTest {
+    fun readAppNameAndSerializeLocalBackupJson() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val appName = context.getString(R.string.app_name)
         assertEquals("KetikKu", appName)
