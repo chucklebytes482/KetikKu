@@ -1668,7 +1668,7 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun settingsScreen_showsGeneralAiDictionaryPromptCardAndCompactHeaderLinks() {
+    fun settingsScreen_showsCompactHeaderLinksWithoutAiPrompt() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SettingsRepository(context)
         val mainViewModel = com.example.ui.MainViewModel(repo)
@@ -1691,21 +1691,8 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithText("Cadangan Perangkat").fetchSemanticsNodes().isNotEmpty())
         assertTrue(composeRule.onAllNodesWithText("Google Drive").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Web Panduan").fetchSemanticsNodes().isNotEmpty())
-
-        // Scroll to bottom and verify 1 General AI Prompt card is displayed and copies flat-folder prompt
-        composeRule.onNodeWithTag("settings_list").performScrollToNode(hasTestTag("ai_dictionary_prompt_card"))
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("ai_dictionary_prompt_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("copy_ai_dictionary_prompt_button").assertIsDisplayed().performClick()
-        composeRule.waitForIdle()
-
-        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        val copiedText = cm.primaryClip?.getItemAt(0)?.text?.toString().orEmpty()
-        assertTrue(copiedText.contains("ketikku_umum.json"))
-        assertTrue(copiedText.contains("tanpa subfolder"))
-        assertTrue(copiedText.contains("Balasan Cepat"))
-        assertFalse(copiedText.contains("Keuangan"))
-        assertFalse(copiedText.contains("Kerja/CS"))
+        assertTrue(composeRule.onAllNodesWithText("Prompt AI Umum").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("ai_dictionary_prompt_card").fetchSemanticsNodes().isEmpty())
     }
 
     @Test

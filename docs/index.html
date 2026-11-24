@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KetikKu — Panduan Penggunaan, Pintasan Ctrl &amp; Instruksi AI Kamus JSON</title>
-  <meta name="description" content="Panduan lengkap penggunaan keyboard Android KetikKu yang 100% luring tanpa izin internet, daftar pintasan Ctrl, cadangan otomatis kamus pribadi ke perangkat, dan variasi instruksi AI untuk mengedit ketikku_dictionary.json." />
+  <title>KetikKu — Panduan Penggunaan, Pintasan Ctrl &amp; Cadangan Perangkat</title>
+  <meta name="description" content="Panduan lengkap penggunaan keyboard Android KetikKu yang 100% luring tanpa izin internet, daftar pintasan Ctrl, dan cadangan kamus pribadi ke perangkat." />
   <style>
     :root {
       --bg: #f4f7f8;
@@ -199,8 +199,7 @@
       gap: 14px;
     }
 
-    .grid-2 > *,
-    .prompt-list > * {
+    .grid-2 > * {
       min-width: 0;
     }
 
@@ -294,76 +293,6 @@
       border-bottom: none;
     }
 
-    .prompt-list {
-      display: grid;
-      gap: 16px;
-    }
-
-    .prompt-item {
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 14px;
-      background: var(--surface-soft);
-      min-width: 0;
-      max-width: 100%;
-    }
-
-    .prompt-header {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 8px;
-    }
-
-    .prompt-title {
-      margin: 0;
-      font-size: 1rem;
-      font-weight: 700;
-    }
-
-    .prompt-note {
-      margin: 0 0 10px;
-      font-size: 13.5px;
-      color: var(--muted);
-    }
-
-    .copy-btn {
-      background: var(--primary);
-      color: #ffffff;
-      border: none;
-      border-radius: 999px;
-      padding: 8px 14px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .copy-btn.copied {
-      background: var(--accent);
-    }
-
-    pre.prompt-box {
-      margin: 0;
-      padding: 12px 14px;
-      background: var(--code-bg);
-      color: var(--code-text);
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 12.5px;
-      line-height: 1.5;
-      max-width: 100%;
-      max-height: 170px;
-      overflow-y: auto;
-      overflow-x: auto;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-      cursor: pointer;
-    }
-
     .pill-row {
       display: flex;
       flex-wrap: wrap;
@@ -402,16 +331,15 @@
   <div class="container">
     <header class="hero">
       <div class="badge">Keyboard Android • 100% Luring Tanpa Izin Internet</div>
-      <h1>KetikKu — Panduan Resmi &amp; Prompt AI</h1>
+      <h1>KetikKu — Panduan Resmi</h1>
       <p>
         Keyboard cepat, ringan, dan <strong>100% luring tanpa izin internet</strong> dengan tombol <strong>Ctrl</strong> penuh, papan klip pintar,
-        kamus pribadi berbasis <em>personality</em>, serta cadangan otomatis kamus pribadi ke perangkat yang mudah diedit dengan AI.
+        kamus pribadi berbasis <em>personality</em>, serta cadangan otomatis kamus pribadi ke perangkat.
       </p>
       <div class="hero-actions">
         <a class="btn btn-white" href="https://github.com/chucklebytes482/KetikKu/releases/latest/download/ketikku-latest-arm64-v8a.apk" download>
           Unduh Aplikasi KetikKu (APK)
         </a>
-        <a class="btn btn-ghost" href="#instruksi-ai">Salin Variasi Instruksi AI</a>
       </div>
       <p class="download-meta" id="release-updated"><!-- RELEASE_UPDATED_META -->Versi terbaru siap diunduh<!-- /RELEASE_UPDATED_META --></p>
     </header>
@@ -422,7 +350,6 @@
       <a href="#pintasan-ctrl">3. Pintasan Ctrl</a>
       <a href="#panel-simbol">4. Panel Simbol &amp; Gestur</a>
       <a href="#sinkronisasi-perangkat">5. Cadangan Perangkat</a>
-      <a href="#instruksi-ai">6. Variasi Instruksi AI</a>
     </nav>
 
     <section id="cara-penggunaan" class="card">
@@ -629,129 +556,9 @@
         <div class="subcard">
           <h3>Pemulihan Otomatis &amp; Pengaman Entri Terbanyak</h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Saat aplikasi dibuka, KetikKu memulihkan penuh bila kamus lokal kosong atau bila berkas cadangan di folder <code>Documents</code> pilihan Anda lebih baru dengan entri lengkap (misalnya setelah diedit dengan AI). Berkas kosong atau terpotong dengan entri lebih sedikit <strong>tidak akan pernah menimpa kamus lokal</strong> — entri lokal tetap diselamatkan melalui penggabungan aman.
+            Saat aplikasi dibuka, KetikKu memulihkan penuh bila kamus lokal kosong atau bila berkas cadangan di folder <code>Documents</code> pilihan Anda lebih baru dengan entri lengkap (misalnya setelah berkas diganti dari luar aplikasi). Berkas kosong atau terpotong dengan entri lebih sedikit <strong>tidak akan pernah menimpa kamus lokal</strong> — entri lokal tetap diselamatkan melalui penggabungan aman.
           </p>
         </div>
-      </div>
-    </section>
-
-    <section id="instruksi-ai" class="card">
-      <h2>6. Variasi Instruksi AI untuk Edit Kamus JSON</h2>
-      <p class="section-desc">
-        Pilih variasi instruksi di bawah, klik tombol <strong>Salin Instruksi</strong> (atau klik langsung kotak kodenya), lalu kirim bersama berkas <code>ketikku_*.json</code> dari <code>/storage/emulated/0/Documents/</code> (atau subfolder pilihan Anda) ke AI pilihan Anda.
-      </p>
-
-      <div class="prompt-list">
-        <article class="prompt-item">
-          <div class="prompt-header">
-            <h3 class="prompt-title">Variasi 1 — Tambah Banyak Kalimat, Pintasan &amp; Folder (Umum)</h3>
-            <button class="copy-btn" type="button" data-copy-target="prompt-1">Salin Instruksi</button>
-          </div>
-          <p class="prompt-note">Format wajib seragam dengan 6 field pasti pada setiap entri dan folder satu tingkat (tanpa subfolder).</p>
-          <pre id="prompt-1" class="prompt-box" title="Klik untuk menyalin">Struktur berkas JSON kamus pribadi KetikKu (ketikku_umum.json, ketikku_kata_sandi.json, ketikku_kredensial.json; semua berkas memakai struktur sama dan hanya berisi entri jenisnya):
-{
-  "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
-  "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat"],
-  "entries": [
-    {
-      "id": "&lt;id_unik&gt;",
-      "word": "&lt;kalimat_atau_nilai&gt;",
-      "shortcut": "&lt;pintasan_singkat_atau_kosong&gt;",
-      "folder": "&lt;nama_folder_datar_atau_kosong&gt;",
-      "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
-      "deleted": false
-    }
-  ]
-}
-Aturan struktur:
-1. Jangan sertakan field "language" atau field tambahan lain.
-2. Setiap objek di "entries" wajib berisi 6 field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
-3. Folder hanya 1 tingkat (tanpa subfolder dan tanpa "/"). 6 folder utama: "Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat".
-4. Entri di folder "Kata Sandi" dan "Kredensial" hanya tampil di bilah saran saat "shortcut"-nya diketik.
-5. Pertahankan entri &amp; "id" lama, lalu kembalikan 1 blok kode JSON valid.
-
-Daftar kalimat, pintasan &amp; folder yang ingin ditambahkan:
-- [tulis daftar data atau folder di sini]</pre>
-        </article>
-
-        <article class="prompt-item">
-          <div class="prompt-header">
-            <h3 class="prompt-title">Variasi 2 — Template Chat Kerja, Bisnis &amp; Customer Service</h3>
-            <button class="copy-btn" type="button" data-copy-target="prompt-2">Salin Instruksi</button>
-          </div>
-          <p class="prompt-note">Meminta AI merapikan template balasan pelanggan ke dalam folder seperti Kerja, CS, atau Order.</p>
-          <pre id="prompt-2" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan file ketikku_umum.json. Tolong tambahkan daftar template balasan kerja/CS di bawah ke dalam array "entries" dan kelola foldernya tanpa menghapus entri lama.
-Ketentuan format JSON:
-- Root wajib: { "updatedAtMillis": &lt;epoch_ms&gt;, "folders": [...], "entries": [...] }
-- Setiap entri wajib punya TEPAT 6 field ini (tanpa field opsional/tambahan dan tanpa "language"):
-  { "id": "...", "word": "...", "shortcut": "...", "folder": "...", "updatedAtMillis": &lt;epoch_ms&gt;, "deleted": false }
-- Masukkan template ke folder 1 tingkat (tanpa subfolder dan tanpa "/") misalnya "CS", "Order", "Kerja", atau "" jika umum, lalu daftarkan folder tersebut di array "folders".
-- Buatkan "shortcut" singkat 2-4 huruf kecil tanpa spasi (mis. "slm", "inv", "rek", "kfm").
-- Berikan output hanya berupa 1 blok JSON valid siap pakai.
-
-Topik/kalimat balasan yang saya butuhkan:
-- [tulis daftar balasan, info rekening, alamat, atau SOP di sini]</pre>
-        </article>
-
-        <article class="prompt-item">
-          <div class="prompt-header">
-            <h3 class="prompt-title">Variasi 3 — Ekstrak Otomatis dari Dokumen / Catatan / Materi</h3>
-            <button class="copy-btn" type="button" data-copy-target="prompt-3">Salin Instruksi</button>
-          </div>
-          <p class="prompt-note">Tempelkan dokumen/catatan Anda bersama file JSON kamus agar AI memilih frasa penting dan menaruhnya di folder khusus.</p>
-          <pre id="prompt-3" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan dokumen/catatan dan file ketikku_umum.json.
-Tugas Anda:
-1. Ekstrak maksimal 25 kalimat, istilah penting, nomor/kode referensi, atau template frasa yang paling sering dipakai dari dokumen tersebut.
-2. Tambahkan hasilnya ke "entries" pada ketikku_umum.json ke dalam folder 1 tingkat yang relevan (mis. "Materi" atau "Istilah", tanpa subfolder dan tanpa "/") tanpa mengubah entri lama.
-3. Setiap entri wajib memiliki keenam field seragam:
-   - "id": unik (mis. "doc_001")
-   - "word": teks bersih siap tempel
-   - "shortcut": huruf kecil 2-5 karakter atau ""
-   - "folder": nama folder atau ""
-   - "updatedAtMillis": timestamp milidetik terbaru
-   - "deleted": false
-4. Daftarkan folder yang dipakai di array "folders", jangan sertakan field "language", dan kembalikan JSON valid.</pre>
-        </article>
-
-        <article class="prompt-item">
-          <div class="prompt-header">
-            <h3 class="prompt-title">Variasi 4 — Rapikan, Gabung &amp; Hapus Duplikat Kamus JSON</h3>
-            <button class="copy-btn" type="button" data-copy-target="prompt-4">Salin Instruksi</button>
-          </div>
-          <p class="prompt-note">Membersihkan duplikat, menyeragamkan ke 6 field baku, dan menyinkronkan array folder secara rapi.</p>
-          <pre id="prompt-4" class="prompt-box" title="Klik untuk menyalin">Tolong rapikan file ketikku_umum.json berikut dengan aturan:
-1. Hapus entri duplikat yang isi "word"-nya persis sama (pertahankan yang "updatedAtMillis"-nya paling baru beserta "id" dan "folder"-nya).
-2. Hapus field "language" dan "schemaVersion" jika masih ada.
-3. Seragamkan setiap entri agar selalu memiliki 6 field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
-4. Pastikan semua folder 1 tingkat (tanpa subfolder dan tanpa "/"), lalu sinkronkan array "folders" tingkat atas agar berisi "Gmail", "Nomor" (jika ada), serta seluruh nama folder aktif.
-5. Perbarui "updatedAtMillis" tingkat atas dan kembalikan 1 blok JSON valid.</pre>
-        </article>
-
-        <article class="prompt-item">
-          <div class="prompt-header">
-            <h3 class="prompt-title">Variasi 5 — Kelompokkan &amp; Folderisasi Banyak Kamus ke Folder</h3>
-            <button class="copy-btn" type="button" data-copy-target="prompt-5">Salin Instruksi</button>
-          </div>
-          <p class="prompt-note">Khusus untuk menyusun ulang atau menggabungkan ratusan kata, email, nomor, kode, atau banyak kategori ke struktur Folder satu tingkat yang rapi.</p>
-          <pre id="prompt-5" class="prompt-box" title="Klik untuk menyalin">Tolong kelompokkan dan atur seluruh isi file ketikku_umum.json (serta daftar tambahan di bawah) ke dalam struktur Folder 1 tingkat yang terorganisir rapi.
-Aturan pemfolderan:
-1. Pertahankan/pisahkan alamat @gmail.com ke folder "Gmail" dan nomor telepon berawalan +62/62/08 ke folder "Nomor".
-2. Kelompokkan entri lain ke folder bertema jelas tanpa subfolder dan tanpa "/" (contoh: "Kerja", "CS", "Alamat", "Belajar").
-3. Urutkan array "folders" dengan "Gmail" dan "Nomor" paling atas (jika ada), lalu folder lainnya di atas entri tanpa folder.
-4. Wajib pakai format seragam 6 field di setiap entri tanpa field opsional dan tanpa "language":
-   {
-     "id": "&lt;pertahankan_id_lama_atau_buat_unik&gt;",
-     "word": "&lt;teks_kamus&gt;",
-     "shortcut": "&lt;pintasan_huruf_kecil_atau_kosong&gt;",
-     "folder": "&lt;nama_folder_atau_kosong&gt;",
-     "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
-     "deleted": false
-   }
-5. Kembalikan hanya 1 blok kode JSON valid siap simpan ke /storage/emulated/0/Documents/ketikku_umum.json (atau folder pilihan Anda di dalam Documents).
-
-Kategori folder atau daftar kamus tambahan yang ingin difolderkan:
-- [tulis pembagian kategori/folder atau tempel beberapa daftar kamus di sini]</pre>
-        </article>
       </div>
     </section>
 
@@ -764,57 +571,6 @@ Kategori folder atau daftar kamus tambahan yang ingin difolderkan:
 
   <script>
     (function () {
-      function copyText(text, btn) {
-        if (!text) return;
-        var markCopied = function () {
-          if (!btn) return;
-          var original = btn.dataset.originalLabel || btn.textContent;
-          btn.dataset.originalLabel = original;
-          btn.textContent = "Tersalin!";
-          btn.classList.add("copied");
-          setTimeout(function () {
-            btn.textContent = original;
-            btn.classList.remove("copied");
-          }, 2200);
-        };
-
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(markCopied).catch(function () {
-            fallbackCopy(text, markCopied);
-          });
-        } else {
-          fallbackCopy(text, markCopied);
-        }
-      }
-
-      function fallbackCopy(text, onDone) {
-        var area = document.createElement("textarea");
-        area.value = text;
-        area.setAttribute("readonly", "");
-        area.style.position = "fixed";
-        area.style.opacity = "0";
-        document.body.appendChild(area);
-        area.select();
-        try {
-          document.execCommand("copy");
-          onDone();
-        } finally {
-          document.body.removeChild(area);
-        }
-      }
-
-      var buttons = document.querySelectorAll("[data-copy-target]");
-      buttons.forEach(function (btn) {
-        var targetId = btn.getAttribute("data-copy-target");
-        var box = document.getElementById(targetId);
-        if (!box) return;
-        btn.addEventListener("click", function () {
-          copyText(box.textContent, btn);
-        });
-        box.addEventListener("click", function () {
-          copyText(box.textContent, btn);
-        });
-      });
       var releaseEl = document.getElementById("release-updated");
       if (releaseEl && typeof fetch === "function") {
         fetch("https://api.github.com/repos/chucklebytes482/KetikKu/releases/latest")

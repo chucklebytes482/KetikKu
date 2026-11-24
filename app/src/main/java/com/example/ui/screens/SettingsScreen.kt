@@ -1,7 +1,5 @@
 package com.example.ui.screens
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -29,11 +27,8 @@ import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Public
@@ -60,7 +55,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -74,31 +68,8 @@ import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.theme.GoogleYellow700
 import com.example.ui.theme.GoogleGreen700
-import kotlinx.coroutines.delay
 
 internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/KetikKu/"
-
-internal const val KETIKKU_GENERAL_AI_PROMPT = """Struktur berkas JSON kamus pribadi KetikKu. Cadangan otomatis terdiri dari 3 berkas: ketikku_umum.json, ketikku_kata_sandi.json, dan ketikku_kredensial.json. Ketiganya memakai struktur sama (folder Kata Sandi masuk kata_sandi, Kredensial masuk kredensial, selain A2F masuk umum). A2F tidak ikut cadangan otomatis: ketikku_a2f.json hanya diekspor/diimpor manual dengan password melalui aplikasi. Jangan membuat, membaca seed, atau mengubah berkas A2F melalui AI:
-{
-  "updatedAtMillis": 0,
-  "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat", "A2F"],
-  "entries": [
-    {
-      "id": "string unik entri",
-      "word": "teks atau nilai entri",
-      "shortcut": "pintasan ketik (opsional; wajib untuk Kata Sandi & Kredensial)",
-      "folder": "nama folder datar 1 tingkat tanpa subfolder, atau kosong untuk Utama",
-      "updatedAtMillis": 0,
-      "deleted": false
-    }
-  ]
-}
-Aturan struktur:
-- Folder datar 1 tingkat saja (tanpa subfolder dan tanpa tanda '/').
-- 7 folder utama: "Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat", "A2F".
-- Folder A2F dibuat dan diisi aplikasi (berisi seed terenkripsi). Jangan membuat atau mengubah entri di folder A2F.
-- Setiap entri memiliki 6 field: id, word, shortcut, folder, updatedAtMillis, deleted (tanpa field "language").
-- Entri di folder "Kata Sandi" dan "Kredensial" hanya muncul di bilah saran jika pintasannya diketik."""
 
 @Composable
 fun SettingsScreen(
@@ -359,123 +330,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 6. 1 Prompt AI Umum untuk edit berkas cadangan ketikku_*.json
-            item {
-                val activeFilePath = remember(syncLocalState.deviceBackupTreeUri) {
-                    DeviceDictionaryBackupManager.formatBackupShortFilePath(syncLocalState.deviceBackupTreeUri)
-                }
-                GeneralAiPromptCard(context = context, activeFilePath = activeFilePath)
-            }
-
             item { Spacer(Modifier.height(24.dp)) }
-        }
-    }
-}
-
-@Composable
-private fun GeneralAiPromptCard(
-    context: Context,
-    activeFilePath: String = DeviceDictionaryBackupManager.BACKUP_SHORT_PATH
-) {
-    var copied by remember { mutableStateOf(false) }
-
-    LaunchedEffect(copied) {
-        if (copied) {
-            delay(2000L)
-            copied = false
-        }
-    }
-
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface,
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
-            .testTag("ai_dictionary_prompt_card")
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "Prompt AI Umum",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Prompt AI Umum",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Referensi struktur $activeFilePath",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-            ) {
-                Text(
-                    text = KETIKKU_GENERAL_AI_PROMPT,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 5,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(10.dp)
-                )
-            }
-
-            Button(
-                onClick = {
-                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                    cm?.setPrimaryClip(ClipData.newPlainText("Prompt AI KetikKu", KETIKKU_GENERAL_AI_PROMPT))
-                    copied = true
-                },
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .testTag("copy_ai_dictionary_prompt_button")
-            ) {
-                Icon(
-                    imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    text = if (copied) "Prompt Tersalin" else "Salin Prompt AI",
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
         }
     }
 }
