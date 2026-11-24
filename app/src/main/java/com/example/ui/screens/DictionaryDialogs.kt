@@ -79,21 +79,27 @@ internal fun DictionaryEntryDialog(
     val fieldsLocked = !isNew && !a2fEditable
 
     val emailRegex = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
+    // Field wajib kosong: menonaktifkan Simpan, tanpa pesan dan tanpa warna merah.
+    val emailMissing = isA2f && (isNew || a2fEditable) && email.isBlank()
+    val siteMissing = isA2f && (isNew || a2fEditable) && website.isBlank()
+    val seedMissing = isA2f && isNew && seed.isBlank()
+    val shortcutMissing = isA2f && shortcut.isBlank()
+    val wordMissing = !isA2f && isNew && word.isBlank()
+
+    // Pesan format (bukan kosong) tetap ditampilkan.
     val emailError = when {
         !isA2f || (!isNew && !a2fEditable) -> null
-        email.isBlank() -> "Email wajib diisi"
         !email.trim().matches(emailRegex) -> "Email tidak valid"
         else -> null
     }
-    val siteError = if (isA2f && (isNew || a2fEditable) && website.isBlank()) "Website wajib diisi" else null
     val seedError = when {
         !isA2f || !seedEditable -> null
-        seed.isBlank() -> if (isNew) "Seed wajib diisi" else null
+        seed.isBlank() -> null
         !TotpGenerator.isValidBase32Secret(seed) -> "Seed base32 tidak valid (min. 16 karakter A-Z, 2-7)"
         else -> null
     }
     val shortcutError = when {
-        isA2f && shortcut.isBlank() -> "Pintasan wajib diisi"
+        shortcutMissing -> null
         isA2f && (shortcut.trim().length > 30 || shortcut.trim().any { !it.isLetterOrDigit() }) ->
             "Pintasan A2F: maksimal 30 huruf/angka tanpa spasi"
         shortcut.isNotBlank() && usedShortcuts.any { it.equals(shortcut.trim(), true) } -> "Pintasan sudah dipakai"
@@ -101,12 +107,13 @@ internal fun DictionaryEntryDialog(
     }
     val wordError = when {
         isA2f || !isNew -> null
-        word.isBlank() -> "Kata wajib diisi"
+        wordMissing -> null
         folder == SettingsRepository.FOLDER_GMAIL && !word.contains('@') -> "Gmail harus berupa alamat email"
         else -> null
     }
-    val canSave = !inTrash && shortcutError == null && emailError == null && siteError == null &&
-        seedError == null && wordError == null
+    val canSave = !inTrash && shortcutError == null && emailError == null &&
+        seedError == null && wordError == null &&
+        !emailMissing && !siteMissing && !seedMissing && !shortcutMissing && !wordMissing
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -140,8 +147,7 @@ internal fun DictionaryEntryDialog(
                         readOnly = fieldsLocked,
                         label = { Text("Website") },
                         singleLine = true,
-                        isError = siteError != null,
-                        supportingText = { if (siteError != null) Text(siteError) else if (fieldsLocked) Text("Dikunci") },
+                        supportingText = { if (fieldsLocked) Text("Dikunci") },
                         modifier = Modifier.fillMaxWidth().testTag("a2f_website_input")
                     )
                     OutlinedTextField(
