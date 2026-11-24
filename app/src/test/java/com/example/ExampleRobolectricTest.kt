@@ -1861,7 +1861,8 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("move_selected_button").assertIsEnabled()
         composeRule.onNodeWithTag("move_selected_button").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("move_target_Pribadi").performClick()
+        // Target lewat kolom folder baru: daftar folder bisa di-scroll, jadi tidak andal diklik langsung
+        composeRule.onNodeWithTag("move_custom_folder_input").performTextInput("Pribadi")
         composeRule.onNodeWithTag("confirm_move_button").performClick()
         composeRule.waitForIdle()
         assertEquals(setOf("e_root"), movedEntries)
