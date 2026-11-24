@@ -456,33 +456,33 @@ private data class KeyboardPalette(
 
 private fun defaultKeyboardPalette(darkTheme: Boolean): KeyboardPalette = if (darkTheme) {
     KeyboardPalette(
-        boardBg = Color(0xFF0E171E),
-        stripBg = Color(0xFF13202A),
-        keyBg = Color(0xFF1E2D39),
-        keyPressedBg = Color(0xFF2D4456),
-        specialKeyBg = Color(0xFF17242E),
-        accentBg = Color(0xFF67D4E4),
-        accentContent = Color(0xFF042B33),
-        keyText = Color(0xFFF1F5F9),
-        keyHintText = Color(0xFF8FA7B8),
-        borderColor = Color(0xFF2A3D4C),
-        chipBg = Color(0xFF1A2833),
-        chipHighlightBg = Color(0xFF13414D)
+        boardBg = Color(0xFF202124),
+        stripBg = Color(0xFF292A2D),
+        keyBg = Color(0xFF3C4043),
+        keyPressedBg = Color(0xFF5F6368),
+        specialKeyBg = Color(0xFF303134),
+        accentBg = Color(0xFF8AB4F8),
+        accentContent = Color(0xFF062E6F),
+        keyText = Color(0xFFE8EAED),
+        keyHintText = Color(0xFF9AA0A6),
+        borderColor = Color(0xFF5F6368),
+        chipBg = Color(0xFF3C4043),
+        chipHighlightBg = Color(0xFF0842A0)
     )
 } else {
     KeyboardPalette(
-        boardBg = Color(0xFFE7ECF0),
-        stripBg = Color(0xFFF2F5F8),
+        boardBg = Color(0xFFF1F3F4),
+        stripBg = Color(0xFFF8F9FA),
         keyBg = Color(0xFFFFFFFF),
-        keyPressedBg = Color(0xFFD9E3EC),
-        specialKeyBg = Color(0xFFD1DBE4),
-        accentBg = Color(0xFF006978),
+        keyPressedBg = Color(0xFFE8EAED),
+        specialKeyBg = Color(0xFFDADCE0),
+        accentBg = Color(0xFF1A73E8),
         accentContent = Color(0xFFFFFFFF),
-        keyText = Color(0xFF111C24),
-        keyHintText = Color(0xFF5D707E),
-        borderColor = Color(0xFFC5D2DC),
-        chipBg = Color(0xFFE1E8EE),
-        chipHighlightBg = Color(0xFFCCEBF0)
+        keyText = Color(0xFF202124),
+        keyHintText = Color(0xFF5F6368),
+        borderColor = Color(0xFFDADCE0),
+        chipBg = Color(0xFFF1F3F4),
+        chipHighlightBg = Color(0xFFD3E3FD)
     )
 }
 

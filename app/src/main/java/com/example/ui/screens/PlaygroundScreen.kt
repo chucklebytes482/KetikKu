@@ -66,9 +66,9 @@ import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
-import com.example.ui.theme.AmberPending
+import com.example.ui.theme.GoogleYellow700
 import com.example.ui.theme.InterFamily
-import com.example.ui.theme.MintSynced
+import com.example.ui.theme.GoogleGreen700
 
 import kotlinx.coroutines.launch
 
@@ -441,8 +441,8 @@ private fun PlaygroundEditorCard(
     }
 }
 
-private val ColorSelectionHandle = androidx.compose.ui.graphics.Color(0xFF00A8C6)
-private val ColorSelectionBg = androidx.compose.ui.graphics.Color(0xFF67D4E4).copy(alpha = 0.35f)
+private val ColorSelectionHandle = androidx.compose.ui.graphics.Color(0xFF1A73E8)
+private val ColorSelectionBg = androidx.compose.ui.graphics.Color(0xFF8AB4F8).copy(alpha = 0.35f)
 
 @Composable
 private fun ImeStatusCard(
@@ -451,8 +451,8 @@ private fun ImeStatusCard(
     onSelectIme: () -> Unit
 ) {
     val dotColor = when (imeStatus) {
-        ImeActivationStatus.ACTIVE_DEFAULT -> MintSynced
-        ImeActivationStatus.ENABLED_NOT_DEFAULT -> AmberPending
+        ImeActivationStatus.ACTIVE_DEFAULT -> GoogleGreen700
+        ImeActivationStatus.ENABLED_NOT_DEFAULT -> GoogleYellow700
         ImeActivationStatus.DISABLED -> MaterialTheme.colorScheme.error
     }
     val statusText = when (imeStatus) {
@@ -492,7 +492,7 @@ private fun ImeStatusCard(
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = "Aktif",
-                        tint = MintSynced,
+                        tint = GoogleGreen700,
                         modifier = Modifier.size(20.dp)
                     )
                 }

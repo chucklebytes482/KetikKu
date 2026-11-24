@@ -55,8 +55,8 @@ import com.example.data.DeviceDictionaryBackupManager
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
 import com.example.ui.DeviceSyncUiState
-import com.example.ui.theme.AmberPending
-import com.example.ui.theme.MintSynced
+import com.example.ui.theme.GoogleYellow700
+import com.example.ui.theme.GoogleGreen700
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -99,12 +99,12 @@ fun DeviceBackupSheetContent(
     val needsFolderAccess = deviceSyncUiState is DeviceSyncUiState.NeedsFolderAccess
     val statusDotColor = when (deviceSyncUiState) {
         is DeviceSyncUiState.Syncing -> MaterialTheme.colorScheme.primary
-        is DeviceSyncUiState.NeedsFolderAccess -> AmberPending
+        is DeviceSyncUiState.NeedsFolderAccess -> GoogleYellow700
         is DeviceSyncUiState.Error -> MaterialTheme.colorScheme.error
         is DeviceSyncUiState.Idle -> when {
-            syncLocalState.pendingChanges -> AmberPending
-            syncLocalState.lastSyncedAtMillis > 0L -> MintSynced
-            else -> AmberPending
+            syncLocalState.pendingChanges -> GoogleYellow700
+            syncLocalState.lastSyncedAtMillis > 0L -> GoogleGreen700
+            else -> GoogleYellow700
         }
     }
 

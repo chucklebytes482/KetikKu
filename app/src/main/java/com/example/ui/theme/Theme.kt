@@ -10,53 +10,54 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 private val KetikKuDarkScheme = darkColorScheme(
-    primary = CyanAccent,
-    onPrimary = CyanOnAccent,
-    primaryContainer = CyanContainer,
-    onPrimaryContainer = CyanOnContainer,
-    secondary = MintSynced,
-    onSecondary = SlateVoid,
-    secondaryContainer = SlateCardElevated,
-    onSecondaryContainer = TextPrimaryDark,
-    tertiary = AmberPending,
-    background = SlateVoid,
-    onBackground = TextPrimaryDark,
-    surface = SlateSurface,
-    onSurface = TextPrimaryDark,
-    surfaceVariant = SlateSurfaceVariant,
-    onSurfaceVariant = TextSecondaryDark,
-    outline = SlateOutline,
-    error = CoralAlert,
-    onError = CoralOnAlert
+    primary = GoogleBlue200,
+    onPrimary = GoogleBlue950,
+    primaryContainer = GoogleBlue800,
+    onPrimaryContainer = GoogleBlue100,
+    secondary = GoogleGreen300,
+    onSecondary = GoogleGrey900,
+    secondaryContainer = GoogleGrey700,
+    onSecondaryContainer = GoogleGrey100,
+    tertiary = GoogleYellow300,
+    background = GoogleGrey900,
+    onBackground = GoogleGrey100,
+    surface = GoogleGrey800,
+    onSurface = GoogleGrey100,
+    surfaceVariant = GoogleGrey700,
+    onSurfaceVariant = GoogleGrey400,
+    outline = GoogleGrey600,
+    error = GoogleRed300,
+    onError = GoogleGrey900
 )
 
 private val KetikKuLightScheme = lightColorScheme(
-    primary = TealPrimaryLight,
-    onPrimary = LightSurface,
-    primaryContainer = TealContainerLight,
-    onPrimaryContainer = TealOnContainerLight,
-    secondary = Color(0xFF15803D),
-    onSecondary = LightSurface,
-    background = LightBg,
-    onBackground = TextPrimaryLight,
-    surface = LightSurface,
-    onSurface = TextPrimaryLight,
-    surfaceVariant = LightSurfaceVariant,
-    onSurfaceVariant = TextSecondaryLight,
-    outline = LightOutline,
-    error = Color(0xFFC62828),
-    onError = LightSurface
+    primary = GoogleBlue600,
+    onPrimary = GoogleWhite,
+    primaryContainer = GoogleBlue100,
+    onPrimaryContainer = GoogleBlue900,
+    secondary = GoogleGreen700,
+    onSecondary = GoogleWhite,
+    tertiary = GoogleYellow700,
+    background = GoogleGrey50,
+    onBackground = GoogleGrey900,
+    surface = GoogleWhite,
+    onSurface = GoogleGrey900,
+    surfaceVariant = GoogleGrey50,
+    onSurfaceVariant = GoogleGrey600,
+    outline = GoogleGrey300,
+    error = GoogleRed600,
+    onError = GoogleWhite
 )
 
+// Standar Google: kartu dan dialog 16dp.
 val KetikKuShapes = Shapes(
-    small = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(8.dp),
     medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(22.dp),
+    large = RoundedCornerShape(16.dp),
     extraLarge = RoundedCornerShape(28.dp)
 )
 
