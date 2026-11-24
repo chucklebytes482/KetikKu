@@ -1303,6 +1303,17 @@ class SettingsRepository(
             }
         }
 
+        /** Pintasan otomatis unik: bentrok diberi angka (agm2, agm3, ...). Kosong jika folder tidak mendukung. */
+        fun autoShortcut(
+            folder: String,
+            word: String,
+            others: List<PersonalDictionaryEntry>,
+            selfId: String?
+        ): String {
+            val base = autoShortcutBase(folder, word)
+            return if (base.isEmpty()) "" else nextFreeShortcut(base, others, selfId)
+        }
+
         /** Domain utama website: scheme dan www. dibuang, lalu 2 karakter pertama label pertama. "https://www.github.com/x" -> "gi". */
         private fun websiteMainLabel(site: String): String {
             val host = site.trim().lowercase(Locale.ROOT)
