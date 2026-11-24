@@ -1018,8 +1018,9 @@ class DeviceDictionaryBackupManager(
                         if (c == null || !c.isConfigured()) return BackupReadResult.Error(LOCKED_MESSAGE)
                         try {
                             c.decrypt(kind, result.file.content)
-                        } catch (e: Exception) {
-                            return BackupReadResult.Error(e.message ?: LOCKED_MESSAGE)
+                        } catch (_: Exception) {
+                            // Isi berkas rusak (mis. base64 teredit): sebutkan nama berkasnya agar bisa dihapus satu per satu.
+                            return BackupReadResult.Error(corruptFileMessage(fileName))
                         }
                     }
                     val decoded = settingsRepository.decodeDictionaryBackupJson(plain) ?: continue
@@ -1042,6 +1043,11 @@ class DeviceDictionaryBackupManager(
         )
         return BackupReadResult.Found(StoredBackupFile(content, lastModified))
     }
+
+    /** Pesan untuk satu berkas perangkat yang rusak. Penghapusan berkas itu saja aman: berkas dibuat ulang dari data aplikasi. */
+    private fun corruptFileMessage(fileName: String): String =
+        "Berkas $fileName tidak valid (isinya rusak). Hapus berkas $fileName saja dari folder cadangan. " +
+            "Aplikasi akan membuatnya ulang otomatis dari data di aplikasi, dan tidak ada entri yang terhapus."
 
     /** Menulis keempat berkas jenis dari satu envelope JSON. Jenis tanpa isi ditulis sebagai `[]`. */
     private fun writeAll(json: String, treeUri: String?): BackupWriteResult {
