@@ -107,7 +107,7 @@ class ExampleRobolectricTest {
         val dictJson = repo.encodeDictionaryBackupJson(
             entries = entries,
             updatedAtMillis = 999L,
-            folders = listOf("Gmail", "Nomor", "Kerja/CS")
+            folders = listOf("gm", "num", "Kerja/CS")
         )
         assertFalse(dictJson.contains("\"language\""))
         assertFalse(dictJson.contains("\"schemaVersion\""))
@@ -1023,7 +1023,7 @@ class ExampleRobolectricTest {
             repo.replaceDictionaryAndFolders(emptyList(), emptyList())
             val baseTs = System.currentTimeMillis()
             for (i in 1..4) {
-                repo.upsertDictionaryEntry("Entri Penting $i", "e$i", KeyboardLanguage.INDONESIAN.code, existingId = "id_$i", folder = "Pribadi")
+                repo.upsertDictionaryEntry("Entri Penting $i", "e$i", KeyboardLanguage.INDONESIAN.code, existingId = "id_$i", folder = "prib")
             }
             assertTrue(manager.syncNow(baseTs) is com.example.data.DeviceSyncResult.Synced)
 
@@ -1046,11 +1046,11 @@ class ExampleRobolectricTest {
             val truncatedTs = emptyTs + 20_000L
             val truncatedJson = repo.encodeDictionaryBackupJson(
                 entries = listOf(
-                    PersonalDictionaryEntry(id = "id_1", word = "Entri Penting 1", shortcut = "e1", folder = "Pribadi", updatedAtMillis = truncatedTs),
+                    PersonalDictionaryEntry(id = "id_1", word = "Entri Penting 1", shortcut = "e1", folder = "prib", updatedAtMillis = truncatedTs),
                     PersonalDictionaryEntry(id = "ai_new", word = "Tambahan AI", shortcut = "ain", folder = "Kerja", updatedAtMillis = truncatedTs)
                 ),
                 updatedAtMillis = truncatedTs,
-                folders = listOf("Pribadi", "Kerja")
+                folders = listOf("prib", "Kerja")
             )
             storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).writeText(truncatedJson, Charsets.UTF_8)
             storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).setLastModified(truncatedTs)
@@ -1066,7 +1066,7 @@ class ExampleRobolectricTest {
             // while device file already holds 5 entries -> pushLocalToDevice must NOT overwrite the 5 entries with 1 entry!
             repo.replaceDictionaryAndFolders(emptyList(), emptyList())
             repo.updateSyncState(lastSyncedAtMillis = 0L, message = "Belum pernah disinkronkan", pendingChanges = false)
-            repo.upsertDictionaryEntry("Catatan Baru Instal", "cbi", KeyboardLanguage.INDONESIAN.code, existingId = "fresh_1", folder = "Pribadi")
+            repo.upsertDictionaryEntry("Catatan Baru Instal", "cbi", KeyboardLanguage.INDONESIAN.code, existingId = "fresh_1", folder = "prib")
 
             val freshPush = manager.pushLocalToDevice(truncatedTs + 40_000L)
             assertTrue(freshPush is com.example.data.DeviceSyncResult.Synced)
@@ -1731,12 +1731,12 @@ class ExampleRobolectricTest {
     fun dictionaryScreen_simpleFileManagerFlatFoldersOnlySelectsMovesAndDeletes() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "e_root", word = "Salam hangat", shortcut = "sh", folder = "", updatedAtMillis = 10L),
-            PersonalDictionaryEntry(id = "e_gmail", word = "adminsuperpanjang@gmail.com", shortcut = "", folder = "Gmail", updatedAtMillis = 11L),
-            PersonalDictionaryEntry(id = "e_nomor", word = "081234567890", shortcut = "", folder = "Nomor", updatedAtMillis = 12L),
+            PersonalDictionaryEntry(id = "e_gmail", word = "adminsuperpanjang@gmail.com", shortcut = "", folder = "gm", updatedAtMillis = 11L),
+            PersonalDictionaryEntry(id = "e_nomor", word = "081234567890", shortcut = "", folder = "num", updatedAtMillis = 12L),
             PersonalDictionaryEntry(id = "e_kerja", word = "Mohon ditunggu sebentar", shortcut = "mds", folder = "Kerja", updatedAtMillis = 13L),
             PersonalDictionaryEntry(id = "e_legacy_keuangan", word = "Siap, segera diproses", shortcut = "sp", folder = "Keuangan", updatedAtMillis = 14L)
         )
-        val folders = listOf("Kerja", "Gmail", "Nomor", "Keuangan")
+        val folders = listOf("Kerja", "gm", "num", "Keuangan")
         var movedEntries = emptySet<String>()
         var movedFolders = emptySet<String>()
         var movedTarget = ""
@@ -1760,12 +1760,12 @@ class ExampleRobolectricTest {
 
         composeRule.waitForIdle()
         // All 6 primary folders + custom folder + root entry fit in a single frame for deterministic bounds checks
-        val gmailBounds = composeRule.onNodeWithTag("folder_item_Gmail").fetchSemanticsNode().boundsInRoot
-        val nomorBounds = composeRule.onNodeWithTag("folder_item_Nomor").fetchSemanticsNode().boundsInRoot
-        val pribadiBounds = composeRule.onNodeWithTag("folder_item_Pribadi").fetchSemanticsNode().boundsInRoot
-        val sandiBounds = composeRule.onNodeWithTag("folder_item_Kata Sandi").fetchSemanticsNode().boundsInRoot
-        val kredBounds = composeRule.onNodeWithTag("folder_item_Kredensial").fetchSemanticsNode().boundsInRoot
-        val balasanBounds = composeRule.onNodeWithTag("folder_item_Balasan Cepat").fetchSemanticsNode().boundsInRoot
+        val gmailBounds = composeRule.onNodeWithTag("folder_item_gm").fetchSemanticsNode().boundsInRoot
+        val nomorBounds = composeRule.onNodeWithTag("folder_item_num").fetchSemanticsNode().boundsInRoot
+        val pribadiBounds = composeRule.onNodeWithTag("folder_item_prib").fetchSemanticsNode().boundsInRoot
+        val sandiBounds = composeRule.onNodeWithTag("folder_item_pw").fetchSemanticsNode().boundsInRoot
+        val kredBounds = composeRule.onNodeWithTag("folder_item_kred").fetchSemanticsNode().boundsInRoot
+        val balasanBounds = composeRule.onNodeWithTag("folder_item_bc").fetchSemanticsNode().boundsInRoot
         val kerjaBounds = composeRule.onNodeWithTag("folder_item_Kerja").fetchSemanticsNode().boundsInRoot
         val rootEntryBounds = composeRule.onNodeWithTag("dictionary_item_e_root").fetchSemanticsNode().boundsInRoot
 
@@ -1777,7 +1777,7 @@ class ExampleRobolectricTest {
         assertTrue("Balasan Cepat must be above custom folders", balasanBounds.bottom <= kerjaBounds.top + 1f)
         assertTrue("Custom folders must be above unfoldered entries", kerjaBounds.bottom <= rootEntryBounds.top + 1f)
 
-        // Legacy "Keuangan" folder must not appear separately; its entry auto-migrated to "Balasan Cepat"
+        // Legacy "Keuangan" folder must not appear separately; its entry auto-migrated to "bc"
         assertTrue(composeRule.onAllNodesWithTag("folder_item_Keuangan").fetchSemanticsNodes().isEmpty())
 
         // None of the 6 primary folders show a 3-dot menu
@@ -1792,7 +1792,7 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithTag("add_folder_button").fetchSemanticsNodes().isEmpty())
 
         // Open Balasan Cepat -> verifies legacy Keuangan entry is automatically shown inside Balasan Cepat
-        composeRule.onNodeWithTag("folder_item_Balasan Cepat").performClick()
+        composeRule.onNodeWithTag("folder_item_bc").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("folder_breadcrumb_bar").assertIsDisplayed()
         composeRule.onNodeWithTag("dictionary_item_e_legacy_keuangan").assertIsDisplayed()
@@ -1801,10 +1801,10 @@ class ExampleRobolectricTest {
         // Navigate back to Utama
         composeRule.onNodeWithTag("breadcrumb_root").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("folder_item_Gmail").assertIsDisplayed()
+        composeRule.onNodeWithTag("folder_item_gm").assertIsDisplayed()
 
         // Long-pressing a primary folder must NOT enter selection mode or open the folder
-        composeRule.onNodeWithTag("folder_item_Gmail").performTouchInput { longClick() }
+        composeRule.onNodeWithTag("folder_item_gm").performTouchInput { longClick() }
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithTag("selection_action_bar").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("folder_breadcrumb_bar").fetchSemanticsNodes().isEmpty())
@@ -1818,7 +1818,7 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithText("2 dipilih").fetchSemanticsNodes().isNotEmpty())
 
         // Tapping a primary folder in selection mode does NOT select it
-        composeRule.onNodeWithTag("folder_item_Gmail").performClick()
+        composeRule.onNodeWithTag("folder_item_gm").performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("2 dipilih").fetchSemanticsNodes().isNotEmpty())
 
@@ -1833,7 +1833,7 @@ class ExampleRobolectricTest {
     fun dictionaryScreen_movesRootEntryToPribadi() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "e_root", word = "Salam hangat", shortcut = "sh", folder = "", updatedAtMillis = 10L),
-            PersonalDictionaryEntry(id = "e_gmail", word = "adminsuperpanjang@gmail.com", shortcut = "", folder = "Gmail", updatedAtMillis = 11L)
+            PersonalDictionaryEntry(id = "e_gmail", word = "adminsuperpanjang@gmail.com", shortcut = "", folder = "gm", updatedAtMillis = 11L)
         )
         var movedEntries = emptySet<String>()
         var movedTarget = ""
@@ -1843,7 +1843,7 @@ class ExampleRobolectricTest {
                 DictionaryScreen(
                     settings = KeyboardSettings(),
                     dictionary = entries,
-                    folders = listOf("Gmail"),
+                    folders = listOf("gm"),
                     onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
                     onDeleteEntry = {},
                     onMoveItems = { eIds, _, target ->
@@ -1861,11 +1861,11 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("move_selected_button").performClick()
         composeRule.waitForIdle()
         // Target lewat kolom folder baru: daftar folder bisa di-scroll, jadi tidak andal diklik langsung
-        composeRule.onNodeWithTag("move_custom_folder_input").performTextInput("Pribadi")
+        composeRule.onNodeWithTag("move_custom_folder_input").performTextInput("prib")
         composeRule.onNodeWithTag("confirm_move_button").performClick()
         composeRule.waitForIdle()
         assertEquals(setOf("e_root"), movedEntries)
-        assertEquals("Pribadi", movedTarget)
+        assertEquals("prib", movedTarget)
     }
 
     @Test

@@ -661,8 +661,8 @@ class KeyboardEngineUnitTest {
     fun folderedPersonalDictionaryEntries_remainActiveForShortcutsAndPrefixSuggestions() {
         val folderedEntries = listOf(
             PersonalDictionaryEntry(id = "f1", word = "CS siap membantu kakak!", shortcut = "csok", folder = "Kerja", updatedAtMillis = 10L),
-            PersonalDictionaryEntry(id = "f2", word = "csresmi2026@gmail.com", shortcut = "", folder = "Gmail", updatedAtMillis = 11L),
-            PersonalDictionaryEntry(id = "f3", word = "081234567890", shortcut = "", folder = "Nomor", updatedAtMillis = 12L)
+            PersonalDictionaryEntry(id = "f2", word = "csresmi2026@gmail.com", shortcut = "", folder = "gm", updatedAtMillis = 11L),
+            PersonalDictionaryEntry(id = "f3", word = "081234567890", shortcut = "", folder = "num", updatedAtMillis = 12L)
         )
         assertEquals(
             "CS siap membantu kakak!",
@@ -768,14 +768,14 @@ class KeyboardEngineUnitTest {
     fun settingsRepository_normalizeFolderPathFlattensSubfoldersAndCanonicalizesSixPrimaryFolders() {
         assertEquals("Kerja CS", SettingsRepository.normalizeFolderPath("Kerja/CS"))
         assertEquals("Kerja CS", SettingsRepository.normalizeFolderPath("  Kerja \\ CS  "))
-        assertEquals("Gmail", SettingsRepository.normalizeFolderPath("gmail"))
-        assertEquals("Nomor", SettingsRepository.normalizeFolderPath("nomor"))
-        assertEquals("Pribadi", SettingsRepository.normalizeFolderPath("pribadi"))
-        assertEquals("Kata Sandi", SettingsRepository.normalizeFolderPath("kata sandi"))
-        assertEquals("Kredensial", SettingsRepository.normalizeFolderPath("KREDENSIAL"))
-        assertEquals("Balasan Cepat", SettingsRepository.normalizeFolderPath("balasan cepat"))
-        assertEquals("Balasan Cepat", SettingsRepository.normalizeFolderPath("keuangan"))
-        assertEquals("Balasan Cepat", SettingsRepository.normalizeFolderPath("Keuangan"))
+        assertEquals("gm", SettingsRepository.normalizeFolderPath("gmail"))
+        assertEquals("num", SettingsRepository.normalizeFolderPath("nomor"))
+        assertEquals("prib", SettingsRepository.normalizeFolderPath("pribadi"))
+        assertEquals("pw", SettingsRepository.normalizeFolderPath("kata sandi"))
+        assertEquals("kred", SettingsRepository.normalizeFolderPath("KREDENSIAL"))
+        assertEquals("bc", SettingsRepository.normalizeFolderPath("balasan cepat"))
+        assertEquals("bc", SettingsRepository.normalizeFolderPath("keuangan"))
+        assertEquals("bc", SettingsRepository.normalizeFolderPath("Keuangan"))
         assertEquals("", SettingsRepository.normalizeFolderPath("///"))
         assertFalse(SettingsRepository.normalizeFolderPath("A/B/C").contains('/'))
 
@@ -784,7 +784,7 @@ class KeyboardEngineUnitTest {
             entries = emptyList()
         )
         assertEquals(
-            listOf("Gmail", "Kata Sandi", "Nomor", "A2F", "Kredensial", "Pribadi", "Balasan Cepat", "Sampah", "Kerja"),
+            listOf("gm", "pw", "num", "aut", "kred", "prib", "bc", "tras", "Kerja"),
             ordered
         )
     }
@@ -792,10 +792,10 @@ class KeyboardEngineUnitTest {
     @Test
     fun dictionaryEngine_kataSandiAndKredensialNeverLeakIdleOrByPrefixOnlyByShortcut() {
         val entries = listOf(
-            PersonalDictionaryEntry(id = "pub", word = "Halo dunia", shortcut = "hd", folder = "Pribadi", updatedAtMillis = 1L),
-            PersonalDictionaryEntry(id = "pw1", word = "RahasiaSandi!2026", shortcut = "pw1", folder = "Kata Sandi", updatedAtMillis = 2L),
+            PersonalDictionaryEntry(id = "pub", word = "Halo dunia", shortcut = "hd", folder = "prib", updatedAtMillis = 1L),
+            PersonalDictionaryEntry(id = "pw1", word = "RahasiaSandi!2026", shortcut = "pw1", folder = "pw", updatedAtMillis = 2L),
             PersonalDictionaryEntry(id = "pw_no_sc", word = "SandiTanpaPintasan", shortcut = "", folder = "kata sandi", updatedAtMillis = 3L),
-            PersonalDictionaryEntry(id = "cred1", word = "sk-live-secret-9988", shortcut = "apikey", folder = "Kredensial", updatedAtMillis = 4L)
+            PersonalDictionaryEntry(id = "cred1", word = "sk-live-secret-9988", shortcut = "apikey", folder = "kred", updatedAtMillis = 4L)
         )
         val highUsage = mapOf(
             "rahasiasandi!2026" to WordPersonalityStat("RahasiaSandi!2026", usageCount = 50, lastUsedMillis = 1000L),
@@ -827,7 +827,7 @@ class KeyboardEngineUnitTest {
         var tf = TextFieldValue("")
         val settings = KeyboardSettings()
         val entries = listOf(
-            PersonalDictionaryEntry(id = "s1", word = "Rahasia!2026", shortcut = "pw", folder = "Kata Sandi", updatedAtMillis = 1L)
+            PersonalDictionaryEntry(id = "s1", word = "Rahasia!2026", shortcut = "pw", folder = "pw", updatedAtMillis = 1L)
         )
         val controller = KeyboardController(
             TextFieldImeTarget(getValue = { tf }, setValue = { tf = it })
