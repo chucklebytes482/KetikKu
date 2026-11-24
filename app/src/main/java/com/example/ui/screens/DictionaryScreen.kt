@@ -180,6 +180,11 @@ fun DictionaryScreen(
     }
     val totalCount = activeEntriesAll.size
     val totalSelectedCount = selectedEntryIds.size + selectedFolderPaths.size
+    // Entri read-only tidak bisa dipindah; folder yang masih berisi entri juga tidak bisa dipindah.
+    val canMoveSelection = totalSelectedCount > 0 && !inTrashFolder && selectedEntryIds.isEmpty() &&
+        selectedFolderPaths.none { folder ->
+            dictionary.any { !it.deleted && SettingsRepository.normalizeFolderPath(it.folder) == folder }
+        }
 
     Column(
         modifier = modifier
@@ -244,7 +249,7 @@ fun DictionaryScreen(
                 item {
                     SelectionActionBar(
                         selectedCount = totalSelectedCount,
-                        canMoveEntries = selectedEntryIds.isNotEmpty() && !inTrashFolder,
+                        canMoveEntries = canMoveSelection,
                         inTrash = inTrashFolder,
                         onRestoreSelected = {
                             if (selectedEntryIds.isNotEmpty()) {

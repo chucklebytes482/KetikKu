@@ -466,17 +466,14 @@ class SettingsRepository(
                 entries = currentEntries
             )
 
-            // Flat folders only: moving entries or merging a folder moves matching entries directly into normTarget.
-            val foldersToMerge = normSources.filter { it != normTarget }.toSet()
-            val updatedEntries = currentEntries.map { entry ->
-                val normEntryFolder = normalizeFolderPath(entry.folder)
-                val shouldMove = entry.id in entryIds || normEntryFolder in foldersToMerge
-                if (shouldMove && normEntryFolder != normTarget) {
-                    entry.copy(folder = normTarget, updatedAtMillis = now)
-                } else {
-                    entry
-                }
-            }
+            // Entri bersifat read-only untuk folder: entri tidak pernah dipindah. Folder yang masih berisi
+            // entri juga tidak ikut dipindah/digabung, karena itu akan memindahkan entri di dalamnya.
+            val foldersWithEntries = currentEntries
+                .filter { !it.deleted }
+                .map { normalizeFolderPath(it.folder) }
+                .toSet()
+            val foldersToMerge = normSources.filter { it != normTarget && it !in foldersWithEntries }.toSet()
+            val updatedEntries = currentEntries
 
             val remainingFolders = currentFolders.filterNot { it in foldersToMerge }
             val addedFolders = if (normTarget.isNotEmpty()) listOf(normTarget) else emptyList()
