@@ -191,7 +191,7 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("ime_fixed_toolbar").assertIsDisplayed()
         val clipToolbarBounds = composeRule.onNodeWithTag("ime_clipboard_button").fetchSemanticsNode().boundsInRoot
         val floatToolbarBounds = composeRule.onNodeWithTag("ime_floating_mode_toggle").fetchSemanticsNode().boundsInRoot
-        val settingsToolbarBounds = composeRule.onNodeWithTag("ime_settings_button").fetchSemanticsNode().boundsInRoot
+        val settingsToolbarBounds = composeRule.onNodeWithTag("ime_dictionary_button").fetchSemanticsNode().boundsInRoot
         assertTrue(clipToolbarBounds.right <= floatToolbarBounds.left + 1f)
         assertTrue(floatToolbarBounds.right <= settingsToolbarBounds.left + 1f)
 
@@ -1808,8 +1808,8 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithTag("selection_action_bar").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("folder_breadcrumb_bar").fetchSemanticsNodes().isEmpty())
 
-        // Multi-select mode -> Pilih Semua selects ONLY custom folder Kerja + e_root (2 dipilih, excluding 6 primary folders)
-        composeRule.onNodeWithTag("toggle_selection_mode_button").performClick()
+        // Multi-select mode (long press) -> Pilih Semua selects ONLY custom folder Kerja + e_root (2 dipilih, excluding 6 primary folders)
+        composeRule.onNodeWithTag("folder_item_Kerja").performTouchInput { longClick() }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("selection_action_bar").assertIsDisplayed()
         composeRule.onNodeWithTag("select_all_items_button").performClick()
@@ -1854,9 +1854,7 @@ class ExampleRobolectricTest {
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithTag("toggle_selection_mode_button").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("dictionary_item_e_root").performClick()
+        composeRule.onNodeWithTag("dictionary_item_e_root").performTouchInput { longClick() }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("move_selected_button").assertIsEnabled()
         composeRule.onNodeWithTag("move_selected_button").performClick()
@@ -1867,6 +1865,72 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertEquals(setOf("e_root"), movedEntries)
         assertEquals("Pribadi", movedTarget)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h1150dp")
+    fun dictionaryScreen_rootHidesToolbarAndShowsShortcutOnlyChip() {
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "r1", word = "Gunakan gh", shortcut = "gh", folder = "", updatedAtMillis = 10L),
+            PersonalDictionaryEntry(id = "r2", word = "Tanpa kode", shortcut = "", folder = "Kerja", updatedAtMillis = 11L)
+        )
+
+        composeRule.setContent {
+            KetikKuTheme(darkTheme = false) {
+                DictionaryScreen(
+                    settings = KeyboardSettings(),
+                    dictionary = entries,
+                    folders = listOf("Kerja"),
+                    onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
+                    onDeleteEntry = {},
+                    onMoveItems = { _, _, _ -> }
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        // Root: toolbar hilang, termasuk tombol checklist
+        assertTrue(composeRule.onAllNodesWithTag("add_folder_button").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("add_dictionary_button").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("regenerate_shortcuts_button").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithTag("toggle_selection_mode_button").fetchSemanticsNodes().isEmpty())
+
+        // Chip preview hanya menampilkan pintasan
+        assertTrue(composeRule.onAllNodesWithText("Pintasan: gh").fetchSemanticsNodes().isEmpty())
+        assertTrue(composeRule.onAllNodesWithText("gh").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Tanpa pintasan").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h1150dp")
+    fun dictionaryScreen_insideFolderShowsAddButtonAndNoRequiredErrorText() {
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "k1", word = "Rapat pagi", shortcut = "rp", folder = "Kerja", updatedAtMillis = 10L)
+        )
+
+        composeRule.setContent {
+            KetikKuTheme(darkTheme = false) {
+                DictionaryScreen(
+                    settings = KeyboardSettings(),
+                    dictionary = entries,
+                    folders = listOf("Kerja"),
+                    onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
+                    onDeleteEntry = {},
+                    onMoveItems = { _, _, _ -> }
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("folder_item_Kerja").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("add_dictionary_button").assertIsDisplayed()
+
+        composeRule.onNodeWithTag("add_dictionary_button").performClick()
+        composeRule.waitForIdle()
+        // Kata kosong: Simpan nonaktif, tapi tidak ada pesan "wajib diisi"
+        composeRule.onNodeWithTag("save_dictionary_button").assertIsNotEnabled()
+        assertTrue(composeRule.onAllNodesWithText("Kata wajib diisi").fetchSemanticsNodes().isEmpty())
     }
 
     @Test
