@@ -218,6 +218,17 @@ class MainViewModel(
         }
     }
 
+    fun regenerateDictionaryShortcuts() {
+        viewModelScope.launch {
+            runCatching {
+                val changed = settingsRepository.regenerateAutoShortcuts()
+                if (changed > 0) pushLocalChangesToDevice()
+            }.onFailure {
+                _deviceSyncUiState.value = DeviceSyncUiState.Error(it.message ?: "Gagal generate ulang pintasan")
+            }
+        }
+    }
+
     fun restoreDictionaryEntries(entryIds: Set<String>) {
         viewModelScope.launch {
             settingsRepository.restoreFromTrash(entryIds)

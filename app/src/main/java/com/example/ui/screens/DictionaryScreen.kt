@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Shield
@@ -48,6 +49,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -89,6 +91,7 @@ fun DictionaryScreen(
     onDeleteEntry: (entryId: String) -> Unit,
     onDuplicateEntry: (entryId: String) -> Unit = {},
     onRestoreEntries: (entryIds: Set<String>) -> Unit = {},
+    onRegenerateShortcuts: () -> Unit = {},
     onCreateFolder: (folderPath: String) -> Unit = {},
     onRenameFolder: (oldPath: String, newName: String) -> Unit = { _, _ -> },
     onMoveItems: (entryIds: Set<String>, folderPaths: Set<String>, targetFolderPath: String) -> Unit = { _, _, _ -> },
@@ -106,6 +109,7 @@ fun DictionaryScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var editingEntry by remember { mutableStateOf<PersonalDictionaryEntry?>(null) }
     var showNewFolderDialog by remember { mutableStateOf(false) }
+    var showRegenerateDialog by remember { mutableStateOf(false) }
     var renamingFolderPath by remember { mutableStateOf<String?>(null) }
     var moveRequest by remember { mutableStateOf<Pair<Set<String>, Set<String>>?>(null) }
     var deleteRequest by remember { mutableStateOf<Pair<Set<String>, Set<String>>?>(null) }
@@ -332,6 +336,19 @@ fun DictionaryScreen(
                             }
                         }
 
+                        if (!inTrashFolder) OutlinedButton(
+                            onClick = { showRegenerateDialog = true },
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                            modifier = Modifier
+                                .height(48.dp)
+                                .testTag("regenerate_shortcuts_button")
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Pintasan")
+                        }
+
                         if (!inTrashFolder) Button(
                             onClick = { showAddDialog = true },
                             shape = RoundedCornerShape(14.dp),
@@ -496,6 +513,32 @@ fun DictionaryScreen(
                     editingEntry = null
                 }
             } else null
+        )
+    }
+
+    if (showRegenerateDialog) {
+        AlertDialog(
+            onDismissRequest = { showRegenerateDialog = false },
+            modifier = Modifier.testTag("regenerate_shortcuts_dialog"),
+            title = { Text("Generate ulang pintasan?") },
+            text = {
+                Text(
+                    "Pintasan semua kata di folder Gmail, Kata Sandi, dan Nomor dibuat ulang otomatis. " +
+                        "Pintasan manual di folder tersebut ikut tertimpa."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onRegenerateShortcuts()
+                        showRegenerateDialog = false
+                    },
+                    modifier = Modifier.testTag("confirm_regenerate_shortcuts_button")
+                ) { Text("Generate") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRegenerateDialog = false }) { Text("Batal") }
+            }
         )
     }
 

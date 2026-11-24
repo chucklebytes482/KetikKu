@@ -318,6 +318,9 @@ private fun KetikKuNavHost(
                 onRestoreEntries = { entryIds ->
                     mainViewModel.restoreDictionaryEntries(entryIds)
                 },
+                onRegenerateShortcuts = {
+                    mainViewModel.regenerateDictionaryShortcuts()
+                },
                 onDeleteEntry = { entryId ->
                     mainViewModel.deleteDictionaryEntry(entryId)
                 },

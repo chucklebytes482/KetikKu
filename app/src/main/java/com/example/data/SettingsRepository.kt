@@ -513,6 +513,46 @@ class SettingsRepository(
         }
     }
 
+    /**
+     * Generate ulang pintasan otomatis untuk semua entri aktif di folder Gmail, Kata Sandi, dan Nomor.
+     * Urutan: entri terlama dulu, supaya hasilnya deterministik. Mengembalikan jumlah entri yang berubah.
+     */
+    suspend fun regenerateAutoShortcuts(): Int {
+        val now = System.currentTimeMillis()
+        var changed = 0
+        dataStore.edit { prefs ->
+            val list = parseDictionaryList(prefs[Keys.DICTIONARY_JSON]).toMutableList()
+            val autoFolders = setOf(FOLDER_GMAIL, FOLDER_KATA_SANDI, FOLDER_NOMOR)
+            val targets = list
+                .filter { !it.deleted && normalizeFolderPath(it.folder) in autoFolders }
+                .sortedWith(compareBy({ it.updatedAtMillis }, { it.id }))
+            if (targets.isNotEmpty()) {
+                val originalShortcut = targets.associate { it.id to it.shortcut }
+                // Kosongkan dulu pintasan target supaya entri tidak bentrok dengan lama dirinya sendiri.
+                targets.forEach { t ->
+                    val i = list.indexOfFirst { it.id == t.id }
+                    list[i] = list[i].copy(shortcut = "")
+                }
+                targets.forEach { t ->
+                    val i = list.indexOfFirst { it.id == t.id }
+                    val e = list[i]
+                    val fresh = autoShortcut(normalizeFolderPath(e.folder), e.word, list, e.id)
+                    if (fresh != originalShortcut[t.id]) {
+                        changed++
+                        list[i] = e.copy(shortcut = fresh, updatedAtMillis = now)
+                    } else {
+                        list[i] = e.copy(shortcut = fresh)
+                    }
+                }
+                if (changed > 0) {
+                    prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(list)
+                    prefs[Keys.PENDING_CHANGES] = true
+                }
+            }
+        }
+        return changed
+    }
+
     /** Pulihkan dari Sampah ke folder asal. Pintasan yang bentrok diberi angka. */
     suspend fun restoreFromTrash(entryIds: Set<String>) {
         if (entryIds.isEmpty()) return
