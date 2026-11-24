@@ -501,7 +501,7 @@ private fun PassphraseDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Satu passphrase untuk semua cadangan terenkripsi (kamus, kata sandi, kredensial, A2F). " +
+                    "Satu passphrase untuk semua cadangan terenkripsi (kamus, pw, kred, aut). " +
                         "Minimal $MIN_PASSPHRASE_LENGTH karakter. Dibutuhkan untuk memulihkan di HP baru; tidak bisa dipulihkan jika lupa."
                 )
                 OutlinedTextField(

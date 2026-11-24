@@ -83,7 +83,8 @@ internal fun DictionaryEntryDialog(
     val emailMissing = isA2f && (isNew || a2fEditable) && email.isBlank()
     val siteMissing = isA2f && (isNew || a2fEditable) && website.isBlank()
     val seedMissing = isA2f && isNew && seed.isBlank()
-    val shortcutMissing = isA2f && shortcut.isBlank()
+    // Pintasan A2F dibuat otomatis saat simpan (email + website), jadi tidak pernah wajib diisi di dialog.
+    val shortcutMissing = false
     val wordMissing = !isA2f && isNew && word.isBlank()
 
     // Pesan format (bukan kosong) tetap ditampilkan.
@@ -108,7 +109,7 @@ internal fun DictionaryEntryDialog(
     val wordError = when {
         isA2f || !isNew -> null
         wordMissing -> null
-        folder == SettingsRepository.FOLDER_GMAIL && !word.contains('@') -> "Gmail harus berupa alamat email"
+        folder == SettingsRepository.FOLDER_GMAIL && !word.contains('@') -> "Folder gm harus berupa alamat email"
         else -> null
     }
     val canSave = !inTrash && shortcutError == null && emailError == null &&
@@ -138,7 +139,7 @@ internal fun DictionaryEntryDialog(
                         label = { Text("Email") },
                         singleLine = true,
                         isError = emailError != null,
-                        supportingText = { Text(emailError ?: if (fieldsLocked) "Dikunci" else "Juga masuk ke folder Gmail") },
+                        supportingText = { Text(emailError ?: if (fieldsLocked) "Dikunci" else "Juga masuk ke folder gm") },
                         modifier = Modifier.fillMaxWidth().testTag("a2f_email_input")
                     )
                     OutlinedTextField(
@@ -193,10 +194,15 @@ internal fun DictionaryEntryDialog(
                 OutlinedTextField(
                     value = shortcut,
                     onValueChange = { shortcut = it },
-                    readOnly = inTrash,
-                    label = { Text(if (isA2f) "Pintasan (misal: gh)" else "Pintasan (kosong = otomatis)") },
+                    readOnly = inTrash || isA2f,
+                    label = { Text(if (isA2f) "Pintasan (Dibuat otomatis)" else "Pintasan (kosong = otomatis)") },
                     isError = shortcutError != null,
-                    supportingText = { if (shortcutError != null) Text(shortcutError) },
+                    supportingText = {
+                        when {
+                            shortcutError != null -> Text(shortcutError)
+                            isA2f -> Text("Dibuat otomatis: aut + 2 huruf email + 2 huruf website")
+                        }
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("dictionary_shortcut_input")
                 )

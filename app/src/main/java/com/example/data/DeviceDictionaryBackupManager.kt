@@ -435,7 +435,7 @@ class DeviceDictionaryBackupManager(
             withContext(Dispatchers.IO) {
                 var remoteEnvelope: String? = null
                 for (fileName in ENCRYPTABLE_FILE_NAMES) {
-                    when (val read = storage.readBackup(fileName, treeUri)) {
+                    when (val read = readBackupCompat(fileName, treeUri)) {
                         is BackupReadResult.Found -> {
                             if (remoteEnvelope == null && BackupCrypto.isEnvelope(read.file.content)) {
                                 remoteEnvelope = read.file.content
@@ -486,7 +486,7 @@ class DeviceDictionaryBackupManager(
         if (!backupCipher.isConfigured()) return@withContext null
         // Selalu gabungkan dulu: akun yang ada di berkas tapi belum ada di HP tidak boleh hilang saat ditulis ulang.
         run {
-            when (val read = storage.readBackup(BACKUP_FILE_A2F_AUTO, treeUri)) {
+            when (val read = readBackupCompat(BACKUP_FILE_A2F_AUTO, treeUri)) {
                 is BackupReadResult.NeedsFolderAccess -> return@withContext read.reason
                 is BackupReadResult.Error -> return@withContext read.message
                 is BackupReadResult.NotFound -> Unit
@@ -994,6 +994,14 @@ class DeviceDictionaryBackupManager(
     }
 
     /** Membaca keempat berkas jenis dan menggabungkannya menjadi satu envelope JSON. */
+    /** Baca berkas nama baru; jika belum ada, coba nama lama. Penulisan selalu memakai nama baru. */
+    private fun readBackupCompat(fileName: String, treeUri: String?): BackupReadResult {
+        val primary = storage.readBackup(fileName, treeUri)
+        val legacy = DeviceDictionaryBackupManager.LEGACY_BACKUP_FILE_NAMES[fileName] ?: return primary
+        if (primary !is BackupReadResult.NotFound) return primary
+        return storage.readBackup(legacy, treeUri)
+    }
+
     private fun readAll(treeUri: String?): BackupReadResult {
         val entries = mutableListOf<PersonalDictionaryEntry>()
         val folders = mutableListOf<String>()
@@ -1004,7 +1012,7 @@ class DeviceDictionaryBackupManager(
             // A2F is restored only via the explicit password import, never by auto-sync.
             if (kind == "a2f") continue
             val fileName = DeviceDictionaryBackupManager.backupFileNameFor(kind)
-            when (val result = storage.readBackup(fileName, treeUri)) {
+            when (val result = readBackupCompat(fileName, treeUri)) {
                 is BackupReadResult.NeedsFolderAccess -> return result
                 is BackupReadResult.Error -> return result
                 is BackupReadResult.NotFound -> Unit
@@ -1236,11 +1244,18 @@ class DeviceDictionaryBackupManager(
     companion object {
         const val BACKUP_RELATIVE_PATH = "Documents"
         const val BACKUP_FILE_UMUM = "ketikku_umum.json"
-        const val BACKUP_FILE_KATA_SANDI = "ketikku_kata_sandi.json"
-        const val BACKUP_FILE_KREDENSIAL = "ketikku_kredensial.json"
-        const val BACKUP_FILE_A2F = "ketikku_a2f.json"
-        /** Cadangan otomatis A2F (terenkripsi passphrase). Berkas `ketikku_a2f.json` tetap hanya untuk impor manual. */
-        const val BACKUP_FILE_A2F_AUTO = "ketikku_a2f_terenkripsi.json"
+        const val BACKUP_FILE_KATA_SANDI = "ketikku_pw.json"
+        const val BACKUP_FILE_KREDENSIAL = "ketikku_kred.json"
+        const val BACKUP_FILE_A2F = "ketikku_aut.json"
+        /** Cadangan otomatis A2F (terenkripsi passphrase). Berkas `ketikku_aut.json` tetap hanya untuk impor manual. */
+        const val BACKUP_FILE_A2F_AUTO = "ketikku_aut_terenkripsi.json"
+        /** Nama lama (sebelum rename folder). Hanya dibaca sebagai cadangan jika nama baru belum ada; tidak pernah dihapus. */
+        val LEGACY_BACKUP_FILE_NAMES = mapOf(
+            BACKUP_FILE_KATA_SANDI to "ketikku_kata_sandi.json",
+            BACKUP_FILE_KREDENSIAL to "ketikku_kredensial.json",
+            BACKUP_FILE_A2F to "ketikku_a2f.json",
+            BACKUP_FILE_A2F_AUTO to "ketikku_a2f_terenkripsi.json"
+        )
         const val KIND_A2F_AUTO = "a2f_auto"
         const val LOCKED_MESSAGE = "Cadangan terenkripsi terkunci: masukkan passphrase cadangan"
         /** Berkas yang ikut dienkripsi saat passphrase aktif. */

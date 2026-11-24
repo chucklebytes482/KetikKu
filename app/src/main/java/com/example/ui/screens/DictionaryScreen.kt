@@ -544,7 +544,7 @@ fun DictionaryScreen(
             title = { Text("Generate ulang pintasan?") },
             text = {
                 Text(
-                    "Pintasan semua kata di folder Gmail, Kata Sandi, dan Nomor dibuat ulang otomatis. " +
+                    "Pintasan semua kata di folder gm, pw, num, aut, dan kred dibuat ulang otomatis. " +
                         "Pintasan manual di folder tersebut ikut tertimpa."
                 )
             },
