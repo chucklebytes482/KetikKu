@@ -1819,16 +1819,10 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("2 dipilih").fetchSemanticsNodes().isNotEmpty())
 
-        // Move selected entries to Gmail (only entries move; folders are not moved)
-        composeRule.onNodeWithTag("move_selected_button").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("move_target_Gmail").performClick()
-        composeRule.onNodeWithTag("confirm_move_button").performClick()
-        composeRule.waitForIdle()
-
-        assertEquals(setOf("e_root"), movedEntries)
+        // Entri read-only (dan folder yang masih berisi entri) tidak bisa dipindah: tombol pindah harus nonaktif
+        composeRule.onNodeWithTag("move_selected_button").assertIsNotEnabled()
+        assertTrue(movedEntries.isEmpty())
         assertTrue(movedFolders.isEmpty())
-        assertEquals("Gmail", movedTarget)
     }
 
     @Test
