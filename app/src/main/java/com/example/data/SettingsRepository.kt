@@ -76,6 +76,7 @@ class SettingsRepository(
 
         val DICTIONARY_JSON = stringPreferencesKey("dictionary_json")
         val FOLDERS_JSON = stringPreferencesKey("dictionary_folders_json")
+        val FOLDER_RENAME_V2_DONE = booleanPreferencesKey("folder_rename_v2_done")
         val PERSONALITY_JSON = stringPreferencesKey("suggestion_personality_json")
         val CLIPBOARD_REVISION = longPreferencesKey("clipboard_revision")
         val DISMISSED_CLIPBOARD_ID = stringPreferencesKey("dismissed_clipboard_id")
@@ -113,6 +114,7 @@ class SettingsRepository(
             if (entries.any { DictionaryEngine.isA2fEntry(it) && it.secretCipher.isNotBlank() && !SecretVault.isDeviceCipher(it.secretCipher) }) {
                 migrateLegacyA2f()
             }
+            if (prefs[Keys.FOLDER_RENAME_V2_DONE] != true) migrateFolderNamesV2()
         }
         .map { prefs -> prefs[Keys.DICTIONARY_JSON] }
         .distinctUntilChanged()
@@ -185,6 +187,36 @@ class SettingsRepository(
     suspend fun getCurrentFolders(): List<String> = foldersFlow.first()
 
     suspend fun getCurrentSyncLocalState(): SyncLocalState = syncLocalStateFlow.first()
+
+    /**
+     * Sekali jalan: ganti nama folder tersimpan ke kode pendek, buat ulang pintasan otomatis,
+     * dan tandai entri yang berubah (updatedAtMillis baru) supaya ikut sync.
+     * Folder kustom yang bentrok dengan nama baru tidak digabung otomatis; hanya dicatat di log.
+     */
+    private suspend fun migrateFolderNamesV2() {
+        val now = System.currentTimeMillis()
+        dataStore.edit { prefs ->
+            if (prefs[Keys.FOLDER_RENAME_V2_DONE] == true) return@edit
+            val rawList: List<PersonalDictionaryEntry> = prefs[Keys.DICTIONARY_JSON]?.takeIf { it.isNotBlank() }
+                ?.let { runCatching { dictListAdapter.fromJson(it) }.getOrNull() }
+                .orEmpty()
+            val rawFolders = parseFolderList(prefs[Keys.FOLDERS_JSON])
+            val clashes = customFoldersClashingWithPrimary(rawFolders + rawList.map { it.folder })
+            if (clashes.isNotEmpty()) {
+                android.util.Log.w("SettingsRepository", "Folder kustom bentrok dengan folder utama baru: $clashes")
+            }
+            val migrated = rawList.map { e ->
+                val norm = normalizeFolderPath(e.folder)
+                if (norm == e.folder) e else e.copy(folder = norm, updatedAtMillis = now)
+            }.toMutableList()
+            regenerateAutoShortcutsIn(migrated, now)
+            val changedCount = migrated.indices.count { migrated[it] != rawList[it] }
+            if (rawList.isNotEmpty()) prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(migrated)
+            prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(normalizeOrderedFolders(rawFolders, migrated))
+            if (changedCount > 0) prefs[Keys.PENDING_CHANGES] = true
+            prefs[Keys.FOLDER_RENAME_V2_DONE] = true
+        }
+    }
 
     private suspend fun migrateLegacyA2f() {
         dataStore.edit { prefs ->
@@ -313,26 +345,26 @@ class SettingsRepository(
                         seedLeft = if (existing.editable) 0 else existing.seedEditsLeft - 1
                     }
                 }
-                require(trimmedShortcut.isNotBlank() && trimmedShortcut.length <= 30 && trimmedShortcut.all { it.isLetterOrDigit() }) {
-                    "Pintasan A2F wajib 1–30 huruf/angka"
-                }
             } else if (existing != null) {
                 wordStored = existing.word
             } else {
                 require(trimmedWord.isNotEmpty()) { "Kata wajib diisi" }
-                if (targetFolder == FOLDER_GMAIL) require(trimmedWord.contains('@')) { "Gmail harus berupa alamat email" }
+                if (targetFolder == FOLDER_GMAIL) require(trimmedWord.contains('@')) { "Folder gm harus berupa alamat email" }
                 wordStored = trimmedWord
             }
 
-            val shortcutChanged = existing == null || existing.shortcut.trim().lowercase(Locale.ROOT) != trimmedShortcut
-            if (trimmedShortcut.isNotEmpty() && shortcutChanged) {
+            // Pintasan A2F selalu otomatis (aut + email + website), tidak bisa diisi manual.
+            val requestedShortcut = if (isA2f) autoShortcut(FOLDER_A2F, wordStored, current, id) else trimmedShortcut
+            if (isA2f) require(requestedShortcut.isNotEmpty()) { "Pintasan A2F tidak dapat dibuat dari email dan website" }
+            val shortcutChanged = existing == null || existing.shortcut.trim().lowercase(Locale.ROOT) != requestedShortcut.lowercase(Locale.ROOT)
+            if (requestedShortcut.isNotEmpty() && shortcutChanged) {
                 require(current.none { other ->
                     other.id != id && !other.deleted && normalizeFolderPath(other.folder) != FOLDER_SAMPAH &&
-                        other.shortcut.trim().equals(trimmedShortcut, ignoreCase = true)
+                        other.shortcut.trim().equals(requestedShortcut, ignoreCase = true)
                 }) { "Pintasan sudah dipakai" }
             }
             val finalShortcut = when {
-                isA2f -> trimmedShortcut
+                isA2f -> requestedShortcut
                 trimmedShortcut.isNotEmpty() -> trimmedShortcut
                 else -> autoShortcut(targetFolder, wordStored, current, id)
             }
@@ -590,32 +622,40 @@ class SettingsRepository(
         var changed = 0
         dataStore.edit { prefs ->
             val list = parseDictionaryList(prefs[Keys.DICTIONARY_JSON]).toMutableList()
-            val autoFolders = setOf(FOLDER_GMAIL, FOLDER_KATA_SANDI, FOLDER_NOMOR)
-            val targets = list
-                .filter { !it.deleted && normalizeFolderPath(it.folder) in autoFolders }
-                .sortedWith(compareBy({ it.updatedAtMillis }, { it.id }))
-            if (targets.isNotEmpty()) {
-                val originalShortcut = targets.associate { it.id to it.shortcut }
-                // Kosongkan dulu pintasan target supaya entri tidak bentrok dengan lama dirinya sendiri.
-                targets.forEach { t ->
-                    val i = list.indexOfFirst { it.id == t.id }
-                    list[i] = list[i].copy(shortcut = "")
-                }
-                targets.forEach { t ->
-                    val i = list.indexOfFirst { it.id == t.id }
-                    val e = list[i]
-                    val fresh = autoShortcut(normalizeFolderPath(e.folder), e.word, list, e.id)
-                    if (fresh != originalShortcut[t.id]) {
-                        changed++
-                        list[i] = e.copy(shortcut = fresh, updatedAtMillis = now)
-                    } else {
-                        list[i] = e.copy(shortcut = fresh)
-                    }
-                }
-                if (changed > 0) {
-                    prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(list)
-                    prefs[Keys.PENDING_CHANGES] = true
-                }
+            changed = regenerateAutoShortcutsIn(list, now)
+            if (changed > 0) {
+                prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(list)
+                prefs[Keys.PENDING_CHANGES] = true
+            }
+        }
+        return changed
+    }
+
+    /**
+     * Pintasan ulang untuk entri aktif di folder auto. Urutan: entri terlama dulu (deterministik).
+     * Mengubah [list] di tempat; entri yang pintasannya berubah dapat updatedAtMillis = [now]. Mengembalikan jumlahnya.
+     */
+    private fun regenerateAutoShortcutsIn(list: MutableList<PersonalDictionaryEntry>, now: Long): Int {
+        var changed = 0
+        val targets = list
+            .filter { !it.deleted && normalizeFolderPath(it.folder) in AUTO_SHORTCUT_FOLDERS }
+            .sortedWith(compareBy({ it.updatedAtMillis }, { it.id }))
+        if (targets.isEmpty()) return 0
+        val originalShortcut = targets.associate { it.id to it.shortcut }
+        // Kosongkan dulu pintasan target supaya entri tidak bentrok dengan lama dirinya sendiri.
+        targets.forEach { t ->
+            val i = list.indexOfFirst { it.id == t.id }
+            list[i] = list[i].copy(shortcut = "")
+        }
+        targets.forEach { t ->
+            val i = list.indexOfFirst { it.id == t.id }
+            val e = list[i]
+            val fresh = autoShortcut(normalizeFolderPath(e.folder), e.word, list, e.id)
+            if (fresh != originalShortcut[t.id]) {
+                changed++
+                list[i] = e.copy(shortcut = fresh, updatedAtMillis = now)
+            } else {
+                list[i] = e.copy(shortcut = fresh)
             }
         }
         return changed
@@ -1233,28 +1273,44 @@ class SettingsRepository(
             FOLDER_SAMPAH
         )
 
-        /** Dasar pintasan otomatis: Gmail = huruf/angka pertama + gm, Kata Sandi = huruf pertama + ks, Nomor = 3 digit terakhir. */
+        /**
+         * Dasar pintasan otomatis (prefix folder + huruf):
+         * gm + huruf/angka pertama local part email (abdul@gmail.com -> gma)
+         * pw + huruf/angka pertama kata (Github -> pwg)
+         * num + 4 digit pertama nomor (081234567890 -> num0812)
+         * aut + 2 karakter local part email + 2 karakter domain utama website (word = "email\nwebsite"; budi@x.com + github.com -> autbugi)
+         * kred + 2 huruf/angka pertama kata (BCA -> kredbc)
+         */
         fun autoShortcutBase(folder: String, word: String): String {
             val w = word.trim()
             return when (normalizeFolderPath(folder)) {
                 FOLDER_GMAIL -> w.substringBefore('@').firstOrNull { it.isLetterOrDigit() }
-                    ?.lowercaseChar()?.let { "${it}gm" }.orEmpty()
+                    ?.lowercaseChar()?.let { "gm$it" }.orEmpty()
                 FOLDER_KATA_SANDI -> w.firstOrNull { it.isLetterOrDigit() }
-                    ?.lowercaseChar()?.let { "${it}ks" }.orEmpty()
-                FOLDER_NOMOR -> w.filter { it.isDigit() }.takeLast(3)
+                    ?.lowercaseChar()?.let { "pw$it" }.orEmpty()
+                FOLDER_NOMOR -> w.filter { it.isDigit() }.take(4)
+                    .takeIf { it.isNotEmpty() }?.let { "num$it" }.orEmpty()
+                FOLDER_A2F -> {
+                    val parts = w.split('\n')
+                    val local = parts.getOrElse(0) { "" }.trim().substringBefore('@')
+                        .filter { it.isLetterOrDigit() }.lowercase(Locale.ROOT).take(2)
+                    val domain = websiteMainLabel(parts.getOrElse(1) { "" })
+                    if (local.isEmpty() || domain.isEmpty()) "" else "aut$local$domain"
+                }
+                FOLDER_KREDENSIAL -> w.filter { it.isLetterOrDigit() }.lowercase(Locale.ROOT).take(2)
+                    .takeIf { it.isNotEmpty() }?.let { "kred$it" }.orEmpty()
                 else -> ""
             }
         }
 
-        /** Pintasan otomatis unik: bentrok diberi angka (agm2, agm3, ...). Kosong jika folder tidak mendukung. */
-        fun autoShortcut(
-            folder: String,
-            word: String,
-            others: List<PersonalDictionaryEntry>,
-            selfId: String?
-        ): String {
-            val base = autoShortcutBase(folder, word)
-            return if (base.isEmpty()) "" else nextFreeShortcut(base, others, selfId)
+        /** Domain utama website: scheme dan www. dibuang, lalu 2 karakter pertama label pertama. "https://www.github.com/x" -> "gi". */
+        private fun websiteMainLabel(site: String): String {
+            val host = site.trim().lowercase(Locale.ROOT)
+                .substringAfter("://")
+                .substringBefore('/')
+                .substringBefore('?')
+                .removePrefix("www.")
+            return host.substringBefore('.').filter { it.isLetterOrDigit() }.take(2)
         }
 
         /** Pintasan pertama yang belum dipakai entri aktif lain (entri Sampah tidak dihitung). */
@@ -1286,7 +1342,7 @@ class SettingsRepository(
         )
 
         /** Folder auto-pintasan: pintasan dibuat ulang saat entri pindah ke sini. */
-        private val AUTO_SHORTCUT_FOLDERS = setOf(FOLDER_GMAIL, FOLDER_KATA_SANDI, FOLDER_NOMOR)
+        private val AUTO_SHORTCUT_FOLDERS = setOf(FOLDER_GMAIL, FOLDER_KATA_SANDI, FOLDER_NOMOR, FOLDER_A2F, FOLDER_KREDENSIAL)
 
         fun isMovableEntry(entry: PersonalDictionaryEntry): Boolean {
             if (entry.deleted) return false
