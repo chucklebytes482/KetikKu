@@ -351,6 +351,31 @@ class MainViewModel(
         }
     }
 
+    /** Timpa ke bawah: aplikasi -> perangkat (tombol ↓). */
+    fun timpaKeBawah() = runDeviceSync { it.timpaKeBawah() }
+
+    /** Timpa ke atas: perangkat -> aplikasi, digabung per id, versi terbaru menang (tombol ↑). */
+    fun timpaKeAtas() = runDeviceSync { it.timpaKeAtas() }
+
+    private fun runDeviceSync(block: suspend (DeviceDictionaryBackupManager) -> DeviceSyncResult) {
+        val manager = deviceBackupManager ?: return
+        if (_deviceSyncUiState.value is DeviceSyncUiState.Syncing) return
+        lastAutoSyncTriggerMillis = System.currentTimeMillis()
+        _deviceSyncUiState.value = DeviceSyncUiState.Syncing
+        viewModelScope.launch {
+            val result = try {
+                block(manager)
+            } catch (t: Throwable) {
+                DeviceSyncResult.Error(t.localizedMessage ?: "Gagal menyinkronkan kamus pribadi ke perangkat.")
+            }
+            _deviceSyncUiState.value = when (result) {
+                is DeviceSyncResult.Synced -> DeviceSyncUiState.Idle
+                is DeviceSyncResult.NeedsFolderAccess -> DeviceSyncUiState.NeedsFolderAccess(result.message)
+                is DeviceSyncResult.Error -> DeviceSyncUiState.Error(result.message)
+            }
+        }
+    }
+
     fun syncDictionaryWithDevice(force: Boolean = false) {
         val manager = deviceBackupManager ?: return
         val now = System.currentTimeMillis()

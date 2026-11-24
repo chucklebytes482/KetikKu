@@ -20,20 +20,27 @@
 
 ## Cadangan otomatis terenkripsi
 - Berkas: `ketikku_umum.json`, `ketikku_kata_sandi.json`, `ketikku_kredensial.json`, dan `ketikku_a2f_terenkripsi.json`.
-- Semua berkas dienkripsi dengan satu passphrase (AES-256-GCM, PBKDF2-HMAC-SHA1 600.000 iterasi, salt acak per berkas). Setiap berkas terikat jenisnya, jadi tidak bisa ditukar antar-jenis.
-- Aktifkan lewat panel cadangan A2F → **Aktifkan cadangan otomatis terenkripsi**. Minimal 12 karakter. Sebelum aktif, tiga berkas tetap JSON biasa dan berkas A2F otomatis belum dibuat.
+- Semua berkas dienkripsi dengan satu passphrase: AES-256-GCM, kunci = SHA-256(passphrase), format `ketikku-enc-v2`. Setiap berkas terikat jenisnya lewat AAD `format|jenis`, jadi tidak bisa ditukar antar-jenis.
+- Berkas `ketikku-enc-v1` (PBKDF2) dari versi lama tetap bisa dibaca. Semua penulisan baru memakai v2.
+- Kartu cadangan perangkat punya tiga langkah: (1) atur passphrase, minimal 12 karakter; (2) pilih folder di Documents; (3) tombol **↓ Timpa ke bawah** (aplikasi → perangkat) dan **↑ Timpa ke atas** (perangkat → aplikasi).
+- Sebelum passphrase diatur, berkas tetap JSON biasa.
 - Passphrase disimpan di perangkat dalam bentuk terbungkus Android Keystore. Siapa pun yang bisa membuka perangkat atau data aplikasi dapat memulihkannya.
 - HP baru: pasang aplikasi, buka cadangan (berkas terenkripsi terbaca hanya setelah passphrase dimasukkan), lalu aktifkan dengan passphrase yang sama. Keystore tidak ikut pindah, jadi passphrase wajib.
 - Berkas tanpa enkripsi tetap dibaca untuk kompatibilitas, lalu ditulis ulang terenkripsi setelah passphrase aktif.
+- Aturan per berkas (standar sinkronisasi 06 §2): berkas belum ada di perangkat → disalin; nama sama dan isi berbeda → ditimpa; isi sama → dilewati. Berkas yang hanya ada di tujuan tidak dihapus.
+- Berkas tersembunyi (diawali titik) tidak disentuh. Aplikasi hanya membaca dan menulis empat nama `ketikku_*.json` yang tetap.
+- Batasan standar 06 §6: ukuran sama tapi isi berbeda tidak tertangkap oleh pemeriksaan ukuran. Aplikasi membandingkan isi langsung, jadi batasan ini tidak berlaku di sini.
+- Cadangan otomatis saat ada perubahan tetap aktif. Ini menyimpang dari Lotura 05 §6 ("tidak ada auto-sync") atas permintaan pemilik.
 - Kata sandi dan kredensial hanya aman selama passphrase dijaga; simpan passphrase terpisah dari berkas.
 - Cadangan A2F otomatis: akun baru ditambahkan dari berkas ke aplikasi, tetapi aplikasi tidak menghapus akun A2F lokal karena berkas. Menghapus akun A2F terakhir tidak mengosongkan berkas, sehingga akun bisa kembali pada sinkron berikutnya.
-- “Timpa ke atas” berarti berkas → aplikasi; “Timpa ke bawah” berarti aplikasi → berkas.
+- “Timpa ke atas” (↑) berarti perangkat → aplikasi; “Timpa ke bawah” (↓) berarti aplikasi → perangkat. Istilah lain (unggah, unduh, push) tidak dipakai di antarmuka.
+- Timpa ke atas menggabungkan entri per id dan versi yang lebih baru menang. Entri yang hanya ada di aplikasi tetap ada.
 - Aplikasi tidak otomatis menghapus berkas tujuan, termasuk `ketikku_a2f.json` lama. Berkas `ketikku_a2f.json` (ekspor berpassword manual) tidak ditulis otomatis.
 
 ## Cadangan A2F lintas perangkat
 1. Buka panel cadangan perangkat → **Ekspor A2F berpassword**.
 2. Gunakan password unik minimal 12 karakter; ulangi untuk konfirmasi.
-3. Pilih lokasi berkas `ketikku_a2f.json`. Semua metadata akun dan seed ada dalam payload terenkripsi AES-256-GCM. Kunci berasal dari PBKDF2-HMAC-SHA1, 600.000 iterasi, salt acak 16 byte (kompatibel API 24).
+3. Pilih lokasi berkas `ketikku_a2f.json`. Semua metadata akun dan seed ada dalam payload terenkripsi AES-256-GCM. Kunci berasal dari PBKDF2-HMAC-SHA1, 600.000 iterasi, salt acak 16 byte (kompatibel API 24). Ini format terpisah dari cadangan otomatis dan belum diubah ke SHA-256.
 4. Simpan berkas dan password secara terpisah. Password tidak disimpan aplikasi dan tidak dapat dipulihkan.
 5. Ekspor **sebelum** uninstall, hapus data aplikasi, atau pindah HP. Pada perangkat tujuan pilih **Impor A2F**, isi password, lalu pilih berkas. Seed dienkripsi ulang memakai Keystore perangkat tujuan.
 6. Password salah, berkas rusak, ID bentrok, seed berbeda untuk ID yang sama, atau pintasan duplikat membatalkan impor tanpa mengganti kamus.

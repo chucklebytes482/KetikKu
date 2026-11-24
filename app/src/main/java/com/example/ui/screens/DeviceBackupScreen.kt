@@ -27,19 +27,22 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,26 +51,31 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.data.DeviceDictionaryBackupManager
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
 import com.example.ui.DeviceSyncUiState
-import com.example.ui.theme.GoogleYellow700
 import com.example.ui.theme.GoogleGreen700
+import com.example.ui.theme.GoogleYellow700
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private const val MIN_PASSPHRASE_LENGTH = 12
 
 @Composable
 fun DeviceBackupSheetContent(
     dictionary: List<PersonalDictionaryEntry>,
     syncLocalState: SyncLocalState,
     deviceSyncUiState: DeviceSyncUiState,
-    onSyncNow: () -> Unit,
+    onTimpaKeBawah: () -> Unit,
+    onTimpaKeAtas: () -> Unit,
     onFolderAuthorized: (String) -> Unit,
+    encryptionConfigured: Boolean,
+    onEnableEncryption: (CharArray, (Result<String>) -> Unit) -> Unit,
     onResetFolderToDefault: () -> Unit = {},
     modifier: Modifier = Modifier,
     a2fContent: @Composable () -> Unit = {}
@@ -128,7 +136,10 @@ fun DeviceBackupSheetContent(
         statusDotColor = statusDotColor,
         isSyncing = isSyncing,
         needsFolderAccess = needsFolderAccess,
-        onSyncNow = onSyncNow,
+        encryptionConfigured = encryptionConfigured,
+        onEnableEncryption = onEnableEncryption,
+        onTimpaKeBawah = onTimpaKeBawah,
+        onTimpaKeAtas = onTimpaKeAtas,
         onRequestFolderAccess = {
             val initialUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 DeviceDictionaryBackupManager.INITIAL_DOCUMENTS_URI
@@ -143,6 +154,12 @@ fun DeviceBackupSheetContent(
     )
 }
 
+/**
+ * Kartu cadangan dengan tiga langkah:
+ * 1. Passphrase (sekali, untuk semua cadangan terenkripsi)
+ * 2. Pilih folder di dalam Documents
+ * 3. ↓ Timpa ke bawah (aplikasi -> perangkat) dan ↑ Timpa ke atas (perangkat -> aplikasi)
+ */
 @Composable
 internal fun DeviceBackupSheetBody(
     activeWordCount: Int,
@@ -150,14 +167,25 @@ internal fun DeviceBackupSheetBody(
     statusDotColor: Color,
     isSyncing: Boolean,
     needsFolderAccess: Boolean,
-    onSyncNow: () -> Unit,
+    onTimpaKeBawah: () -> Unit,
+    onTimpaKeAtas: () -> Unit,
     onRequestFolderAccess: () -> Unit,
     backupDisplayPath: String = DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH,
     hasCustomFolder: Boolean = false,
     onResetFolderToDefault: () -> Unit = {},
+    encryptionConfigured: Boolean = false,
+    onEnableEncryption: (CharArray, (Result<String>) -> Unit) -> Unit = { chars, done ->
+        chars.fill('\u0000')
+        done(Result.failure(IllegalStateException("Cadangan perangkat tidak tersedia")))
+    },
     modifier: Modifier = Modifier,
     a2fContent: @Composable () -> Unit = {}
 ) {
+    var showPassphraseDialog by remember { mutableStateOf(false) }
+    var encryptionOn by remember(encryptionConfigured) { mutableStateOf(encryptionConfigured) }
+    var passphraseStatus by remember { mutableStateOf("") }
+    var passphraseBusy by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -201,7 +229,7 @@ internal fun DeviceBackupSheetBody(
             }
         }
 
-        // Status 1 baris (dimensi kartu tetap konsisten)
+        // Status 1 baris
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -237,136 +265,312 @@ internal fun DeviceBackupSheetBody(
             }
         }
 
-        // Lokasi file tunggal di dalam /storage/emulated/0/Documents/
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
-                    shape = RoundedCornerShape(16.dp)
-                )
-                .testTag("device_backup_path_card")
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+        // Langkah 1: passphrase
+        StepCard(number = "1", title = "Atur passphrase", testTag = "device_step_passphrase") {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Text(
+                    text = when {
+                        encryptionOn -> "Terenkripsi • aktif"
+                        else -> "Belum diatur"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (encryptionOn) GoogleGreen700 else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f).testTag("device_passphrase_status")
+                )
+                TextButton(
+                    onClick = { showPassphraseDialog = true },
+                    enabled = !isSyncing && !passphraseBusy,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    modifier = Modifier.heightIn(min = 32.dp).testTag("device_passphrase_button")
                 ) {
                     Text(
-                        text = "Lokasi file tunggal ($activeWordCount kata aktif)",
+                        text = if (encryptionOn) "Ubah" else "Atur",
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
+                        fontWeight = FontWeight.SemiBold
                     )
-                    if (hasCustomFolder) {
-                        TextButton(
-                            onClick = onResetFolderToDefault,
-                            enabled = !isSyncing,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                            modifier = Modifier
-                                .heightIn(min = 32.dp)
-                                .testTag("device_reset_folder_button")
-                        ) {
-                            Text(
-                                text = "Bawaan",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
                 }
+            }
+            if (passphraseStatus.isNotBlank()) {
                 Text(
-                    text = backupDisplayPath,
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.testTag("device_backup_path_text")
-                )
-                Text(
-                    text = "Bebas pilih folder di dalam Documents tanpa dibuatkan folder otomatis.",
+                    text = passphraseStatus,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("device_passphrase_message")
                 )
             }
         }
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
-
-        // Selalu tampil dengan ukuran konsisten agar pengguna bebas memilih jalur di dalam Documents kapan saja
-        OutlinedButton(
-            onClick = onRequestFolderAccess,
-            enabled = !isSyncing,
-            shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 52.dp)
-                .testTag("device_grant_folder_button")
-        ) {
-            Icon(
-                imageVector = Icons.Default.FolderOpen,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = if (needsFolderAccess) {
-                    "Izinkan & Pilih Folder Documents"
-                } else {
-                    "Pilih Folder di Documents"
-                },
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        Button(
-            onClick = onSyncNow,
-            enabled = !isSyncing,
-            shape = RoundedCornerShape(28.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 52.dp)
-                .testTag("device_sync_now_button")
-        ) {
-            if (isSyncing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp
+        // Langkah 2: folder di Documents
+        StepCard(number = "2", title = "Pilih folder di Documents", testTag = "device_backup_path_card") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Lokasi file tunggal ($activeWordCount kata aktif)",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
                 )
-            } else {
+                if (hasCustomFolder) {
+                    TextButton(
+                        onClick = onResetFolderToDefault,
+                        enabled = !isSyncing,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        modifier = Modifier
+                            .heightIn(min = 32.dp)
+                            .testTag("device_reset_folder_button")
+                    ) {
+                        Text(
+                            text = "Bawaan",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+            Text(
+                text = backupDisplayPath,
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.testTag("device_backup_path_text")
+            )
+            OutlinedButton(
+                onClick = onRequestFolderAccess,
+                enabled = !isSyncing,
+                shape = RoundedCornerShape(28.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .testTag("device_grant_folder_button")
+            ) {
                 Icon(
-                    imageVector = Icons.Default.Refresh,
+                    imageVector = Icons.Default.FolderOpen,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = if (needsFolderAccess) "Izinkan & Pilih Folder" else "Pilih Folder",
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = if (isSyncing) "Menyinkron..." else "Sinkron Sekarang",
-                fontWeight = FontWeight.Medium,
-                lineHeight = 18.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
         }
+
+        // Langkah 3: sinkron dua arah
+        StepCard(number = "3", title = "Sinkron", testTag = "device_sync_card") {
+            if (isSyncing) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Menyinkron...", style = MaterialTheme.typography.bodyMedium)
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onTimpaKeBawah,
+                        enabled = !isSyncing,
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                            .testTag("device_push_down_button")
+                    ) {
+                        Text(
+                            text = "↓ Timpa ke bawah",
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Button(
+                        onClick = onTimpaKeAtas,
+                        enabled = !isSyncing,
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                            .testTag("device_pull_up_button")
+                    ) {
+                        Text(
+                            text = "↑ Timpa ke atas",
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+
         a2fContent()
     }
+
+    if (showPassphraseDialog) {
+        PassphraseDialog(
+            isChanging = encryptionOn,
+            onDismiss = { showPassphraseDialog = false },
+            onConfirm = { chars ->
+                showPassphraseDialog = false
+                passphraseBusy = true
+                passphraseStatus = ""
+                onEnableEncryption(chars) { result ->
+                    passphraseBusy = false
+                    result.onSuccess {
+                        encryptionOn = true
+                        passphraseStatus = "Passphrase disimpan"
+                    }.onFailure {
+                        passphraseStatus = "Gagal: ${it.message.orEmpty()}"
+                    }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun StepCard(
+    number: String,
+    title: String,
+    testTag: String,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .testTag(testTag)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = number,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            content()
+        }
+    }
+}
+
+@Composable
+private fun PassphraseDialog(
+    isChanging: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (CharArray) -> Unit
+) {
+    var passphrase by remember { mutableStateOf("") }
+    var confirmation by remember { mutableStateOf("") }
+    val valid = passphrase.length >= MIN_PASSPHRASE_LENGTH && passphrase == confirmation
+
+    AlertDialog(
+        onDismissRequest = {
+            passphrase = ""
+            confirmation = ""
+            onDismiss()
+        },
+        title = { Text(if (isChanging) "Ubah passphrase" else "Atur passphrase") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Satu passphrase untuk semua cadangan terenkripsi (kamus, kata sandi, kredensial, A2F). " +
+                        "Minimal $MIN_PASSPHRASE_LENGTH karakter. Dibutuhkan untuk memulihkan di HP baru; tidak bisa dipulihkan jika lupa."
+                )
+                OutlinedTextField(
+                    value = passphrase,
+                    onValueChange = { passphrase = it },
+                    singleLine = true,
+                    label = { Text("Passphrase") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.testTag("device_passphrase_input")
+                )
+                OutlinedTextField(
+                    value = confirmation,
+                    onValueChange = { confirmation = it },
+                    singleLine = true,
+                    label = { Text("Ulangi passphrase") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.testTag("device_passphrase_confirm_input")
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = valid,
+                onClick = {
+                    val chars = passphrase.toCharArray()
+                    passphrase = ""
+                    confirmation = ""
+                    onConfirm(chars)
+                },
+                modifier = Modifier.testTag("device_passphrase_save_button")
+            ) { Text("Simpan") }
+        },
+        dismissButton = {
+            TextButton(onClick = {
+                passphrase = ""
+                confirmation = ""
+                onDismiss()
+            }) { Text("Batal") }
+        }
+    )
 }
 
 private fun formatRelativeTime(timestampMillis: Long): String {

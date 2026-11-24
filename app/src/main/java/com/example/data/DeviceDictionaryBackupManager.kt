@@ -600,6 +600,67 @@ class DeviceDictionaryBackupManager(
         afterDictionaryWrite(result)
     }
 
+    /** Timpa ke bawah (standar 06): aplikasi -> perangkat. Berkas yang isinya sama dilewati. */
+    suspend fun timpaKeBawah(nowMillis: Long = System.currentTimeMillis()): DeviceSyncResult =
+        pushLocalToDevice(nowMillis)
+
+    /**
+     * Timpa ke atas (standar 06): perangkat -> aplikasi. Entri perangkat digabung ke aplikasi per id,
+     * versi yang lebih baru menang. Entri yang hanya ada di aplikasi tetap dipertahankan; tidak ada penghapusan.
+     */
+    suspend fun timpaKeAtas(nowMillis: Long = System.currentTimeMillis()): DeviceSyncResult = syncMutex.withLock {
+        val result: DeviceSyncResult = withContext(Dispatchers.IO) {
+            val localEntries = settingsRepository.getCurrentDictionary()
+            val syncState = settingsRepository.getCurrentSyncLocalState()
+            val treeUri = syncState.deviceBackupTreeUri.takeIf { it.isNotBlank() }
+            when (val read = readAll(treeUri)) {
+                is BackupReadResult.NeedsFolderAccess -> {
+                    settingsRepository.updateSyncState(
+                        lastSyncedAtMillis = syncState.lastSyncedAtMillis,
+                        message = "Perlu izin folder ${formatBackupShortFolder(treeUri)}",
+                        pendingChanges = syncState.pendingChanges
+                    )
+                    DeviceSyncResult.NeedsFolderAccess(read.reason)
+                }
+                is BackupReadResult.Error -> {
+                    settingsRepository.updateSyncState(
+                        lastSyncedAtMillis = syncState.lastSyncedAtMillis,
+                        message = read.message,
+                        pendingChanges = syncState.pendingChanges
+                    )
+                    DeviceSyncResult.Error(read.message)
+                }
+                is BackupReadResult.NotFound ->
+                    DeviceSyncResult.Error("Belum ada cadangan di perangkat untuk ditimpa ke atas")
+                is BackupReadResult.Found -> {
+                    val decoded = settingsRepository.decodeDictionaryBackupJson(read.file.content)
+                        ?: return@withContext DeviceSyncResult.Error("Cadangan di perangkat tidak terbaca")
+                    val merged = unionByIdNewestWins(decoded.entries, localEntries)
+                    val mergedFolders = SettingsRepository.normalizeOrderedFolders(
+                        explicitFolders = decoded.folders,
+                        entries = merged
+                    )
+                    settingsRepository.replaceDictionaryAndFolders(merged, mergedFolders)
+                    val activeCount = merged.count { !it.deleted }
+                    val msg = "Ditimpa ke atas dari perangkat • $activeCount kata"
+                    settingsRepository.updateSyncState(
+                        lastSyncedAtMillis = nowMillis,
+                        message = msg,
+                        pendingChanges = false
+                    )
+                    DeviceSyncResult.Synced(
+                        activeEntryCount = activeCount,
+                        restoredFromFile = true,
+                        wroteToFile = false,
+                        syncedAtMillis = nowMillis,
+                        message = msg
+                    )
+                }
+            }
+        }
+        afterDictionaryWrite(result)
+    }
+
     suspend fun syncNow(nowMillis: Long = System.currentTimeMillis()): DeviceSyncResult = syncMutex.withLock {
         val result: DeviceSyncResult = withContext(Dispatchers.IO) {
             val localEntries = settingsRepository.getCurrentDictionary()
@@ -1009,6 +1070,8 @@ class DeviceDictionaryBackupManager(
                 )
             }
             val fileName = DeviceDictionaryBackupManager.backupFileNameFor(kind)
+            // Aturan standar 06 §2: isi sama dengan berkas di perangkat -> dilewati (tidak ditulis ulang).
+            if (isKindUnchanged(fileName, kind, kindEntries, kindFolders, treeUri)) continue
             val c = cipher
             val payload = if (c != null && c.isConfigured()) {
                 try {
@@ -1026,6 +1089,33 @@ class DeviceDictionaryBackupManager(
             }
         }
         return BackupWriteResult.Success(maxOf(latest, System.currentTimeMillis()))
+    }
+
+    /** Isi plaintext satu berkas jenis: null jika tidak bisa dibaca (mis. terkunci). */
+    private fun plainKindContent(kind: String, raw: String): String? {
+        if (!BackupCrypto.isEnvelope(raw)) return raw
+        val c = cipher ?: return null
+        if (!c.isConfigured()) return null
+        return try { c.decrypt(kind, raw) } catch (_: Exception) { null }
+    }
+
+    /** True jika berkas jenis ini sudah berisi data yang sama persis (entri dan folder). */
+    private fun isKindUnchanged(
+        fileName: String,
+        kind: String,
+        entries: List<PersonalDictionaryEntry>,
+        folders: List<String>,
+        treeUri: String?
+    ): Boolean {
+        val read = storage.readBackup(fileName, treeUri) as? BackupReadResult.Found ?: return false
+        val plain = plainKindContent(kind, read.file.content) ?: return false
+        val current = settingsRepository.decodeDictionaryBackupJson(plain)
+        return isDictionaryContentEquivalent(
+            leftEntries = current?.entries.orEmpty(),
+            leftFolders = current?.folders.orEmpty(),
+            rightEntries = entries,
+            rightFolders = folders
+        )
     }
 
     /**

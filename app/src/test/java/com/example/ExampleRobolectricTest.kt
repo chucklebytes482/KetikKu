@@ -203,26 +203,23 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("suggestion_divider_1").assertIsDisplayed()
         composeRule.onNodeWithTag("suggestion_divider_2").assertIsDisplayed()
 
-        // When personal entries exist, refreshing populates 2 equal-width borderless suggestion slots + 3rd live preview slot separated by | dividers
+        // When personal entries exist, refreshing populates up to 3 equal-width borderless suggestion boxes separated by | dividers
         controller.refreshState(settings, personalSample)
         composeRule.waitForIdle()
         val chipNodes = composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes()
-        assertEquals(2, chipNodes.size)
+        assertEquals(controller.suggestions.size.coerceAtMost(3), chipNodes.size)
         val divider1Bounds = composeRule.onNodeWithTag("suggestion_divider_1").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val divider2Bounds = composeRule.onNodeWithTag("suggestion_divider_2").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val previewSlotBounds = composeRule.onNodeWithTag("typed_preview_slot").fetchSemanticsNode().boundsInRoot
         val chipWidths = chipNodes.map { it.boundsInRoot.width }
         assertTrue(
-            "All 3 top strip columns (2 suggestions + 1 typed preview) should have equal width: $chipWidths, ${previewSlotBounds.width}",
-            abs(chipWidths[0] - chipWidths[1]) < 2f && abs(chipWidths[1] - previewSlotBounds.width) < 2f
+            "Suggestion boxes must have equal width: $chipWidths",
+            chipWidths.all { abs(it - chipWidths.first()) < 2f }
         )
         assertTrue(
-            "Dividers must sit cleanly between Col1 | Col2 | Col3 directly left of toolbar",
-            chipNodes[0].boundsInRoot.right <= divider1Bounds.left + 1f &&
-                divider1Bounds.right <= chipNodes[1].boundsInRoot.left + 1f &&
-                chipNodes[1].boundsInRoot.right <= divider2Bounds.left + 1f &&
-                divider2Bounds.right <= previewSlotBounds.left + 1f &&
-                previewSlotBounds.right <= clipToolbarBounds.left + 1f
+            "Dividers must sit between suggestion boxes and directly left of toolbar",
+            (chipNodes.getOrNull(0)?.boundsInRoot?.right ?: 0f) <= divider1Bounds.left + 1f &&
+                divider1Bounds.right <= (chipNodes.getOrNull(1)?.boundsInRoot?.left ?: Float.MAX_VALUE) + 1f &&
+                divider2Bounds.right <= clipToolbarBounds.left + 1f
         )
 
         // Verify corner long-press hint text ('1' on 'q', ',' on '.') is enlarged by +20% (10.8.sp)
@@ -775,7 +772,7 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
         composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("device_sync_now_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("device_push_down_button").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithTag("drive_connect_google_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("local_export_json_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("local_import_json_button").fetchSemanticsNodes().isEmpty())
@@ -1276,13 +1273,13 @@ class ExampleRobolectricTest {
         assertTrue(spaceBounds.right <= periodBounds.left + 1f)
         assertTrue(periodBounds.right <= enterBounds.left + 1f)
         assertTrue(composeRule.onAllNodesWithText("Ω").fetchSemanticsNodes().isNotEmpty())
-        // Symbols key trimmed 10% (2.146f -> 1.931f) vs Ctrl (1.364f) => ratio ~1.42
+        // Ω 10% narrower (1.931f -> 1.738f), Ctrl 20% wider (1.364f -> 1.637f) => ratio ~1.06
         val symToCtrlRatio = symBounds.width / ctrlBounds.width
         assertTrue(
-            "Expected Ω/Ctrl width ratio ~1.42 (1.931/1.364), got $symToCtrlRatio (Ω=${symBounds.width}, Ctrl=${ctrlBounds.width})",
-            symToCtrlRatio in 1.30f..1.55f
+            "Expected Ω/Ctrl width ratio ~1.06 (1.738/1.637), got $symToCtrlRatio (Ω=${symBounds.width}, Ctrl=${ctrlBounds.width})",
+            symToCtrlRatio in 1.00f..1.12f
         )
-        // Spacebar enlarged to 3.955f (of 9.85f total => ~0.40)
+        // Spacebar 3.875f (of 9.85f total => ~0.39)
         val totalRowWidth = enterBounds.right - symBounds.left
         val spaceRatio = spaceBounds.width / totalRowWidth
         assertTrue("Expected enlarged spacebar ratio ~0.40, got $spaceRatio", spaceRatio in 0.36f..0.44f)
@@ -1576,6 +1573,7 @@ class ExampleRobolectricTest {
         var syncClicks = 0
         var folderClicks = 0
         var resetClicks = 0
+        var pullClicks = 0
         var needsAccess by mutableStateOf(false)
         var hasCustomFolder by mutableStateOf(false)
         var customPath by mutableStateOf(com.example.data.DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH)
@@ -1590,7 +1588,8 @@ class ExampleRobolectricTest {
                     needsFolderAccess = needsAccess,
                     backupDisplayPath = customPath,
                     hasCustomFolder = hasCustomFolder,
-                    onSyncNow = { syncClicks++ },
+                    onTimpaKeBawah = { syncClicks++ },
+                    onTimpaKeAtas = { pullClicks++ },
                     onRequestFolderAccess = { folderClicks++ },
                     onResetFolderToDefault = { resetClicks++ }
                 )
@@ -1600,7 +1599,7 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
         composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("device_sync_now_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("device_push_down_button").assertIsDisplayed()
         composeRule.onNodeWithText(
             "/storage/emulated/0/Documents/ketikku_*.json",
             substring = true
@@ -1617,9 +1616,12 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithText("Google Drive", substring = true).fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Jadwal Sinkronisasi").fetchSemanticsNodes().isEmpty())
 
-        composeRule.onNodeWithTag("device_sync_now_button").performClick()
+        composeRule.onNodeWithTag("device_push_down_button").performClick()
         composeRule.waitForIdle()
         assertEquals(1, syncClicks)
+        composeRule.onNodeWithTag("device_pull_up_button").performClick()
+        composeRule.waitForIdle()
+        assertEquals(1, pullClicks)
 
         // Custom subfolder displays dynamically and offers reset button to return to Documents/ root
         hasCustomFolder = true
@@ -2256,56 +2258,6 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    @Config(qualifiers = "w411dp-h891dp")
-    fun keyboardView_thirdSuggestionColumnShowsAutoScrollingLiveTypedPreviewInAllBoxes() {
-        var value = TextFieldValue("")
-        val controller = KeyboardController(
-            TextFieldImeTarget(getValue = { value }, setValue = { value = it })
-        )
-        val settings = KeyboardSettings()
-        controller.configureForEditor(
-            isNumeric = false,
-            isPassword = true,
-            actionType = com.example.ime.EnterActionType.DONE,
-            settings = settings,
-            personalEntries = emptyList()
-        )
-
-        composeRule.setContent {
-            KetikKuTheme {
-                KetikKuKeyboardView(
-                    controller = controller,
-                    settings = settings,
-                    personalEntries = emptyList(),
-                    clipboardItems = emptyList(),
-                    onPasteClipboard = {},
-                    onCopySelectionToClipboard = {}
-                )
-            }
-        }
-
-        composeRule.waitForIdle()
-        // Type characters in password box with zero suggestions -> Column 3 still displays live typed preview!
-        "qwertyuiopasdf".forEach { ch ->
-            composeRule.onNodeWithTag("key_$ch").performClick()
-        }
-        composeRule.waitForIdle()
-        assertEquals("qwertyuiopasdf", value.text)
-        composeRule.onNodeWithTag("typed_preview_slot").assertIsDisplayed()
-        composeRule.onNodeWithTag("typed_preview_text").assertTextEquals("qwertyuiopasdf")
-
-        // Column 3 is read-only preview (clicking does not alter input text)
-        composeRule.onNodeWithTag("typed_preview_slot").performClick()
-        composeRule.waitForIdle()
-        assertEquals("qwertyuiopasdf", value.text)
-
-        // Backspace updates Column 3 live preview immediately
-        composeRule.onNodeWithTag("key_backspace").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("typed_preview_text").assertTextEquals("qwertyuiopasd")
-    }
-
-    @Test
     fun deviceDictionaryBackup_validatesFreeDocumentsPathsWithoutAutoKetikKuSubfolder() {
         // Default path goes directly into Documents/ without auto-creating KetikKu/ subfolder
         assertEquals(
@@ -2341,86 +2293,6 @@ class ExampleRobolectricTest {
             "/storage/emulated/0/Documents/Catatan/Kamus/ketikku_*.json",
             com.example.data.DeviceDictionaryBackupManager.formatBackupDisplayPath(customSubUri)
         )
-    }
-
-    @Test
-    fun keyboard_previewShowsSelectedTextWithMatchingFontSizeAndFullHeightDividers() {
-        var value by mutableStateOf(TextFieldValue("halo dunia ", TextRange(11)))
-        val settings = KeyboardSettings()
-        val entries = listOf(
-            PersonalDictionaryEntry(id = "e1", word = "Halo pagi", shortcut = "hp", updatedAtMillis = 1L),
-            PersonalDictionaryEntry(id = "e2", word = "Terima kasih", shortcut = "tk", updatedAtMillis = 2L)
-        )
-        val controller = KeyboardController(
-            target = TextFieldImeTarget(
-                getValue = { value },
-                setValue = { value = it }
-            )
-        )
-        controller.configureForEditor(
-            isNumeric = false,
-            isPassword = false,
-            actionType = com.example.ime.EnterActionType.ENTER,
-            settings = settings,
-            personalEntries = entries
-        )
-
-        composeRule.setContent {
-            KetikKuTheme {
-                KetikKuKeyboardView(
-                    controller = controller,
-                    settings = settings,
-                    personalEntries = entries,
-                    clipboardItems = emptyList(),
-                    onPasteClipboard = {},
-                    onCopySelectionToClipboard = {}
-                )
-            }
-        }
-
-        // 1. Type 'h' -> Column 1 matches "Halo pagi", Column 3 shows typed preview "h"
-        composeRule.onNodeWithTag("key_h").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("typed_preview_text").assertTextEquals("h")
-
-        // 2. Highlight/select text -> Column 3 immediately shows selected text "dunia"
-        value = value.copy(selection = TextRange(5, 10)) // "dunia"
-        controller.onSelectionUpdatedFromIme(hasSelection = true, externalJump = true)
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("typed_preview_text").assertTextEquals("dunia")
-
-        // 3. Verify preview text fontSize matches suggestion_chip fontSize (13.sp docked)
-        val previewLayoutResults = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
-        composeRule.onNodeWithTag("typed_preview_text", useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult]
-            .action?.invoke(previewLayoutResults)
-        val chipTextLayoutResults = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
-        composeRule.onAllNodesWithText("Halo pagi", useUnmergedTree = true)
-            .fetchSemanticsNodes()
-            .first()
-            .config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult]
-            .action?.invoke(chipTextLayoutResults)
-        assertEquals(
-            chipTextLayoutResults.first().layoutInput.style.fontSize.value,
-            previewLayoutResults.first().layoutInput.style.fontSize.value,
-            0.05f
-        )
-
-        // 4. Verify dividers span full top-to-bottom height of the suggestion strip
-        val stripBounds = composeRule.onNodeWithTag("suggestion_strip_slot").fetchSemanticsNode().boundsInRoot
-        val div1Bounds = composeRule.onNodeWithTag("suggestion_divider_1").fetchSemanticsNode().boundsInRoot
-        val div2Bounds = composeRule.onNodeWithTag("suggestion_divider_2").fetchSemanticsNode().boundsInRoot
-        val toolbarDivBounds = composeRule.onNodeWithTag("suggestion_toolbar_divider").fetchSemanticsNode().boundsInRoot
-        assertTrue("Divider 1 must connect top-to-bottom", abs(div1Bounds.height - stripBounds.height) < 2f)
-        assertTrue("Divider 2 must connect top-to-bottom", abs(div2Bounds.height - stripBounds.height) < 2f)
-        assertTrue("Toolbar divider must connect top-to-bottom", abs(toolbarDivBounds.height - stripBounds.height) < 2f)
-
-        // 5. Release selection -> Column 3 returns to active typed preview ("h")
-        value = value.copy(selection = TextRange(value.text.length))
-        controller.onSelectionUpdatedFromIme(hasSelection = false, externalJump = true)
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("typed_preview_text").assertTextEquals("h")
     }
 
     @Test

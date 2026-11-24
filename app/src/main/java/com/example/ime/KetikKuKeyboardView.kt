@@ -1147,8 +1147,6 @@ private fun TopUtilityAndSuggestionBar(
     val iconSize = if (isFloating) 15.dp else 18.dp
     val statusMsg = controller.clipboardStatusMessage
     val dividerColor = palette.keyHintText.copy(alpha = 0.55f)
-    val previewText = controller.activePreviewText
-    val isSelectionPreview = controller.selectedPreviewText.isNotEmpty()
 
     Row(
         modifier = Modifier
@@ -1205,8 +1203,6 @@ private fun TopUtilityAndSuggestionBar(
                         } else {
                             controller.primaryAutoCorrect
                         },
-                        previewText = previewText,
-                        isSelectionPreview = isSelectionPreview,
                         dividerColor = dividerColor,
                         palette = palette,
                         fontFamily = chipFontFamily,
@@ -1355,8 +1351,6 @@ private fun SuggestionColumnDivider(
 private fun SuggestionChipsRow(
     suggestions: List<String>,
     primaryAutoCorrect: String?,
-    previewText: String,
-    isSelectionPreview: Boolean,
     dividerColor: Color,
     palette: KeyboardPalette,
     fontFamily: FontFamily,
@@ -1367,29 +1361,18 @@ private fun SuggestionChipsRow(
 ) {
     val chipHeight = if (isFloating) 30.dp else 32.dp
     val stripFontSize = if (isFloating) 11.sp else 13.sp
-    val previewScrollState = rememberScrollState()
 
-    LaunchedEffect(previewText, isSelectionPreview, previewScrollState.maxValue) {
-        if (previewText.isEmpty() || isSelectionPreview) {
-            if (previewScrollState.value != 0) {
-                previewScrollState.scrollTo(0)
-            }
-        } else {
-            previewScrollState.scrollTo(previewScrollState.maxValue)
-        }
-    }
-
+    // Tiga kotak saran. Entri pintasan yang sama tampil satu per kotak (maks. 3).
     Row(
         modifier = modifier.fillMaxHeight(),
         horizontalArrangement = Arrangement.spacedBy(if (isFloating) 2.dp else 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Columns 1 & 2: borderless interactive dictionary suggestions separated by full-height dividers
-        (0 until 2).forEach { index ->
+        (0 until 3).forEach { index ->
             if (index > 0) {
                 SuggestionColumnDivider(
                     color = dividerColor,
-                    tag = "suggestion_divider_1"
+                    tag = "suggestion_divider_${index}"
                 )
             }
             val word = suggestions.getOrNull(index)
@@ -1421,55 +1404,6 @@ private fun SuggestionChipsRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-        }
-
-        // Permanent full-height divider between Column 2 and Column 3
-        SuggestionColumnDivider(
-            color = dividerColor,
-            tag = "suggestion_divider_2"
-        )
-
-        // Column 3 (nearest to right utility toolbar): auto-scrolling live preview of selected or typed text
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(chipHeight)
-                .testTag("typed_preview_slot")
-                .padding(horizontal = if (isFloating) 4.dp else 6.dp)
-                .then(
-                    if (previewText.isNotEmpty()) {
-                        val prefix = if (isSelectionPreview) {
-                            "Pratinjau teks terpilih: "
-                        } else {
-                            "Pratinjau karakter diketik: "
-                        }
-                        Modifier.semantics { contentDescription = "$prefix$previewText" }
-                    } else {
-                        Modifier
-                    }
-                ),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            if (previewText.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(previewScrollState),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = previewText,
-                        color = if (isSelectionPreview) palette.accentBg else palette.keyText,
-                        fontSize = stripFontSize,
-                        fontWeight = FontWeight.Medium,
-                        fontFamily = fontFamily,
-                        fontStyle = fontStyle,
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.testTag("typed_preview_text")
-                    )
-                }
             }
         }
     }
@@ -2058,7 +1992,7 @@ private fun BottomNavigationRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Spacebar enlarged by removing small newline arrow (0.90f) and trimming 10% from Symbols key (2.146f -> 1.931f, freeing 0.215f)
-        // Weights: Symbols=1.931f, Ctrl=1.364f, Space=3.955f, Period=1.0f, Enter=1.6f (Total=9.85f)
+        // Weights: Symbols=1.738f (Ω -10%), Ctrl=1.637f (+20%), Space=3.875f (absorbs net +0.08f), Period=1.0f, Enter=1.6f (Total=9.85f)
         SpecialActionKey(
             height = keyHeight,
             palette = palette,
@@ -2070,7 +2004,7 @@ private fun BottomNavigationRow(
             slotId = "bottom_symbols",
             onTap = onLeftModeTap,
             modifier = Modifier
-                .weight(1.931f)
+                .weight(1.738f)
                 .testTag("key_symbols")
         ) {
             Text(
@@ -2098,7 +2032,7 @@ private fun BottomNavigationRow(
                 onFeedback()
                 controller.onCtrlTap()
             },
-            modifier = Modifier.weight(1.364f)
+            modifier = Modifier.weight(1.637f)
         )
 
         // Enlarged Spacebar trackpad key
@@ -2118,7 +2052,7 @@ private fun BottomNavigationRow(
                 onFeedback()
                 controller.onSpacebarTrackpadStep(step)
             },
-            modifier = Modifier.weight(3.955f)
+            modifier = Modifier.weight(3.875f)
         )
 
         // Combined period / comma key

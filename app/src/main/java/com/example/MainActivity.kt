@@ -249,10 +249,13 @@ private fun KetikKuMainScaffold(
                 dictionary = dictionary,
                 syncLocalState = syncLocalState,
                 deviceSyncUiState = deviceSyncUiState,
-                onSyncNow = { mainViewModel.syncDictionaryWithDevice(force = true) },
+                onTimpaKeBawah = { mainViewModel.timpaKeBawah() },
+                onTimpaKeAtas = { mainViewModel.timpaKeAtas() },
                 onFolderAuthorized = { uriString ->
                     mainViewModel.onDeviceBackupFolderGranted(uriString)
                 },
+                encryptionConfigured = mainViewModel.isBackupEncryptionConfigured(),
+                onEnableEncryption = { chars, done -> mainViewModel.enableBackupEncryption(chars, done) },
                 onResetFolderToDefault = {
                     mainViewModel.resetDeviceBackupFolderToDefault()
                 },

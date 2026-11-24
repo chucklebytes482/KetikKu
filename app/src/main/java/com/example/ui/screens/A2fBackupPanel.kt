@@ -35,10 +35,6 @@ internal fun A2fBackupPanel(viewModel: MainViewModel) {
     var pendingPassword by remember { mutableStateOf<CharArray?>(null) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
-    var encryptionOn by remember { mutableStateOf(viewModel.isBackupEncryptionConfigured()) }
-    var showEncryptDialog by remember { mutableStateOf(false) }
-    var passphrase by remember { mutableStateOf("") }
-    var passphraseConfirm by remember { mutableStateOf("") }
     DisposableEffect(Unit) { onDispose { pendingPassword?.fill('\u0000') } }
 
     val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -86,49 +82,11 @@ internal fun A2fBackupPanel(viewModel: MainViewModel) {
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Cadangan A2F", style = MaterialTheme.typography.titleMedium)
-        Text("Seed disimpan di Android Keystore. Cadangan otomatis A2F hanya berjalan setelah passphrase cadangan dibuat; berkasnya selalu terenkripsi. Tetap simpan cadangan berpassword sebelum pindah HP atau menghapus aplikasi.")
-        if (encryptionOn) {
-            Text("Cadangan otomatis terenkripsi: aktif", modifier = Modifier.testTag("a2f_auto_status"))
-        } else {
-            OutlinedButton(onClick = { showEncryptDialog = true }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("a2f_auto_enable_button")) { Text("Aktifkan cadangan otomatis terenkripsi") }
-        }
+        Text("Seed disimpan di Android Keystore. Cadangan otomatis A2F ikut passphrase di kartu Cadangan Perangkat (langkah 1). Tetap simpan cadangan berpassword sebelum pindah HP atau menghapus aplikasi.")
         OutlinedButton(onClick = { mode = "export" }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("a2f_export_button")) { Text("Ekspor A2F berpassword") }
         OutlinedButton(onClick = { mode = "import" }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("a2f_import_button")) { Text("Impor A2F") }
         if (status.isNotBlank()) Text(status, modifier = Modifier.testTag("a2f_backup_status"))
         if (busy) Text("Memproses cadangan A2F…")
-    }
-    if (showEncryptDialog) {
-        val valid = passphrase.length >= 12 && passphrase == passphraseConfirm
-        AlertDialog(
-            onDismissRequest = { showEncryptDialog = false; passphrase = ""; passphraseConfirm = "" },
-            title = { Text("Passphrase cadangan") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Satu passphrase untuk semua cadangan otomatis (kamus, kata sandi, kredensial, A2F). Minimal 12 karakter. Dibutuhkan untuk memulihkan di HP baru; tidak bisa dipulihkan jika lupa.")
-                    OutlinedTextField(value = passphrase, onValueChange = { passphrase = it }, singleLine = true,
-                        label = { Text("Passphrase") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.testTag("a2f_auto_passphrase"))
-                    OutlinedTextField(value = passphraseConfirm, onValueChange = { passphraseConfirm = it }, singleLine = true,
-                        label = { Text("Ulangi passphrase") }, visualTransformation = PasswordVisualTransformation())
-                }
-            },
-            confirmButton = { Button(
-                enabled = valid && !busy,
-                onClick = {
-                    val chars = passphrase.toCharArray()
-                    passphrase = ""; passphraseConfirm = ""; showEncryptDialog = false
-                    busy = true; status = ""
-                    viewModel.enableBackupEncryption(chars) { result ->
-                        busy = false
-                        encryptionOn = result.isSuccess || viewModel.isBackupEncryptionConfigured()
-                        status = result.fold(
-                            onSuccess = { "Cadangan otomatis terenkripsi diaktifkan" },
-                            onFailure = { "Gagal: ${it.message.orEmpty()}" }
-                        )
-                    }
-                }
-            ) { Text("Simpan") } },
-            dismissButton = { TextButton(onClick = { showEncryptDialog = false; passphrase = ""; passphraseConfirm = "" }) { Text("Batal") } }
-        )
     }
     if (mode != null) {
         val exporting = mode == "export"
