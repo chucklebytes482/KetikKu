@@ -8,8 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
@@ -1737,10 +1735,6 @@ class ExampleRobolectricTest {
             PersonalDictionaryEntry(id = "e_legacy_keuangan", word = "Siap, segera diproses", shortcut = "sp", folder = "Keuangan", updatedAtMillis = 14L)
         )
         val folders = listOf("Kerja", "gm", "num", "Keuangan")
-        var movedEntries = emptySet<String>()
-        var movedFolders = emptySet<String>()
-        var movedTarget = ""
-
         composeRule.setContent {
             KetikKuTheme(darkTheme = false) {
                 DictionaryScreen(
@@ -1748,12 +1742,7 @@ class ExampleRobolectricTest {
                     dictionary = entries,
                     folders = folders,
                     onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
-                    onDeleteEntry = {},
-                    onMoveItems = { eIds, fPaths, target ->
-                        movedEntries = eIds
-                        movedFolders = fPaths
-                        movedTarget = target
-                    }
+                    onDeleteEntry = {}
                 )
             }
         }
@@ -1822,50 +1811,6 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("2 dipilih").fetchSemanticsNodes().isNotEmpty())
 
-        // Entri read-only (dan folder yang masih berisi entri) tidak bisa dipindah: tombol pindah harus nonaktif
-        composeRule.onNodeWithTag("move_selected_button").assertIsNotEnabled()
-        assertTrue(movedEntries.isEmpty())
-        assertTrue(movedFolders.isEmpty())
-    }
-
-    @Test
-    @Config(qualifiers = "w411dp-h1150dp")
-    fun dictionaryScreen_movesRootEntryToPribadi() {
-        val entries = listOf(
-            PersonalDictionaryEntry(id = "e_root", word = "Salam hangat", shortcut = "sh", folder = "", updatedAtMillis = 10L),
-            PersonalDictionaryEntry(id = "e_gmail", word = "adminsuperpanjang@gmail.com", shortcut = "", folder = "gm", updatedAtMillis = 11L)
-        )
-        var movedEntries = emptySet<String>()
-        var movedTarget = ""
-
-        composeRule.setContent {
-            KetikKuTheme(darkTheme = false) {
-                DictionaryScreen(
-                    settings = KeyboardSettings(),
-                    dictionary = entries,
-                    folders = listOf("gm"),
-                    onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
-                    onDeleteEntry = {},
-                    onMoveItems = { eIds, _, target ->
-                        movedEntries = eIds
-                        movedTarget = target
-                    }
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        composeRule.onNodeWithTag("dictionary_item_e_root").performTouchInput { longClick() }
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("move_selected_button").assertIsEnabled()
-        composeRule.onNodeWithTag("move_selected_button").performClick()
-        composeRule.waitForIdle()
-        // Target lewat kolom folder baru: daftar folder bisa di-scroll, jadi tidak andal diklik langsung
-        composeRule.onNodeWithTag("move_custom_folder_input").performTextInput("prib")
-        composeRule.onNodeWithTag("confirm_move_button").performClick()
-        composeRule.waitForIdle()
-        assertEquals(setOf("e_root"), movedEntries)
-        assertEquals("prib", movedTarget)
     }
 
     @Test
@@ -1883,8 +1828,7 @@ class ExampleRobolectricTest {
                     dictionary = entries,
                     folders = listOf("Kerja"),
                     onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
-                    onDeleteEntry = {},
-                    onMoveItems = { _, _, _ -> }
+                    onDeleteEntry = {}
                 )
             }
         }
@@ -1916,8 +1860,7 @@ class ExampleRobolectricTest {
                     dictionary = entries,
                     folders = listOf("Kerja"),
                     onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
-                    onDeleteEntry = {},
-                    onMoveItems = { _, _, _ -> }
+                    onDeleteEntry = {}
                 )
             }
         }

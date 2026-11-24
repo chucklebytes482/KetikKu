@@ -333,9 +333,6 @@ private fun KetikKuNavHost(
                 onRenameFolder = { oldPath, newName ->
                     mainViewModel.renameDictionaryFolder(oldPath, newName)
                 },
-                onMoveItems = { entryIds, folderPaths, targetFolder ->
-                    mainViewModel.moveDictionaryItems(entryIds, folderPaths, targetFolder)
-                },
                 onDeleteItems = { entryIds, folderPaths ->
                     mainViewModel.deleteDictionaryItems(entryIds, folderPaths)
                 }

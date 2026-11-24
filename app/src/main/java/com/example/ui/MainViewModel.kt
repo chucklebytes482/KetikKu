@@ -268,13 +268,6 @@ class MainViewModel(
         }
     }
 
-    fun moveDictionaryItems(entryIds: Set<String>, folderPaths: Set<String>, targetFolderPath: String) {
-        viewModelScope.launch {
-            settingsRepository.moveEntriesAndFolders(entryIds, folderPaths, targetFolderPath)
-            pushLocalChangesToDevice()
-        }
-    }
-
     fun deleteDictionaryItems(entryIds: Set<String>, folderPaths: Set<String>) {
         viewModelScope.launch {
             settingsRepository.deleteEntriesAndFolders(entryIds, folderPaths)

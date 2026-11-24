@@ -493,68 +493,6 @@ class SettingsRepository(
         }
     }
 
-    suspend fun moveEntriesAndFolders(
-        entryIds: Set<String>,
-        folderPaths: Set<String>,
-        targetFolderPath: String
-    ) {
-        val normTarget = normalizeFolderPath(targetFolderPath)
-        val normSources = folderPaths
-            .map(::normalizeFolderPath)
-            .filter { it.isNotEmpty() && !isPrimaryFolder(it) }
-            .toSet()
-        if (entryIds.isEmpty() && normSources.isEmpty()) return
-
-        val now = System.currentTimeMillis()
-        dataStore.edit { prefs ->
-            val currentEntries = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
-            val currentFolders = normalizeOrderedFolders(
-                explicitFolders = parseFolderList(prefs[Keys.FOLDERS_JSON]),
-                entries = currentEntries
-            )
-
-            // Entri hanya boleh pindah dari root/folder umum (lihat isMovableEntry). Folder yang masih berisi
-            // entri tidak ikut dipindah/digabung, karena itu akan memindahkan entri di dalamnya.
-            // Target A2F dan Sampah tidak pernah menerima entri, dan Gmail hanya menerima alamat email.
-            val foldersWithEntries = currentEntries
-                .filter { !it.deleted }
-                .map { normalizeFolderPath(it.folder) }
-                .toSet()
-            val foldersToMerge = normSources.filter { it != normTarget && it !in foldersWithEntries }.toSet()
-            val movableIds = currentEntries.filter { e ->
-                e.id in entryIds && isMovableEntry(e) && normTarget != FOLDER_A2F && normTarget != FOLDER_SAMPAH &&
-                    (normTarget != FOLDER_GMAIL || e.word.contains('@')) &&
-                    normalizeFolderPath(e.folder) != normTarget
-            }.map { it.id }.toSet()
-            val updatedEntries = currentEntries.toMutableList()
-            for (id in movableIds) {
-                val i = updatedEntries.indexOfFirst { it.id == id }
-                val e = updatedEntries[i]
-                val moved = e.copy(folder = normTarget, updatedAtMillis = now)
-                updatedEntries[i] = if (normTarget in AUTO_SHORTCUT_FOLDERS) {
-                    val fresh = autoShortcut(normTarget, e.word, updatedEntries, e.id)
-                    moved.copy(shortcut = fresh.ifEmpty { e.shortcut })
-                } else if (e.shortcut.isNotBlank()) {
-                    moved.copy(shortcut = nextFreeShortcut(e.shortcut.trim().lowercase(Locale.ROOT), updatedEntries, e.id))
-                } else {
-                    moved
-                }
-            }
-
-            val remainingFolders = currentFolders.filterNot { it in foldersToMerge }
-            val addedFolders = if (normTarget.isNotEmpty()) listOf(normTarget) else emptyList()
-            val finalFolders = prependFoldersToStorage(
-                existingFolders = remainingFolders,
-                newFolderPaths = addedFolders,
-                entries = updatedEntries
-            )
-
-            prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(updatedEntries)
-            prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(finalFolders)
-            prefs[Keys.PENDING_CHANGES] = true
-        }
-    }
-
     /**
      * Hapus permanen entri di Sampah yang punya duplikat aktif. Entri lain di id yang dipilih dilewati.
      * Ditulis sebagai penanda hapus (tombstone) supaya "Gabungkan" dari cadangan tidak mengembalikannya.
@@ -1347,18 +1285,8 @@ class SettingsRepository(
             return norm in PRIMARY_FOLDERS
         }
 
-        /** Folder yang entrinya tidak boleh dipindah. Root dan folder umum (Pribadi, Balasan Cepat, kustom) boleh. */
-        private val LOCKED_MOVE_FOLDERS = setOf(
-            FOLDER_GMAIL, FOLDER_KATA_SANDI, FOLDER_NOMOR, FOLDER_A2F, FOLDER_KREDENSIAL, FOLDER_SAMPAH
-        )
-
-        /** Folder auto-pintasan: pintasan dibuat ulang saat entri pindah ke sini. */
+        /** Folder auto-pintasan: pintasan dibuat ulang saat entri ditambah atau diubah di sini. */
         private val AUTO_SHORTCUT_FOLDERS = setOf(FOLDER_GMAIL, FOLDER_KATA_SANDI, FOLDER_NOMOR, FOLDER_A2F, FOLDER_KREDENSIAL)
-
-        fun isMovableEntry(entry: PersonalDictionaryEntry): Boolean {
-            if (entry.deleted) return false
-            return normalizeFolderPath(entry.folder).substringBefore('/') !in LOCKED_MOVE_FOLDERS
-        }
 
         /** Kunci pembanding duplikat. A2F pakai email + website; entri lain pakai kata. */
         private fun duplicateKey(word: String, folder: String): String {

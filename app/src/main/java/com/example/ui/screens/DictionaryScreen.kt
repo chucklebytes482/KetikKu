@@ -25,7 +25,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
@@ -95,7 +94,6 @@ fun DictionaryScreen(
     onRegenerateShortcuts: () -> Unit = {},
     onCreateFolder: (folderPath: String) -> Unit = {},
     onRenameFolder: (oldPath: String, newName: String) -> Unit = { _, _ -> },
-    onMoveItems: (entryIds: Set<String>, folderPaths: Set<String>, targetFolderPath: String) -> Unit = { _, _, _ -> },
     onDeleteItems: (entryIds: Set<String>, folderPaths: Set<String>) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
@@ -112,7 +110,6 @@ fun DictionaryScreen(
     var showNewFolderDialog by remember { mutableStateOf(false) }
     var showRegenerateDialog by remember { mutableStateOf(false) }
     var renamingFolderPath by remember { mutableStateOf<String?>(null) }
-    var moveRequest by remember { mutableStateOf<Pair<Set<String>, Set<String>>?>(null) }
     var deleteRequest by remember { mutableStateOf<Pair<Set<String>, Set<String>>?>(null) }
 
     fun clearSelection() {
@@ -185,13 +182,6 @@ fun DictionaryScreen(
     }
     val totalCount = activeEntriesAll.size
     val totalSelectedCount = selectedEntryIds.size + selectedFolderPaths.size
-    // Entri di folder terkunci (Gmail, Kata Sandi, Nomor, A2F, Kredensial, Sampah) tidak bisa dipindah.
-    // Folder yang masih berisi entri juga tidak bisa dipindah.
-    val canMoveSelection = totalSelectedCount > 0 && !inTrashFolder &&
-        dictionary.filter { it.id in selectedEntryIds }.all { SettingsRepository.isMovableEntry(it) } &&
-        selectedFolderPaths.none { folder ->
-            dictionary.any { !it.deleted && SettingsRepository.normalizeFolderPath(it.folder) == folder }
-        }
 
     Column(
         modifier = modifier
@@ -256,7 +246,6 @@ fun DictionaryScreen(
                 item {
                     SelectionActionBar(
                         selectedCount = totalSelectedCount,
-                        canMoveEntries = canMoveSelection,
                         inTrash = inTrashFolder,
                         onRestoreSelected = {
                             if (selectedEntryIds.isNotEmpty()) {
@@ -267,11 +256,6 @@ fun DictionaryScreen(
                         onSelectAll = {
                             selectedFolderPaths = selectableFolders.toSet()
                             selectedEntryIds = visibleEntries.map { it.id }.toSet()
-                        },
-                        onMoveSelected = {
-                            if (selectedEntryIds.isNotEmpty()) {
-                                moveRequest = selectedEntryIds to emptySet()
-                            }
                         },
                         onPermanentDeleteSelected = {
                             val eligible = selectedEntryIds.filter { id ->
@@ -325,7 +309,7 @@ fun DictionaryScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "Tahan lama item untuk memilih, pindah kata, atau hapus",
+                                text = "Tahan lama item untuk memilih, lalu hapus",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -598,25 +582,6 @@ fun DictionaryScreen(
         )
     }
 
-    moveRequest?.let { (entryIds, folderPaths) ->
-        val label = buildList {
-            if (folderPaths.isNotEmpty()) add("${folderPaths.size} folder")
-            if (entryIds.isNotEmpty()) add("${entryIds.size} kata")
-        }.joinToString(" & ").ifEmpty { "item" }
-
-        MoveToFolderDialog(
-            allFolders = allOrderedFolders,
-            excludedFolderPrefixes = folderPaths,
-            itemCountLabel = label,
-            onDismiss = { moveRequest = null },
-            onConfirmMove = { target ->
-                onMoveItems(entryIds, folderPaths, target)
-                moveRequest = null
-                clearSelection()
-            }
-        )
-    }
-
     deleteRequest?.let { (entryIds, folderPaths) ->
         ConfirmDeleteItemsDialog(
             entryCount = entryIds.size,
@@ -700,10 +665,8 @@ private fun FolderBreadcrumbBar(
 @Composable
 private fun SelectionActionBar(
     selectedCount: Int,
-    canMoveEntries: Boolean,
     inTrash: Boolean,
     onSelectAll: () -> Unit,
-    onMoveSelected: () -> Unit,
     onPermanentDeleteSelected: () -> Unit,
     onDeleteSelected: () -> Unit,
     onRestoreSelected: () -> Unit,
@@ -772,18 +735,6 @@ private fun SelectionActionBar(
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
-            } else IconButton(
-                onClick = onMoveSelected,
-                enabled = canMoveEntries,
-                modifier = Modifier
-                    .size(48.dp)
-                    .testTag("move_selected_button")
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.DriveFileMove,
-                    contentDescription = "Pindahkan kata terpilih",
-                    tint = if (canMoveEntries) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                )
             }
             if (!inTrash) IconButton(
                 onClick = onDeleteSelected,

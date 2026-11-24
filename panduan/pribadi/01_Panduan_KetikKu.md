@@ -6,11 +6,16 @@
 - Tampilan mempertahankan Material 3 dan tema yang sudah ada.
 
 ## Menambahkan akun A2F
-1. Buka Kamus Pribadi → folder A2F → tambah entri.
+1. Buka Kamus Pribadi → folder aut (A2F) → tambah entri. Pintasan aut dibuat otomatis dari email dan website, tidak bisa diisi manual.
 2. Masukkan seed Base32 yang diberikan layanan dan pintasan unik 1–30 huruf/angka tanpa spasi.
 3. Implementasi mendukung TOTP SHA-1, enam digit, periode 30 detik. Layanan dengan SHA-256/SHA-512 atau konfigurasi lain belum didukung.
 4. Ketik pintasan untuk menampilkan kode. Saat saran disentuh, kode dihitung ulang dan dimasukkan sebagai angka ASCII tanpa gaya font atau spasi tambahan. Kode tidak dicatat sebagai statistik kebiasaan.
 5. Jam perangkat harus akurat. Simpan juga recovery code dari layanan di tempat terpisah.
+
+## Folder kamus
+- Folder utama: gm (Gmail), num (Nomor), prib (Pribadi), pw (Kata Sandi), kred (Kredensial), aut (A2F), tras (Sampah), dan bc (Balasan Cepat).
+- Pintasan otomatis: gm, pw, num, aut, dan kred. Tombol Pintasan membuat ulang pintasan ini.
+- Tidak ada fitur pindah folder. Hapus berarti pindah ke Sampah, dan entri di Sampah bisa dipulihkan.
 
 ## Penyimpanan dan migrasi
 - Seed baru dienkripsi AES-256-GCM dengan kunci non-exportable Android Keystore, format lokal `k2:iv:ciphertext`.
@@ -19,7 +24,7 @@
 - Android system backup dan transfer data otomatis dinonaktifkan. Ciphertext lokal bukan cadangan lintas perangkat.
 
 ## Cadangan otomatis terenkripsi
-- Berkas: `ketikku_umum.json`, `ketikku_kata_sandi.json`, `ketikku_kredensial.json`, dan `ketikku_a2f_terenkripsi.json`.
+- Berkas: `ketikku_umum.json`, `ketikku_pw.json`, `ketikku_kred.json`, `ketikku_aut.json`, dan `ketikku_aut_terenkripsi.json`. Nama lama (`ketikku_kata_sandi.json`, `ketikku_kredensial.json`, `ketikku_a2f_terenkripsi.json`) tetap dibaca sebagai cadangan jika berkas baru belum ada.
 - Semua berkas dienkripsi dengan satu passphrase: AES-256-GCM, kunci = SHA-256(passphrase), format `ketikku-enc-v2`. Setiap berkas terikat jenisnya lewat AAD `format|jenis`, jadi tidak bisa ditukar antar-jenis.
 - Berkas `ketikku-enc-v1` (PBKDF2) dari versi lama tetap bisa dibaca. Semua penulisan baru memakai v2.
 - Kartu cadangan perangkat punya tiga langkah: (1) atur passphrase, minimal 12 karakter; (2) pilih folder di Documents; (3) tombol **↓ Timpa ke bawah** (aplikasi → perangkat) dan **↑ Timpa ke atas** (perangkat → aplikasi).
@@ -28,7 +33,7 @@
 - HP baru: pasang aplikasi, buka cadangan (berkas terenkripsi terbaca hanya setelah passphrase dimasukkan), lalu aktifkan dengan passphrase yang sama. Keystore tidak ikut pindah, jadi passphrase wajib.
 - Berkas tanpa enkripsi tetap dibaca untuk kompatibilitas, lalu ditulis ulang terenkripsi setelah passphrase aktif.
 - Aturan per berkas (standar sinkronisasi 06 §2): berkas belum ada di perangkat → disalin; nama sama dan isi berbeda → ditimpa; isi sama → dilewati. Berkas yang hanya ada di tujuan tidak dihapus.
-- Berkas tersembunyi (diawali titik) tidak disentuh. Aplikasi hanya membaca dan menulis empat nama `ketikku_*.json` yang tetap.
+- Berkas tersembunyi (diawali titik) tidak disentuh. Aplikasi hanya membaca dan menulis lima nama `ketikku_*.json` yang tetap di atas.
 - Batasan standar 06 §6: ukuran sama tapi isi berbeda tidak tertangkap oleh pemeriksaan ukuran. Aplikasi membandingkan isi langsung, jadi batasan ini tidak berlaku di sini.
 - Cadangan otomatis saat ada perubahan tetap aktif. Ini menyimpang dari Lotura 05 §6 ("tidak ada auto-sync") atas permintaan pemilik.
 - Kata sandi dan kredensial hanya aman selama passphrase dijaga; simpan passphrase terpisah dari berkas.
