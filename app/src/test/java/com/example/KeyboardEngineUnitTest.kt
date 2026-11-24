@@ -794,7 +794,7 @@ class KeyboardEngineUnitTest {
         val entries = listOf(
             PersonalDictionaryEntry(id = "pub", word = "Halo dunia", shortcut = "hd", folder = "prib", updatedAtMillis = 1L),
             PersonalDictionaryEntry(id = "pw1", word = "RahasiaSandi!2026", shortcut = "pw1", folder = "pw", updatedAtMillis = 2L),
-            PersonalDictionaryEntry(id = "pw_no_sc", word = "SandiTanpaPintasan", shortcut = "", folder = "kata sandi", updatedAtMillis = 3L),
+            PersonalDictionaryEntry(id = "pw_no_sc", word = "SandiTanpaPintasan", shortcut = "", folder = "pw", updatedAtMillis = 3L),
             PersonalDictionaryEntry(id = "cred1", word = "sk-live-secret-9988", shortcut = "apikey", folder = "kred", updatedAtMillis = 4L)
         )
         val highUsage = mapOf(
