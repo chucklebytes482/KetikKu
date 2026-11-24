@@ -5,8 +5,7 @@ Aturan inti pembuatan aplikasi Android (**Kotlin + Jetpack Compose + Material 3 
 ### Daftar Dokumen `panduan/`
 0. `00_Prinsip_Kerja_AI_(umum).md` — Prinsip kerja AI: otomatis, pilihan terbaik, minim human error.
 1. `01_Panduan_Build_UI_Sync_(umum).md` — Aturan inti, UI minimalis, source code wajib (Cadangan Perangkat & Web Panduan), & prompt singkat.
-2. `02_Setup_Rilis_CI_DualRepo_(umum).md` — Gradle R8, anti-429, GitHub Secrets 1-PAT, CI Dual-Repo, & `docs/index.html`.
-3. `03_Generator_Kredensial_VeraCrypt_(umum).md` — Generator 3 berkas rahasia → VeraCrypt v5 (1–2 MiB) → 1 HTML pengunduh.
+2. `03_Generator_Kredensial_VeraCrypt_(umum).md` — Generator 3 berkas rahasia → VeraCrypt v5 (1–2 MiB) → 1 HTML pengunduh.
 
 ---
 
@@ -162,10 +161,10 @@ private fun PriorityCard(
 Buat aplikasi Android (Kotlin + Jetpack Compose + Material 3 + MVVM):
 - Nama & ID: [Kata Euskara 3 suku kata] | com.aistudio.[kata] + ikon adaptif kustom
 - Fitur inti: 1) [...] 2) [...] 3) [...]
-- Ikuti aturan di panduan/01_Panduan_Build_UI_Sync_(umum).md dan panduan/02_Setup_Rilis_CI_DualRepo_(umum).md:
+- Ikuti aturan di panduan/01_Panduan_Build_UI_Sync_(umum).md:
   tema sistem otomatis, UI icon-first dengan tinggi kartu konsisten & anti-duplikat status,
   prioritas Beranda (#1 Cadangan Perangkat, #2 Web Panduan), sinkronisasi 1 berkas di Documents/[NamaApp]/,
-  100% luring < 10 MB (R8 + arm64-v8a), Unit + Robolectric test lulus, dan rilis Dual-Repo (<slug>-site).
+  100% luring < 10 MB (R8 + arm64-v8a), dan Unit + Robolectric test lulus.
 ```
 
 ---
@@ -176,4 +175,4 @@ Buat aplikasi Android (Kotlin + Jetpack Compose + Material 3 + MVVM):
 - [ ] `gradle :app:testDebugUnitTest --no-daemon` (Unit + Robolectric `@Config(sdk = [36])`) lulus 100% tanpa HTTP 429 & bebas peringatan Gradle 9.
 - [ ] Tema sistem otomatis, prioritas Beranda `#1` & `#2`, kartu stabil tanpa resize dinamis, tanpa status duplikat.
 - [ ] Sync 1 berkas di `Documents/<NamaApp>/` menimpa saat edit/hapus & aman dari file kosong.
-- [ ] Dual-Repo siap (`PUBLIC_DIST_TOKEN` 1-PAT, `release.yml`, `publish-site.yml`, `retention-days: 7`), `docs/index.html` menampilkan tanggal & `HH:mm` rilis di bawah tombol unduh, dan tidak ada rahasia mentah atau `*_secrets_download.html` tersisa di Git.
+- [ ] `docs/index.html` menampilkan tanggal & `HH:mm` rilis di bawah tombol unduh, dan tidak ada rahasia mentah atau `*_secrets_download.html` tersisa di Git.
