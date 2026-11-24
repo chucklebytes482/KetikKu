@@ -3,6 +3,7 @@
 Aturan inti pembuatan aplikasi Android (**Kotlin + Jetpack Compose + Material 3 + MVVM**) ringan (`< 10 MB`). Kirim dokumen ini (dan/atau dokumen lain di `panduan/`) lalu ketik **"jalankan"** atau **"jalankan yang sesuai saja"**.
 
 ### Daftar Dokumen `panduan/`
+0. `00_Prinsip_Kerja_AI_(umum).md` — Prinsip kerja AI: otomatis, pilihan terbaik, minim human error.
 1. `01_Panduan_Build_UI_Sync_(umum).md` — Aturan inti, UI minimalis, source code wajib (Cadangan Perangkat & Web Panduan), & prompt singkat.
 2. `02_Setup_Rilis_CI_DualRepo_(umum).md` — Gradle R8, anti-429, GitHub Secrets 1-PAT, CI Dual-Repo, & `docs/index.html`.
 3. `03_Generator_Kredensial_VeraCrypt_(umum).md` — Generator 3 berkas rahasia → VeraCrypt v5 (1–2 MiB) → 1 HTML pengunduh.
