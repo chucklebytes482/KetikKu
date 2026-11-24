@@ -502,7 +502,7 @@ fun DictionaryScreen(
                 }
             } else null,
             onPermanentDelete = if (current != null &&
-                SettingsRepository.isDuplicateInTrash(current, dictionary)
+                SettingsRepository.canPermanentlyDeleteFromTrash(current, dictionary)
             ) {
                 {
                     onPermanentDeleteEntries(setOf(current.id))

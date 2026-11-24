@@ -194,7 +194,7 @@ internal fun DictionaryEntryDialog(
                 if (inTrash) {
                     Text(
                         text = if (onPermanentDelete != null) {
-                            "Ada duplikat aktif di folder lain. Hapus permanen, atau pulihkan untuk mengedit lagi."
+                            "Bisa dihapus permanen (duplikat atau kurang dari 10 karakter), atau pulihkan untuk mengedit lagi."
                         } else {
                             "Pulihkan untuk mengedit lagi. Entri di Sampah tidak muncul di saran."
                         },

@@ -441,7 +441,7 @@ class SettingsRepository(
         var removed = 0
         dataStore.edit { prefs ->
             val current = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
-            val targets = current.filter { it.id in entryIds && isDuplicateInTrash(it, current) }
+            val targets = current.filter { it.id in entryIds && canPermanentlyDeleteFromTrash(it, current) }
                 .map { it.id }
                 .toSet()
             if (targets.isEmpty()) return@edit
