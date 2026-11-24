@@ -50,34 +50,69 @@ import com.example.model.PersonalDictionaryEntry
 internal fun DictionaryEntryDialog(
     initialEntry: PersonalDictionaryEntry?,
     defaultFolderPath: String,
+    isA2f: Boolean = false,
     onDismiss: () -> Unit,
-    onSave: (word: String, shortcut: String, language: String, folder: String) -> Unit
+    onSave: (word: String, shortcut: String, language: String, folder: String, secretPlain: String?) -> Unit
 ) {
-    var word by remember(initialEntry) { mutableStateOf(initialEntry?.word.orEmpty()) }
+    var word by remember(initialEntry) { mutableStateOf(if (isA2f) "" else initialEntry?.word.orEmpty()) }
     var shortcut by remember(initialEntry) { mutableStateOf(initialEntry?.shortcut.orEmpty()) }
     val targetFolder = initialEntry?.folder ?: defaultFolderPath
     val language = initialEntry?.language ?: "id-ID"
+    val needSecret = isA2f && initialEntry?.secretCipher.isNullOrBlank()
+    val secretError = when {
+        !isA2f -> null
+        word.isBlank() && needSecret -> "Seed wajib diisi"
+        word.isNotBlank() && !TotpGenerator.isValidBase32Secret(word) -> "Seed base32 tidak valid (min. 16 karakter A-Z, 2-7)"
+        else -> null
+    }
+    val canSave = shortcut.isNotBlank() && (if (isA2f) secretError == null else word.isNotBlank())
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(if (initialEntry == null) "Tambah ke Kamus Pribadi" else "Edit Kata & Pintasan")
+            Text(
+                when {
+                    isA2f && initialEntry == null -> "Tambah Akun A2F"
+                    isA2f -> "Edit Akun A2F"
+                    initialEntry == null -> "Tambah ke Kamus Pribadi"
+                    else -> "Edit Kata & Pintasan"
+                }
+            )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = word,
-                    onValueChange = { word = it },
-                    label = { Text("Kata atau Frasa") },
-                    singleLine = false,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("dictionary_word_input")
-                )
+                if (isA2f) {
+                    OutlinedTextField(
+                        value = word,
+                        onValueChange = { word = it },
+                        label = {
+                            Text(if (initialEntry == null) "Seed (secret base32)" else "Seed baru (kosongkan jika tetap)")
+                        },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        isError = secretError != null,
+                        supportingText = {
+                            Text(secretError ?: "Tempel dari halaman setup 2FA. Disimpan terenkripsi.")
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("a2f_secret_input")
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = word,
+                        onValueChange = { word = it },
+                        label = { Text("Kata atau Frasa") },
+                        singleLine = false,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("dictionary_word_input")
+                    )
+                }
                 OutlinedTextField(
                     value = shortcut,
                     onValueChange = { shortcut = it },
-                    label = { Text("Pintasan (misal: ttd)") },
+                    label = { Text(if (isA2f) "Pintasan (misal: gh)" else "Pintasan (misal: ttd)") },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -87,8 +122,22 @@ internal fun DictionaryEntryDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onSave(word, shortcut, language, SettingsRepository.normalizeFolderPath(targetFolder)) },
-                enabled = word.isNotBlank(),
+                onClick = {
+                    val folder = SettingsRepository.normalizeFolderPath(targetFolder)
+                    if (isA2f) {
+                        // Kata disimpan sebagai penanda; seed dienkripsi dan kosong = pertahankan seed lama.
+                        onSave(
+                            A2F_MASK,
+                            shortcut,
+                            language,
+                            folder,
+                            word.takeIf { it.isNotBlank() }?.let { TotpGenerator.normalizeBase32(it) }
+                        )
+                    } else {
+                        onSave(word, shortcut, language, folder, null)
+                    }
+                },
+                enabled = canSave,
                 modifier = Modifier.testTag("save_dictionary_button")
             ) {
                 Text("Simpan")
@@ -101,6 +150,9 @@ internal fun DictionaryEntryDialog(
         }
     )
 }
+
+/** Teks tampilan untuk entri A2F; seed asli tidak pernah ditampilkan. */
+internal const val A2F_MASK = "••••••••"
 
 @Composable
 internal fun FolderNameDialog(
@@ -339,85 +391,6 @@ internal fun ConfirmDeleteItemsDialog(
                 modifier = Modifier.testTag("confirm_delete_items_button")
             ) {
                 Text("Hapus")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Batal")
-            }
-        }
-    )
-}
-
-@Composable
-internal fun A2fEntryDialog(
-    initialEntry: PersonalDictionaryEntry?,
-    onDismiss: () -> Unit,
-    onSave: (label: String, shortcut: String, secretPlain: String?) -> Unit
-) {
-    val isNew = initialEntry == null
-    val needSecret = initialEntry?.secretCipher.isNullOrBlank()
-    var label by remember(initialEntry) { mutableStateOf(initialEntry?.word.orEmpty()) }
-    var shortcut by remember(initialEntry) { mutableStateOf(initialEntry?.shortcut.orEmpty()) }
-    var secret by remember(initialEntry) { mutableStateOf("") }
-
-    val secretError = when {
-        secret.isBlank() && needSecret -> "Seed wajib diisi"
-        secret.isNotBlank() && !TotpGenerator.isValidBase32Secret(secret) -> "Seed base32 tidak valid (min. 16 karakter A-Z, 2-7)"
-        else -> null
-    }
-    val canSave = label.isNotBlank() && shortcut.isNotBlank() && secretError == null
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(if (isNew) "Tambah Akun A2F" else "Edit Akun A2F")
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = label,
-                    onValueChange = { label = it },
-                    label = { Text("Nama Akun (misal: GitHub)") },
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("a2f_label_input")
-                )
-                OutlinedTextField(
-                    value = shortcut,
-                    onValueChange = { shortcut = it },
-                    label = { Text("Pintasan (misal: gh)") },
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("a2f_shortcut_input")
-                )
-                OutlinedTextField(
-                    value = secret,
-                    onValueChange = { secret = it },
-                    label = { Text(if (isNew) "Seed (secret base32)" else "Seed baru (kosongkan jika tetap)") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    isError = secretError != null,
-                    supportingText = {
-                        Text(secretError ?: "Tempel dari halaman setup 2FA. Disimpan terenkripsi di perangkat ini.")
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("a2f_secret_input")
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onSave(label.trim(), shortcut.trim(), secret.takeIf { it.isNotBlank() })
-                },
-                enabled = canSave,
-                modifier = Modifier.testTag("save_a2f_button")
-            ) {
-                Text("Simpan")
             }
         },
         dismissButton = {

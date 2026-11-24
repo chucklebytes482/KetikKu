@@ -74,7 +74,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.SettingsRepository
 import com.example.data.SecretVault
-import com.example.data.TotpGenerator
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 
@@ -432,36 +431,18 @@ fun DictionaryScreen(
     }
 
     val dialogFolder = SettingsRepository.normalizeFolderPath(editingEntry?.folder ?: currentFolderPath)
-    if ((showAddDialog || editingEntry != null) && dialogFolder == SettingsRepository.FOLDER_A2F) {
-        A2fEntryDialog(
-            initialEntry = editingEntry,
-            onDismiss = {
-                showAddDialog = false
-                editingEntry = null
-            },
-            onSave = { label, shortcut, secretPlain ->
-                onUpsertEntry(
-                    label,
-                    shortcut,
-                    editingEntry?.language ?: "id-ID",
-                    editingEntry?.id,
-                    SettingsRepository.FOLDER_A2F,
-                    secretPlain?.let { SecretVault.encrypt(TotpGenerator.normalizeBase32(it)) }
-                )
-                showAddDialog = false
-                editingEntry = null
-            }
-        )
-    } else if (showAddDialog || editingEntry != null) {
+    if (showAddDialog || editingEntry != null) {
         DictionaryEntryDialog(
             initialEntry = editingEntry,
             defaultFolderPath = currentFolderPath,
+            isA2f = dialogFolder == SettingsRepository.FOLDER_A2F,
             onDismiss = {
                 showAddDialog = false
                 editingEntry = null
             },
-            onSave = { word, shortcut, lang, folder ->
-                onUpsertEntry(word, shortcut, lang, editingEntry?.id, folder, null)
+            onSave = { word, shortcut, lang, folder, secretPlain ->
+                val cipher = secretPlain?.let { SecretVault.encrypt(it) }
+                onUpsertEntry(word, shortcut, lang, editingEntry?.id, folder, cipher)
                 showAddDialog = false
                 editingEntry = null
             }
@@ -837,7 +818,7 @@ private fun DictionaryItemCard(
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = entry.word,
+                    text = if (SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_A2F) A2F_MASK else entry.word,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
