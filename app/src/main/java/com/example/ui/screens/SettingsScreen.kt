@@ -78,10 +78,10 @@ import kotlinx.coroutines.delay
 
 internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/ketikku-site/"
 
-internal const val KETIKKU_GENERAL_AI_PROMPT = """Struktur berkas JSON kamus pribadi KetikKu (ketikku_dictionary.json):
+internal const val KETIKKU_GENERAL_AI_PROMPT = """Struktur berkas JSON kamus pribadi KetikKu. Cadangan dipecah jadi 4 berkas: ketikku_umum.json, ketikku_kata_sandi.json, ketikku_kredensial.json, dan ketikku_a2f.json. Semua berkas memakai struktur sama dan hanya berisi entri jenisnya (folder Kata Sandi masuk kata_sandi, Kredensial masuk kredensial, A2F masuk a2f, selain itu umum):
 {
   "updatedAtMillis": 0,
-  "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat"],
+  "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat", "A2F"],
   "entries": [
     {
       "id": "string unik entri",
@@ -95,7 +95,8 @@ internal const val KETIKKU_GENERAL_AI_PROMPT = """Struktur berkas JSON kamus pri
 }
 Aturan struktur:
 - Folder datar 1 tingkat saja (tanpa subfolder dan tanpa tanda '/').
-- 6 folder utama: "Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat".
+- 7 folder utama: "Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat", "A2F".
+- Folder A2F dibuat dan diisi aplikasi (berisi seed terenkripsi per perangkat). Jangan membuat atau mengubah entri di folder A2F.
 - Setiap entri memiliki 6 field: id, word, shortcut, folder, updatedAtMillis, deleted (tanpa field "language").
 - Entri di folder "Kata Sandi" dan "Kredensial" hanya muncul di bilah saran jika pintasannya diketik."""
 
@@ -358,7 +359,7 @@ fun SettingsScreen(
                 }
             }
 
-            // 6. 1 Prompt AI Umum untuk edit ketikku_dictionary.json
+            // 6. 1 Prompt AI Umum untuk edit berkas cadangan ketikku_*.json
             item {
                 val activeFilePath = remember(syncLocalState.deviceBackupTreeUri) {
                     DeviceDictionaryBackupManager.formatBackupShortFilePath(syncLocalState.deviceBackupTreeUri)

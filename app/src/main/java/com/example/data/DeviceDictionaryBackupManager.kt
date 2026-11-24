@@ -34,8 +34,8 @@ sealed interface BackupWriteResult {
 }
 
 interface DeviceBackupStorage {
-    fun readBackup(persistedTreeUri: String?): BackupReadResult
-    fun writeBackup(json: String, persistedTreeUri: String?): BackupWriteResult
+    fun readBackup(fileName: String, persistedTreeUri: String?): BackupReadResult
+    fun writeBackup(fileName: String, json: String, persistedTreeUri: String?): BackupWriteResult
 }
 
 sealed interface DeviceSyncResult {
@@ -55,12 +55,11 @@ class DirectoryDeviceBackupStorage(
     private val targetDirectory: File
 ) : DeviceBackupStorage {
 
-    val backupFile: File
-        get() = File(targetDirectory, DeviceDictionaryBackupManager.BACKUP_FILE_NAME)
+    fun fileFor(fileName: String): File = File(targetDirectory, fileName)
 
-    override fun readBackup(persistedTreeUri: String?): BackupReadResult {
+    override fun readBackup(fileName: String, persistedTreeUri: String?): BackupReadResult {
         return runCatching {
-            val file = backupFile
+            val file = fileFor(fileName)
             if (!file.exists()) return BackupReadResult.NotFound
             if (!file.canRead()) {
                 return BackupReadResult.NeedsFolderAccess(
@@ -78,12 +77,12 @@ class DirectoryDeviceBackupStorage(
         }
     }
 
-    override fun writeBackup(json: String, persistedTreeUri: String?): BackupWriteResult {
+    override fun writeBackup(fileName: String, json: String, persistedTreeUri: String?): BackupWriteResult {
         return runCatching {
             if (!targetDirectory.exists()) {
                 targetDirectory.mkdirs()
             }
-            val file = backupFile
+            val file = fileFor(fileName)
             // Overwrite the exact same file in-place so strictly 1 backup file exists.
             file.writeText(json, Charsets.UTF_8)
             BackupWriteResult.Success(file.lastModified().coerceAtLeast(System.currentTimeMillis()))
@@ -99,46 +98,46 @@ class AndroidDeviceBackupStorage(
 
     private val resolver get() = context.contentResolver
 
-    private fun legacyPublicBackupFile(): File {
+    private fun legacyPublicBackupFile(fileName: String): File {
         val docs = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        return File(docs, DeviceDictionaryBackupManager.BACKUP_FILE_NAME)
+        return File(docs, fileName)
     }
 
-    override fun readBackup(persistedTreeUri: String?): BackupReadResult {
+    override fun readBackup(fileName: String, persistedTreeUri: String?): BackupReadResult {
         // Tier 1: Persisted SAF folder URI (bebas memilih jalur di dalam Documents/)
         if (!persistedTreeUri.isNullOrBlank()) {
-            val safResult = readViaSafTree(Uri.parse(persistedTreeUri))
+            val safResult = readViaSafTree(Uri.parse(persistedTreeUri), fileName)
             if (safResult != null) return safResult
         }
 
         // Tier 2: Android 10+ (API 29+) MediaStore.Files langsung di Documents/ (tanpa folder otomatis)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            return readViaMediaStore()
+            return readViaMediaStore(fileName)
         }
 
         // Tier 3: Legacy Android 7-9 (API 24-28) langsung di Documents/ketikku_dictionary.json
-        return readViaLegacyFile()
+        return readViaLegacyFile(fileName)
     }
 
-    override fun writeBackup(json: String, persistedTreeUri: String?): BackupWriteResult {
+    override fun writeBackup(fileName: String, json: String, persistedTreeUri: String?): BackupWriteResult {
         // Tier 1: Persisted SAF folder URI -> always overwrites the single target file in-place
         if (!persistedTreeUri.isNullOrBlank()) {
-            val safResult = writeViaSafTree(Uri.parse(persistedTreeUri), json)
+            val safResult = writeViaSafTree(Uri.parse(persistedTreeUri), fileName, json)
             if (safResult != null) return safResult
         }
 
         // Tier 2: Android 10+ (API 29+) MediaStore.Files langsung di Documents/ (strict in-place replace)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            return writeViaMediaStore(json)
+            return writeViaMediaStore(fileName, json)
         }
 
         // Tier 3: Legacy Android 7-9 (API 24-28) direct file overwrite
-        return writeViaLegacyFile(json)
+        return writeViaLegacyFile(fileName, json)
     }
 
-    private fun readViaSafTree(treeUri: Uri): BackupReadResult? {
+    private fun readViaSafTree(treeUri: Uri, fileName: String): BackupReadResult? {
         return runCatching {
-            val matches = querySafMatchingFiles(treeUri)
+            val matches = querySafMatchingFiles(treeUri, fileName)
             val target = matches.maxByOrNull { it.lastModifiedMillis } ?: return BackupReadResult.NotFound
             val text = resolver.openInputStream(target.uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
                 ?: return BackupReadResult.Error("Gagal membuka file cadangan dari folder terpilih.")
@@ -153,9 +152,9 @@ class AndroidDeviceBackupStorage(
         }
     }
 
-    private fun writeViaSafTree(treeUri: Uri, json: String): BackupWriteResult? {
+    private fun writeViaSafTree(treeUri: Uri, fileName: String, json: String): BackupWriteResult? {
         return runCatching {
-            val matches = querySafMatchingFiles(treeUri)
+            val matches = querySafMatchingFiles(treeUri, fileName)
             val targetUri = if (matches.isNotEmpty()) {
                 val primary = matches.maxByOrNull { it.lastModifiedMillis }!!.uri
                 // Remove any stray duplicate entries with the same display name so strictly 1 file remains
@@ -170,8 +169,8 @@ class AndroidDeviceBackupStorage(
                     resolver,
                     parentDocUri,
                     "application/json",
-                    DeviceDictionaryBackupManager.BACKUP_FILE_NAME
-                ) ?: return BackupWriteResult.Error("Gagal membuat file ketikku_dictionary.json di folder terpilih.")
+                    fileName
+                ) ?: return BackupWriteResult.Error("Gagal membuat file $fileName di folder terpilih.")
             }
 
             writeTextTruncating(targetUri, json)
@@ -187,7 +186,7 @@ class AndroidDeviceBackupStorage(
 
     private data class SafFileMatch(val uri: Uri, val lastModifiedMillis: Long)
 
-    private fun querySafMatchingFiles(treeUri: Uri): List<SafFileMatch> {
+    private fun querySafMatchingFiles(treeUri: Uri, fileName: String): List<SafFileMatch> {
         val treeDocId = DocumentsContract.getTreeDocumentId(treeUri)
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, treeDocId)
         val projection = arrayOf(
@@ -203,7 +202,7 @@ class AndroidDeviceBackupStorage(
             while (cursor.moveToNext()) {
                 if (idIdx < 0 || nameIdx < 0) continue
                 val name = cursor.getString(nameIdx).orEmpty()
-                if (name.equals(DeviceDictionaryBackupManager.BACKUP_FILE_NAME, ignoreCase = true)) {
+                if (name.equals(fileName, ignoreCase = true)) {
                     val docId = cursor.getString(idIdx)
                     val docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
                     val mod = if (modIdx >= 0) cursor.getLong(modIdx) else 0L
@@ -216,7 +215,7 @@ class AndroidDeviceBackupStorage(
 
     private data class MediaStoreMatch(val uri: Uri, val lastModifiedMillis: Long)
 
-    private fun queryMediaStoreMatches(): List<MediaStoreMatch> {
+    private fun queryMediaStoreMatches(fileName: String): List<MediaStoreMatch> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptyList()
         val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val projection = arrayOf(
@@ -228,7 +227,7 @@ class AndroidDeviceBackupStorage(
         val relSlash = "${DeviceDictionaryBackupManager.BACKUP_RELATIVE_PATH}/"
         val relNoSlash = DeviceDictionaryBackupManager.BACKUP_RELATIVE_PATH
         val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND (${MediaStore.MediaColumns.RELATIVE_PATH} = ? OR ${MediaStore.MediaColumns.RELATIVE_PATH} = ?)"
-        val selectionArgs = arrayOf(DeviceDictionaryBackupManager.BACKUP_FILE_NAME, relSlash, relNoSlash)
+        val selectionArgs = arrayOf(fileName, relSlash, relNoSlash)
 
         val matches = mutableListOf<MediaStoreMatch>()
         resolver.query(
@@ -251,10 +250,10 @@ class AndroidDeviceBackupStorage(
         return matches
     }
 
-    private fun readViaMediaStore(): BackupReadResult {
+    private fun readViaMediaStore(fileName: String): BackupReadResult {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return BackupReadResult.NotFound
         return runCatching {
-            val matches = queryMediaStoreMatches()
+            val matches = queryMediaStoreMatches(fileName)
             if (matches.isNotEmpty()) {
                 val latest = matches.first()
                 val text = resolver.openInputStream(latest.uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
@@ -265,7 +264,7 @@ class AndroidDeviceBackupStorage(
             }
 
             // Detect pre-existing file from a previous install or external editor that Scoped Storage hides from MediaStore
-            val diskFile = legacyPublicBackupFile()
+            val diskFile = legacyPublicBackupFile(fileName)
             if (diskFile.exists()) {
                 return if (diskFile.canRead()) {
                     BackupReadResult.Found(
@@ -276,7 +275,7 @@ class AndroidDeviceBackupStorage(
                     )
                 } else {
                     BackupReadResult.NeedsFolderAccess(
-                        "File ketikku_dictionary.json ditemukan di Documents. Pilih folder di dalam Documents untuk memulihkan & menimpa file yang sama."
+                        "File $fileName ditemukan di Documents. Pilih folder di dalam Documents untuk memulihkan & menimpa file yang sama."
                     )
                 }
             }
@@ -292,12 +291,12 @@ class AndroidDeviceBackupStorage(
         }
     }
 
-    private fun writeViaMediaStore(json: String): BackupWriteResult {
+    private fun writeViaMediaStore(fileName: String, json: String): BackupWriteResult {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return writeViaLegacyFile(json)
+            return writeViaLegacyFile(fileName, json)
         }
         return runCatching {
-            val matches = queryMediaStoreMatches()
+            val matches = queryMediaStoreMatches(fileName)
             if (matches.isNotEmpty()) {
                 val primary = matches.first().uri
                 // Remove any extra owned duplicates so strictly 1 file remains
@@ -309,21 +308,21 @@ class AndroidDeviceBackupStorage(
             }
 
             // Guard against MediaStore auto-renaming to "ketikku_dictionary (1).json" if a pre-existing foreign file exists on disk
-            val diskFile = legacyPublicBackupFile()
+            val diskFile = legacyPublicBackupFile(fileName)
             if (diskFile.exists()) {
                 return if (diskFile.canWrite()) {
                     diskFile.writeText(json, Charsets.UTF_8)
                     BackupWriteResult.Success(diskFile.lastModified().coerceAtLeast(System.currentTimeMillis()))
                 } else {
                     BackupWriteResult.NeedsFolderAccess(
-                        "File ketikku_dictionary.json lama ada di Documents. Pilih folder di dalam Documents agar file diganti tanpa duplikat."
+                        "File $fileName lama ada di Documents. Pilih folder di dalam Documents agar file diganti tanpa duplikat."
                     )
                 }
             }
 
             val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             val values = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, DeviceDictionaryBackupManager.BACKUP_FILE_NAME)
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
                 put(MediaStore.MediaColumns.RELATIVE_PATH, DeviceDictionaryBackupManager.BACKUP_RELATIVE_PATH)
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
@@ -352,9 +351,9 @@ class AndroidDeviceBackupStorage(
         }
     }
 
-    private fun readViaLegacyFile(): BackupReadResult {
+    private fun readViaLegacyFile(fileName: String): BackupReadResult {
         return runCatching {
-            val file = legacyPublicBackupFile()
+            val file = legacyPublicBackupFile(fileName)
             if (!file.exists()) return BackupReadResult.NotFound
             if (!file.canRead()) {
                 return BackupReadResult.NeedsFolderAccess(
@@ -378,9 +377,9 @@ class AndroidDeviceBackupStorage(
         }
     }
 
-    private fun writeViaLegacyFile(json: String): BackupWriteResult {
+    private fun writeViaLegacyFile(fileName: String, json: String): BackupWriteResult {
         return runCatching {
-            val file = legacyPublicBackupFile()
+            val file = legacyPublicBackupFile(fileName)
             file.parentFile?.let { parent ->
                 if (!parent.exists()) parent.mkdirs()
             }
@@ -418,7 +417,7 @@ class DeviceDictionaryBackupManager(
 
     /**
      * Dipanggil seketika setiap kali ada perubahan kamus atau folder di dalam aplikasi
-     * agar berkas tunggal ketikku_dictionary.json di perangkat langsung ter-replace bersih
+     * agar berkas cadangan ketikku_*.json di perangkat langsung ter-replace bersih
      * (folder yang dihapus/diubah nama tidak pernah kembali lagi).
      *
      * Pengaman anti-timpa: jika aplikasi belum pernah sinkron sama sekali (lastSyncedAtMillis == 0L)
@@ -436,7 +435,7 @@ class DeviceDictionaryBackupManager(
             // Pagar pengaman instal baru: jangan pernah menimpa berkas perangkat yang punya entri lebih banyak
             // ketika aplikasi belum pernah menyelesaikan sinkronisasi awal (lastSyncedAtMillis == 0L).
             if (syncState.lastSyncedAtMillis == 0L) {
-                when (val existingRead = storage.readBackup(treeUri)) {
+                when (val existingRead = readAll(treeUri)) {
                     is BackupReadResult.NeedsFolderAccess -> {
                         settingsRepository.updateSyncState(
                             lastSyncedAtMillis = syncState.lastSyncedAtMillis,
@@ -465,7 +464,7 @@ class DeviceDictionaryBackupManager(
                                 )
                                 val activeCount = mergedEntries.count { !it.deleted }
                                 return@withContext commitWriteResult(
-                                    writeResult = storage.writeBackup(mergedJson, treeUri),
+                                    writeResult = writeAll(mergedJson, treeUri),
                                     activeCount = activeCount,
                                     restoredFromFile = true,
                                     nowMillis = syncTs,
@@ -489,7 +488,7 @@ class DeviceDictionaryBackupManager(
                 folders = localFolders
             )
             return@withContext commitWriteResult(
-                writeResult = storage.writeBackup(json, treeUri),
+                writeResult = writeAll(json, treeUri),
                 activeCount = localActive.size,
                 restoredFromFile = false,
                 nowMillis = writeTs,
@@ -510,7 +509,7 @@ class DeviceDictionaryBackupManager(
             val localCustomFolders = localFolders.filterNot { SettingsRepository.isPrimaryFolder(it) }
             val localIsEmpty = localEntries.isEmpty() && localCustomFolders.isEmpty() && !syncState.pendingChanges
 
-            when (val readResult = storage.readBackup(treeUri)) {
+            when (val readResult = readAll(treeUri)) {
                 is BackupReadResult.NeedsFolderAccess -> {
                     settingsRepository.updateSyncState(
                         lastSyncedAtMillis = syncState.lastSyncedAtMillis,
@@ -536,7 +535,7 @@ class DeviceDictionaryBackupManager(
                         folders = localFolders
                     )
                     return@withContext commitWriteResult(
-                        writeResult = storage.writeBackup(json, treeUri),
+                        writeResult = writeAll(json, treeUri),
                         activeCount = localActive.size,
                         restoredFromFile = false,
                         nowMillis = nowMillis,
@@ -555,7 +554,7 @@ class DeviceDictionaryBackupManager(
                             folders = localFolders
                         )
                         return@withContext commitWriteResult(
-                            writeResult = storage.writeBackup(json, treeUri),
+                            writeResult = writeAll(json, treeUri),
                             activeCount = localActive.size,
                             restoredFromFile = false,
                             nowMillis = nowMillis,
@@ -581,7 +580,7 @@ class DeviceDictionaryBackupManager(
                             folders = localFolders
                         )
                         return@withContext commitWriteResult(
-                            writeResult = storage.writeBackup(json, treeUri),
+                            writeResult = writeAll(json, treeUri),
                             activeCount = localActive.size,
                             restoredFromFile = false,
                             nowMillis = safeTs,
@@ -611,7 +610,7 @@ class DeviceDictionaryBackupManager(
                         )
                         if (needsRewrite) {
                             return@withContext commitWriteResult(
-                                writeResult = storage.writeBackup(normalizedJson, treeUri),
+                                writeResult = writeAll(normalizedJson, treeUri),
                                 activeCount = appliedEntries.count { !it.deleted },
                                 restoredFromFile = true,
                                 nowMillis = normalizedTs,
@@ -667,7 +666,7 @@ class DeviceDictionaryBackupManager(
                                 rightFolders = appliedFolders
                             )
                             return@withContext commitWriteResult(
-                                writeResult = storage.writeBackup(mergedJson, treeUri),
+                                writeResult = writeAll(mergedJson, treeUri),
                                 activeCount = activeCount,
                                 restoredFromFile = localGotNewData,
                                 nowMillis = safeTs,
@@ -696,7 +695,7 @@ class DeviceDictionaryBackupManager(
                         )
                         if (needsRewrite) {
                             return@withContext commitWriteResult(
-                                writeResult = storage.writeBackup(normalizedJson, treeUri),
+                                writeResult = writeAll(normalizedJson, treeUri),
                                 activeCount = appliedEntries.count { !it.deleted },
                                 restoredFromFile = true,
                                 nowMillis = normalizedTs,
@@ -734,7 +733,7 @@ class DeviceDictionaryBackupManager(
                             folders = localFolders
                         )
                         return@withContext commitWriteResult(
-                            writeResult = storage.writeBackup(localJson, treeUri),
+                            writeResult = writeAll(localJson, treeUri),
                             activeCount = localActive.size,
                             restoredFromFile = false,
                             nowMillis = writeTs,
@@ -786,7 +785,7 @@ class DeviceDictionaryBackupManager(
                             folders = mergedFolders
                         )
                         return@withContext commitWriteResult(
-                            writeResult = storage.writeBackup(mergedJson, treeUri),
+                            writeResult = writeAll(mergedJson, treeUri),
                             activeCount = activeCount,
                             restoredFromFile = localChanged,
                             nowMillis = syncTs,
@@ -811,6 +810,73 @@ class DeviceDictionaryBackupManager(
                 }
             }
         }
+    }
+
+    /** Membaca keempat berkas jenis dan menggabungkannya menjadi satu envelope JSON. */
+    private fun readAll(treeUri: String?): BackupReadResult {
+        val entries = mutableListOf<PersonalDictionaryEntry>()
+        val folders = mutableListOf<String>()
+        var updatedAt = 0L
+        var lastModified = 0L
+        var foundAny = false
+        for (kind in DeviceDictionaryBackupManager.BACKUP_KINDS) {
+            val fileName = DeviceDictionaryBackupManager.backupFileNameFor(kind)
+            when (val result = storage.readBackup(fileName, treeUri)) {
+                is BackupReadResult.NeedsFolderAccess -> return result
+                is BackupReadResult.Error -> return result
+                is BackupReadResult.NotFound -> Unit
+                is BackupReadResult.Found -> {
+                    foundAny = true
+                    lastModified = maxOf(lastModified, result.file.lastModifiedMillis)
+                    val decoded = settingsRepository.decodeDictionaryBackupJson(result.file.content) ?: continue
+                    entries += decoded.entries
+                    folders += decoded.folders
+                    updatedAt = maxOf(updatedAt, decoded.updatedAtMillis)
+                }
+            }
+        }
+        if (!foundAny) {
+            // Migrasi: belum ada berkas per jenis, baca berkas tunggal lama (tidak dihapus).
+            return storage.readBackup(DeviceDictionaryBackupManager.LEGACY_DICTIONARY_FILE_NAME, treeUri)
+        }
+        val byId = LinkedHashMap<String, PersonalDictionaryEntry>()
+        for (entry in entries) {
+            val existing = byId[entry.id]
+            if (existing == null || entry.updatedAtMillis >= existing.updatedAtMillis) byId[entry.id] = entry
+        }
+        val content = settingsRepository.encodeDictionaryBackupJson(
+            entries = byId.values.toList(),
+            updatedAtMillis = updatedAt,
+            folders = folders.distinct()
+        )
+        return BackupReadResult.Found(StoredBackupFile(content, lastModified))
+    }
+
+    /** Menulis keempat berkas jenis dari satu envelope JSON. Jenis tanpa isi ditulis sebagai `[]`. */
+    private fun writeAll(json: String, treeUri: String?): BackupWriteResult {
+        val decoded = settingsRepository.decodeDictionaryBackupJson(json)
+            ?: return BackupWriteResult.Error("Gagal menyiapkan data cadangan.")
+        var latest = 0L
+        for (kind in DeviceDictionaryBackupManager.BACKUP_KINDS) {
+            val kindEntries = decoded.entries.filter { SettingsRepository.backupKindFor(it.folder) == kind }
+            val kindFolders = decoded.folders.filter { SettingsRepository.backupKindFor(it) == kind }
+            val content = if (kindEntries.isEmpty() && kindFolders.isEmpty()) {
+                "[]"
+            } else {
+                settingsRepository.encodeDictionaryBackupJson(
+                    entries = kindEntries,
+                    updatedAtMillis = decoded.updatedAtMillis,
+                    folders = kindFolders
+                )
+            }
+            val fileName = DeviceDictionaryBackupManager.backupFileNameFor(kind)
+            when (val result = storage.writeBackup(fileName, content, treeUri)) {
+                is BackupWriteResult.Success -> latest = maxOf(latest, result.writtenAtMillis)
+                is BackupWriteResult.NeedsFolderAccess -> return result
+                is BackupWriteResult.Error -> return result
+            }
+        }
+        return BackupWriteResult.Success(maxOf(latest, System.currentTimeMillis()))
     }
 
     /**
@@ -918,9 +984,22 @@ class DeviceDictionaryBackupManager(
 
     companion object {
         const val BACKUP_RELATIVE_PATH = "Documents"
-        const val BACKUP_FILE_NAME = "ketikku_dictionary.json"
-        const val BACKUP_SHORT_PATH = "Documents/ketikku_dictionary.json"
-        const val BACKUP_DISPLAY_PATH = "/storage/emulated/0/Documents/ketikku_dictionary.json"
+        const val BACKUP_FILE_UMUM = "ketikku_umum.json"
+        const val BACKUP_FILE_KATA_SANDI = "ketikku_kata_sandi.json"
+        const val BACKUP_FILE_KREDENSIAL = "ketikku_kredensial.json"
+        const val BACKUP_FILE_A2F = "ketikku_a2f.json"
+        /** Berkas tunggal lama; hanya dibaca untuk migrasi, tidak pernah dihapus. */
+        const val LEGACY_DICTIONARY_FILE_NAME = "ketikku_dictionary.json"
+        const val BACKUP_SHORT_PATH = "Documents/ketikku_*.json"
+        const val BACKUP_DISPLAY_PATH = "/storage/emulated/0/Documents/ketikku_*.json"
+        val BACKUP_KINDS = listOf("umum", "kata_sandi", "kredensial", "a2f")
+
+        fun backupFileNameFor(kind: String): String = when (kind) {
+            "kata_sandi" -> BACKUP_FILE_KATA_SANDI
+            "kredensial" -> BACKUP_FILE_KREDENSIAL
+            "a2f" -> BACKUP_FILE_A2F
+            else -> BACKUP_FILE_UMUM
+        }
         private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
         private const val PRIMARY_DOCUMENTS_PREFIX = "primary:Documents"
 
@@ -977,7 +1056,7 @@ class DeviceDictionaryBackupManager(
             extractDocumentsRelativeFolder(treeUriString) ?: BACKUP_RELATIVE_PATH
 
         fun formatBackupShortFilePath(treeUriString: String?): String =
-            "${formatBackupShortFolder(treeUriString)}/$BACKUP_FILE_NAME"
+            "${formatBackupShortFolder(treeUriString)}/ketikku_*.json"
 
         fun formatBackupDisplayPath(treeUriString: String?): String =
             "/storage/emulated/0/${formatBackupShortFilePath(treeUriString)}"

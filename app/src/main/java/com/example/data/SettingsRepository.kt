@@ -867,6 +867,15 @@ class SettingsRepository(
         const val FOLDER_KATA_SANDI = "Kata Sandi"
         const val FOLDER_KREDENSIAL = "Kredensial"
         const val FOLDER_A2F = "A2F"
+
+        /** Jenis berkas cadangan untuk entri pada folder ini (satu berkas per jenis). */
+        fun backupKindFor(folder: String): String =
+            when (normalizeFolderPath(folder).substringBefore('/')) {
+                FOLDER_KATA_SANDI -> "kata_sandi"
+                FOLDER_KREDENSIAL -> "kredensial"
+                FOLDER_A2F -> "a2f"
+                else -> "umum"
+            }
         const val FOLDER_BALASAN_CEPAT = "Balasan Cepat"
         private const val LEGACY_FOLDER_KEUANGAN = "Keuangan"
 
