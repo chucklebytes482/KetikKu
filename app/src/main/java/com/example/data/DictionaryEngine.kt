@@ -39,7 +39,29 @@ object DictionaryEngine {
     private fun isShortcutOnlyFolder(folder: String): Boolean {
         val norm = SettingsRepository.normalizeFolderPath(folder)
         return norm == SettingsRepository.FOLDER_KATA_SANDI ||
-            norm == SettingsRepository.FOLDER_KREDENSIAL
+            norm == SettingsRepository.FOLDER_KREDENSIAL ||
+            norm == SettingsRepository.FOLDER_A2F
+    }
+
+    /**
+     * Entri A2F (kode 2FA) dipisah total dari indeks: tidak pernah jadi kata saran,
+     * dan pintasannya hanya dibaca lewat [findA2fEntry].
+     */
+    fun isA2fEntry(entry: PersonalDictionaryEntry): Boolean =
+        SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_A2F
+
+    fun findA2fEntry(
+        currentWord: String,
+        personalEntries: List<PersonalDictionaryEntry>
+    ): PersonalDictionaryEntry? {
+        val key = currentWord.trim()
+        if (key.isEmpty()) return null
+        return personalEntries.firstOrNull { entry ->
+            !entry.deleted &&
+                isA2fEntry(entry) &&
+                entry.secretCipher.isNotBlank() &&
+                entry.shortcut.trim().equals(key, ignoreCase = true)
+        }
     }
 
     private fun getOrBuildIndex(personalEntries: List<PersonalDictionaryEntry>): IndexedDictionary {
@@ -57,7 +79,7 @@ object DictionaryEngine {
         val snapshot = personalEntries.toList()
         val active = ArrayList<PersonalDictionaryEntry>(snapshot.size)
         for (entry in snapshot) {
-            if (!entry.deleted) active.add(entry)
+            if (!entry.deleted && !isA2fEntry(entry)) active.add(entry)
         }
         // Place shortcut-bearing entries first so they take priority in defaults and prefix buckets.
         active.sortByDescending { it.shortcut.isNotBlank() }

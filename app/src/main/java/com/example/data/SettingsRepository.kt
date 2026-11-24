@@ -236,7 +236,8 @@ class SettingsRepository(
         shortcut: String,
         language: String,
         existingId: String? = null,
-        folder: String = ""
+        folder: String = "",
+        secretCipher: String? = null
     ) {
         val trimmedWord = word.trim()
         if (trimmedWord.isEmpty()) return
@@ -246,6 +247,8 @@ class SettingsRepository(
         dataStore.edit { prefs ->
             val current = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
             val id = existingId ?: UUID.randomUUID().toString().take(12)
+            // secretCipher null = pertahankan seed lama (edit label/pintasan saja)
+            val keptCipher = current.firstOrNull { it.id == id }?.secretCipher.orEmpty()
             val updatedList = current.filterNot { it.id == id } + PersonalDictionaryEntry(
                 id = id,
                 word = trimmedWord,
@@ -253,7 +256,8 @@ class SettingsRepository(
                 folder = normalizedFolder,
                 language = language,
                 updatedAtMillis = now,
-                deleted = false
+                deleted = false,
+                secretCipher = if (normalizedFolder == FOLDER_A2F) secretCipher ?: keptCipher else ""
             )
             prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(updatedList)
             if (normalizedFolder.isNotEmpty()) {
@@ -687,6 +691,7 @@ class SettingsRepository(
                     put("folder", normalizeFolderPath(entry.folder))
                     put("updatedAtMillis", entry.updatedAtMillis)
                     put("deleted", entry.deleted)
+                    if (entry.secretCipher.isNotBlank()) put("secretCipher", entry.secretCipher)
                 })
             }
         }
@@ -746,6 +751,7 @@ class SettingsRepository(
                     val rawEntryTs = obj.optLong("updatedAtMillis", 0L)
                     val entryTs = if (rawEntryTs > 0L) rawEntryTs else fallbackEntryTs
                     val deleted = obj.optBoolean("deleted", false)
+                    val secretCipher = obj.optString("secretCipher", "")
                     add(
                         PersonalDictionaryEntry(
                             id = id,
@@ -753,7 +759,8 @@ class SettingsRepository(
                             shortcut = shortcut,
                             folder = folder,
                             updatedAtMillis = entryTs,
-                            deleted = deleted
+                            deleted = deleted,
+                            secretCipher = secretCipher
                         )
                     )
                 }
@@ -859,6 +866,7 @@ class SettingsRepository(
         const val FOLDER_PRIBADI = "Pribadi"
         const val FOLDER_KATA_SANDI = "Kata Sandi"
         const val FOLDER_KREDENSIAL = "Kredensial"
+        const val FOLDER_A2F = "A2F"
         const val FOLDER_BALASAN_CEPAT = "Balasan Cepat"
         private const val LEGACY_FOLDER_KEUANGAN = "Keuangan"
 
@@ -868,6 +876,7 @@ class SettingsRepository(
             FOLDER_PRIBADI,
             FOLDER_KATA_SANDI,
             FOLDER_KREDENSIAL,
+            FOLDER_A2F,
             FOLDER_BALASAN_CEPAT
         )
 
@@ -889,6 +898,7 @@ class SettingsRepository(
                 cleaned.equals(FOLDER_PRIBADI, ignoreCase = true) -> FOLDER_PRIBADI
                 cleaned.equals(FOLDER_KATA_SANDI, ignoreCase = true) -> FOLDER_KATA_SANDI
                 cleaned.equals(FOLDER_KREDENSIAL, ignoreCase = true) -> FOLDER_KREDENSIAL
+                cleaned.equals(FOLDER_A2F, ignoreCase = true) -> FOLDER_A2F
                 cleaned.equals(FOLDER_BALASAN_CEPAT, ignoreCase = true) ||
                     cleaned.equals(LEGACY_FOLDER_KEUANGAN, ignoreCase = true) -> FOLDER_BALASAN_CEPAT
                 else -> cleaned

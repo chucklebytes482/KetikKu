@@ -49,7 +49,9 @@ data class PersonalDictionaryEntry(
     val folder: String = "",
     @param:Json(ignore = true) val language: String = KeyboardLanguage.INDONESIAN.code,
     val updatedAtMillis: Long = 0L,
-    val deleted: Boolean = false
+    val deleted: Boolean = false,
+    // Seed TOTP terenkripsi per perangkat (AES-GCM, Android Keystore). Format: base64(iv):base64(ciphertext).
+    val secretCipher: String = ""
 )
 
 @Immutable

@@ -111,6 +111,7 @@ import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.ui.theme.InterFamily
 import com.example.ui.theme.PlusJakartaSansFamily
+import com.example.data.TotpGenerator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -595,6 +596,14 @@ fun KetikKuKeyboardView(
     LaunchedEffect(isFloating) {
         if (!isFloating) {
             currentOnFloatingBoundsChanged(AndroidRect())
+        }
+    }
+
+    // Kode A2F berganti tiap 30 detik: selama pintasan A2F aktif, hitung ulang tepat di batas periode.
+    LaunchedEffect(controller.isA2fActive) {
+        while (controller.isA2fActive) {
+            delay(TotpGenerator.millisUntilNextPeriod() + 50L)
+            controller.refreshA2fCode()
         }
     }
 
@@ -1191,7 +1200,11 @@ private fun TopUtilityAndSuggestionBar(
                 controller.utilityPanel == UtilityPanel.NONE -> {
                     SuggestionChipsRow(
                         suggestions = controller.suggestions,
-                        primaryAutoCorrect = controller.primaryAutoCorrect,
+                        primaryAutoCorrect = if (controller.isA2fActive) {
+                            controller.suggestions.firstOrNull()
+                        } else {
+                            controller.primaryAutoCorrect
+                        },
                         previewText = previewText,
                         isSelectionPreview = isSelectionPreview,
                         dividerColor = dividerColor,

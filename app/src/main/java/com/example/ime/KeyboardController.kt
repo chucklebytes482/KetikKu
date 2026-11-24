@@ -8,6 +8,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.example.data.DictionaryEngine
+import com.example.data.SecretVault
+import com.example.data.TotpGenerator
 import com.example.data.FontStyleConverter
 import com.example.data.TextChunker
 import com.example.model.ClipboardItem
@@ -281,6 +283,9 @@ class KeyboardController(
     var suggestions by mutableStateOf<List<String>>(emptyList())
         private set
     var primaryAutoCorrect by mutableStateOf<String?>(null)
+        private set
+    /** True saat pintasan A2F cocok; kode 6 digit tampil sebagai saran pertama. */
+    var isA2fActive by mutableStateOf(false)
         private set
     var isSelectionMode by mutableStateOf(false)
         private set
@@ -723,7 +728,10 @@ class KeyboardController(
         } else {
             target.commitText(commitValue)
         }
-        recordWordUsageInternal(word, personalEntries, forceRecord = true)
+        // Kode 2FA tidak boleh masuk statistik kebiasaan (personalityStats).
+        if (word != a2fCodeShown) {
+            recordWordUsageInternal(word, personalEntries, forceRecord = true)
+        }
         clearSelectedPreview()
         localContextValid = true
         clearLocalWordBuffer()
@@ -979,11 +987,16 @@ class KeyboardController(
         onRecordWordUsage?.invoke(clean)
     }
 
+    private var lastPersonalEntries: List<PersonalDictionaryEntry> = emptyList()
+    private var a2fCodeShown: String? = null
+
     private fun applySuggestionResult(personalEntries: List<PersonalDictionaryEntry>) {
+        lastPersonalEntries = personalEntries
         val currentWord = localWordPlain.toString()
         if (isPasswordField && currentWord.isEmpty()) {
             if (suggestions.isNotEmpty()) suggestions = emptyList()
             if (primaryAutoCorrect != null) primaryAutoCorrect = null
+            setA2f(null)
             return
         }
         val result = DictionaryEngine.getSuggestions(
@@ -992,12 +1005,37 @@ class KeyboardController(
             personalEntries = personalEntries,
             personality = personalityStats
         )
-        if (suggestions != result.suggestions) {
-            suggestions = result.suggestions
+        var nextSuggestions = result.suggestions
+        var nextAutoCorrect = result.primaryAutoCorrect
+        val a2fEntry = DictionaryEngine.findA2fEntry(currentWord, personalEntries)
+        val code = a2fEntry?.let {
+            SecretVault.decryptOrNull(it.secretCipher)?.let { seed ->
+                TotpGenerator.currentCodeFromBase32(seed)
+            }
         }
-        if (primaryAutoCorrect != result.primaryAutoCorrect) {
-            primaryAutoCorrect = result.primaryAutoCorrect
+        setA2f(code)
+        if (code != null) {
+            nextSuggestions = listOf(code) + nextSuggestions.filter { it != code }
+            nextAutoCorrect = null
         }
+        if (suggestions != nextSuggestions) {
+            suggestions = nextSuggestions
+        }
+        if (primaryAutoCorrect != nextAutoCorrect) {
+            primaryAutoCorrect = nextAutoCorrect
+        }
+    }
+
+    private fun setA2f(code: String?) {
+        a2fCodeShown = code
+        val active = code != null
+        if (isA2fActive != active) isA2fActive = active
+    }
+
+    /** Dipanggil ticker tiap 30 detik saat [isA2fActive]. Hitung ulang kode dari waktu sekarang. */
+    fun refreshA2fCode() {
+        if (!isA2fActive) return
+        applySuggestionResult(lastPersonalEntries)
     }
 
     companion object {
