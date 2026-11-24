@@ -1133,7 +1133,7 @@ class SettingsRepository(
 
         /**
          * Dasar pintasan otomatis (prefix folder + huruf):
-         * gm + huruf/angka pertama local part email (abdul@gmail.com -> gma)
+         * gm + 2 huruf/angka pertama local part email (abdul@gmail.com -> gmab)
          * pw + huruf/angka pertama kata (Github -> pwg)
          * num + 4 digit pertama nomor (081234567890 -> num0812)
          * aut + 2 karakter local part email + 2 karakter domain utama website (word = "email\nwebsite"; budi@x.com + github.com -> autbugi)
@@ -1142,8 +1142,8 @@ class SettingsRepository(
         fun autoShortcutBase(folder: String, word: String): String {
             val w = word.trim()
             return when (normalizeFolderPath(folder)) {
-                FOLDER_GMAIL -> w.substringBefore('@').firstOrNull { it.isLetterOrDigit() }
-                    ?.lowercaseChar()?.let { "gm$it" }.orEmpty()
+                FOLDER_GMAIL -> w.substringBefore('@').filter { it.isLetterOrDigit() }.lowercase(Locale.ROOT).take(2)
+                    .takeIf { it.isNotEmpty() }?.let { "gm$it" }.orEmpty()
                 FOLDER_KATA_SANDI -> w.firstOrNull { it.isLetterOrDigit() }
                     ?.lowercaseChar()?.let { "pw$it" }.orEmpty()
                 FOLDER_NOMOR -> w.filter { it.isDigit() }.take(4)

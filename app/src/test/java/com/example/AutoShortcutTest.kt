@@ -10,9 +10,9 @@ class AutoShortcutTest {
         PersonalDictionaryEntry(id = id, word = id, shortcut = shortcut, folder = folder, deleted = deleted)
 
     @Test
-    fun gmShortcutUsesFirstCharBeforeAtPlusGm() {
-        assertEquals("gma", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "abdul@gmail.com", emptyList(), null))
-        assertEquals("gmc", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "chucklebytes482@gmail.com", emptyList(), null))
+    fun gmShortcutUsesFirstTwoCharsBeforeAtPlusGm() {
+        assertEquals("gmab", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "abdul@gmail.com", emptyList(), null))
+        assertEquals("gmch", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "chucklebytes482@gmail.com", emptyList(), null))
     }
 
     @Test
@@ -49,14 +49,14 @@ class AutoShortcutTest {
 
     @Test
     fun collisionGetsNumberSuffix() {
-        val others = listOf(e("x", "gma", SettingsRepository.FOLDER_GMAIL))
-        assertEquals("gma2", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "abdul@gmail.com", others, null))
+        val others = listOf(e("x", "gmab", SettingsRepository.FOLDER_GMAIL))
+        assertEquals("gmab2", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "abdul@gmail.com", others, null))
     }
 
     @Test
     fun trashEntriesDoNotBlockShortcuts() {
-        val others = listOf(e("x", "gma", SettingsRepository.FOLDER_SAMPAH))
-        assertEquals("gma", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "abdul@gmail.com", others, null))
+        val others = listOf(e("x", "gmab", SettingsRepository.FOLDER_SAMPAH))
+        assertEquals("gmab", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "abdul@gmail.com", others, null))
     }
 
     @Test
