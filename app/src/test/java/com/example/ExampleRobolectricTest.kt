@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasScrollAction
@@ -1824,6 +1825,47 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("move_selected_button").assertIsNotEnabled()
         assertTrue(movedEntries.isEmpty())
         assertTrue(movedFolders.isEmpty())
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h1150dp")
+    fun dictionaryScreen_movesRootEntryToPribadi() {
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "e_root", word = "Salam hangat", shortcut = "sh", folder = "", updatedAtMillis = 10L),
+            PersonalDictionaryEntry(id = "e_gmail", word = "adminsuperpanjang@gmail.com", shortcut = "", folder = "Gmail", updatedAtMillis = 11L)
+        )
+        var movedEntries = emptySet<String>()
+        var movedTarget = ""
+
+        composeRule.setContent {
+            KetikKuTheme(darkTheme = false) {
+                DictionaryScreen(
+                    settings = KeyboardSettings(),
+                    dictionary = entries,
+                    folders = listOf("Gmail"),
+                    onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
+                    onDeleteEntry = {},
+                    onMoveItems = { eIds, _, target ->
+                        movedEntries = eIds
+                        movedTarget = target
+                    }
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag("toggle_selection_mode_button").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("dictionary_item_e_root").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("move_selected_button").assertIsEnabled()
+        composeRule.onNodeWithTag("move_selected_button").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("move_target_Pribadi").performClick()
+        composeRule.onNodeWithTag("confirm_move_button").performClick()
+        composeRule.waitForIdle()
+        assertEquals(setOf("e_root"), movedEntries)
+        assertEquals("Pribadi", movedTarget)
     }
 
     @Test
