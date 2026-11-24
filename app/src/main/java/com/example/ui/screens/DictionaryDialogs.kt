@@ -56,7 +56,8 @@ internal fun DictionaryEntryDialog(
     onSave: (word: String, shortcut: String, language: String, folder: String, secretPlain: String?, email: String, website: String) -> Unit,
     onDuplicate: (() -> Unit)? = null,
     onTrash: (() -> Unit)? = null,
-    onRestore: (() -> Unit)? = null
+    onRestore: (() -> Unit)? = null,
+    onPermanentDelete: (() -> Unit)? = null
 ) {
     val inTrash = initialEntry != null &&
         SettingsRepository.normalizeFolderPath(initialEntry.folder) == SettingsRepository.FOLDER_SAMPAH
@@ -72,18 +73,19 @@ internal fun DictionaryEntryDialog(
     var shortcut by remember(initialEntry) { mutableStateOf(initialEntry?.shortcut.orEmpty()) }
     var seed by remember(initialEntry) { mutableStateOf("") }
 
-    // Kata/email/website read-only untuk entri yang sudah ada. Seed hanya boleh diubah sekali (duplikat).
-    val seedEditable = !inTrash && (initialEntry == null || initialEntry.seedEditsLeft > 0)
-    val fieldsLocked = !isNew
+    // Duplikat A2F (editable) boleh ubah semua field. Entri A2F asli dan entri lain: kata/email/website terkunci.
+    val a2fEditable = isA2f && initialEntry?.editable == true && !inTrash
+    val seedEditable = !inTrash && (initialEntry == null || a2fEditable || initialEntry.seedEditsLeft > 0)
+    val fieldsLocked = !isNew && !a2fEditable
 
     val emailRegex = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     val emailError = when {
-        !isA2f || !isNew -> null
+        !isA2f || (!isNew && !a2fEditable) -> null
         email.isBlank() -> "Email wajib diisi"
         !email.trim().matches(emailRegex) -> "Email tidak valid"
         else -> null
     }
-    val siteError = if (isA2f && isNew && website.isBlank()) "Website wajib diisi" else null
+    val siteError = if (isA2f && (isNew || a2fEditable) && website.isBlank()) "Website wajib diisi" else null
     val seedError = when {
         !isA2f || !seedEditable -> null
         seed.isBlank() -> if (isNew) "Seed wajib diisi" else null
@@ -150,6 +152,7 @@ internal fun DictionaryEntryDialog(
                             Text(
                                 when {
                                     isNew -> "Seed (secret base32)"
+                                    a2fEditable -> "Seed (kosongkan jika tetap)"
                                     seedEditable -> "Seed baru (sekali, lalu terkunci)"
                                     else -> "Seed (terkunci)"
                                 }
@@ -193,7 +196,11 @@ internal fun DictionaryEntryDialog(
                 )
                 if (inTrash) {
                     Text(
-                        text = "Pulihkan untuk mengedit lagi. Entri di Sampah tidak muncul di saran.",
+                        text = if (onPermanentDelete != null) {
+                            "Ada duplikat aktif di folder lain. Hapus permanen, atau pulihkan untuk mengedit lagi."
+                        } else {
+                            "Pulihkan untuk mengedit lagi. Entri di Sampah tidak muncul di saran."
+                        },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -218,12 +225,23 @@ internal fun DictionaryEntryDialog(
         },
         confirmButton = {
             if (inTrash) {
-                Button(
-                    onClick = { onRestore?.invoke() },
-                    enabled = onRestore != null,
-                    modifier = Modifier.testTag("restore_dictionary_button")
-                ) {
-                    Text("Pulihkan")
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Button(
+                        onClick = { onRestore?.invoke() },
+                        enabled = onRestore != null,
+                        modifier = Modifier.testTag("restore_dictionary_button")
+                    ) {
+                        Text("Pulihkan")
+                    }
+                    if (onPermanentDelete != null) {
+                        TextButton(
+                            onClick = onPermanentDelete,
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.testTag("permanent_delete_button")
+                        ) {
+                            Text("Hapus permanen")
+                        }
+                    }
                 }
             } else {
                 Button(

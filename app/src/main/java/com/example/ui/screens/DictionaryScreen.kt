@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Restore
@@ -91,6 +92,7 @@ fun DictionaryScreen(
     onDeleteEntry: (entryId: String) -> Unit,
     onDuplicateEntry: (entryId: String) -> Unit = {},
     onRestoreEntries: (entryIds: Set<String>) -> Unit = {},
+    onPermanentDeleteEntries: (entryIds: Set<String>) -> Unit = {},
     onRegenerateShortcuts: () -> Unit = {},
     onCreateFolder: (folderPath: String) -> Unit = {},
     onRenameFolder: (oldPath: String, newName: String) -> Unit = { _, _ -> },
@@ -184,8 +186,10 @@ fun DictionaryScreen(
     }
     val totalCount = activeEntriesAll.size
     val totalSelectedCount = selectedEntryIds.size + selectedFolderPaths.size
-    // Entri read-only tidak bisa dipindah; folder yang masih berisi entri juga tidak bisa dipindah.
-    val canMoveSelection = totalSelectedCount > 0 && !inTrashFolder && selectedEntryIds.isEmpty() &&
+    // Entri di folder terkunci (Gmail, Kata Sandi, Nomor, A2F, Kredensial, Sampah) tidak bisa dipindah.
+    // Folder yang masih berisi entri juga tidak bisa dipindah.
+    val canMoveSelection = totalSelectedCount > 0 && !inTrashFolder &&
+        dictionary.filter { it.id in selectedEntryIds }.all { SettingsRepository.isMovableEntry(it) } &&
         selectedFolderPaths.none { folder ->
             dictionary.any { !it.deleted && SettingsRepository.normalizeFolderPath(it.folder) == folder }
         }
@@ -268,6 +272,30 @@ fun DictionaryScreen(
                         onMoveSelected = {
                             if (selectedEntryIds.isNotEmpty()) {
                                 moveRequest = selectedEntryIds to emptySet()
+                            }
+                        },
+                        onPermanentDeleteSelected = {
+                            val eligible = selectedEntryIds.filter { id ->
+                                val entry = dictionary.firstOrNull { it.id == id }
+                                entry != null && SettingsRepository.isDuplicateInTrash(entry, dictionary)
+                            }.toSet()
+                            val skipped = selectedEntryIds.size - eligible.size
+                            if (eligible.isEmpty()) {
+                                Toast.makeText(
+                                    context,
+                                    "Hanya entri Sampah yang punya duplikat aktif bisa dihapus permanen",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                onPermanentDeleteEntries(eligible)
+                                if (skipped > 0) {
+                                    Toast.makeText(
+                                        context,
+                                        "$skipped entri dilewati karena tidak punya duplikat",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                                clearSelection()
                             }
                         },
                         onDeleteSelected = {
@@ -512,6 +540,15 @@ fun DictionaryScreen(
                     showAddDialog = false
                     editingEntry = null
                 }
+            } else null,
+            onPermanentDelete = if (current != null &&
+                SettingsRepository.isDuplicateInTrash(current, dictionary)
+            ) {
+                {
+                    onPermanentDeleteEntries(setOf(current.id))
+                    showAddDialog = false
+                    editingEntry = null
+                }
             } else null
         )
     }
@@ -683,6 +720,7 @@ private fun SelectionActionBar(
     inTrash: Boolean,
     onSelectAll: () -> Unit,
     onMoveSelected: () -> Unit,
+    onPermanentDeleteSelected: () -> Unit,
     onDeleteSelected: () -> Unit,
     onRestoreSelected: () -> Unit,
     onClose: () -> Unit
@@ -735,6 +773,19 @@ private fun SelectionActionBar(
                         imageVector = Icons.Default.Restore,
                         contentDescription = "Pulihkan item terpilih",
                         tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                IconButton(
+                    onClick = onPermanentDeleteSelected,
+                    enabled = selectedCount > 0,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .testTag("permanent_delete_selected_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteForever,
+                        contentDescription = "Hapus permanen item terpilih yang punya duplikat",
+                        tint = MaterialTheme.colorScheme.error
                     )
                 }
             } else IconButton(

@@ -236,6 +236,17 @@ class MainViewModel(
         }
     }
 
+    fun permanentlyDeleteDictionaryEntries(entryIds: Set<String>) {
+        viewModelScope.launch {
+            runCatching {
+                val removed = settingsRepository.permanentlyDeleteDuplicates(entryIds)
+                if (removed > 0) pushLocalChangesToDevice()
+            }.onFailure {
+                _deviceSyncUiState.value = DeviceSyncUiState.Error(it.message ?: "Gagal menghapus permanen")
+            }
+        }
+    }
+
     fun deleteDictionaryEntry(entryId: String) {
         viewModelScope.launch {
             settingsRepository.deleteDictionaryEntry(entryId)
