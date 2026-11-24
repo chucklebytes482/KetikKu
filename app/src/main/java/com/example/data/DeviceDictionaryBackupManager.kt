@@ -1277,8 +1277,10 @@ class DeviceDictionaryBackupManager(
         private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
         private const val PRIMARY_DOCUMENTS_PREFIX = "primary:Documents"
 
-        val INITIAL_DOCUMENTS_URI: Uri =
+        /** Lazy agar `Uri.parse` tidak dipanggil saat companion diinisialisasi (tes JVM biasa tanpa Android). */
+        val INITIAL_DOCUMENTS_URI: Uri by lazy {
             Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADocuments")
+        }
 
         /**
          * Mengekstrak jalur folder relatif di dalam `/storage/emulated/0/Documents/` dari SAF tree URI.
