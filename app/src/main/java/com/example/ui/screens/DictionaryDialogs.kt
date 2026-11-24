@@ -136,8 +136,7 @@ internal fun DictionaryEntryDialog(
                         readOnly = fieldsLocked,
                         label = { Text("Email") },
                         singleLine = true,
-                        isError = emailError != null,
-                        supportingText = { Text(emailError ?: if (fieldsLocked) "Dikunci" else "Juga masuk ke folder gm") },
+                        supportingText = { Text(if (fieldsLocked) "Dikunci" else "Juga masuk ke folder gm") },
                         modifier = Modifier.fillMaxWidth().testTag("a2f_email_input")
                     )
                     OutlinedTextField(
@@ -163,13 +162,10 @@ internal fun DictionaryEntryDialog(
                         },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
-                        isError = seedError != null,
                         supportingText = {
                             Text(
-                                seedError ?: when {
-                                    !seedEditable -> "Seed tersimpan terkunci"
-                                    else -> "TOTP SHA-1, 6 digit, 30 detik. Disimpan di Android Keystore."
-                                }
+                                if (!seedEditable) "Seed tersimpan terkunci"
+                                else "TOTP SHA-1, 6 digit, 30 detik. Disimpan di Android Keystore."
                             )
                         },
                         modifier = Modifier.fillMaxWidth().testTag("a2f_secret_input")
@@ -181,8 +177,6 @@ internal fun DictionaryEntryDialog(
                         readOnly = fieldsLocked,
                         label = { Text("Kata atau Frasa") },
                         singleLine = false,
-                        isError = wordError != null,
-                        supportingText = { wordError?.let { Text(it) } },
                         modifier = Modifier.fillMaxWidth().testTag("dictionary_word_input")
                     )
                 }
@@ -191,12 +185,8 @@ internal fun DictionaryEntryDialog(
                     onValueChange = { shortcut = it },
                     readOnly = inTrash || isA2f,
                     label = { Text(if (isA2f) "Pintasan (Dibuat otomatis)" else "Pintasan (kosong = otomatis)") },
-                    isError = shortcutError != null,
                     supportingText = {
-                        when {
-                            shortcutError != null -> Text(shortcutError)
-                            isA2f -> Text("Dibuat otomatis: aut + 2 huruf email + 2 huruf website")
-                        }
+                        if (isA2f) Text("Dibuat otomatis: aut + 2 huruf email + 2 huruf website")
                     },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("dictionary_shortcut_input")
