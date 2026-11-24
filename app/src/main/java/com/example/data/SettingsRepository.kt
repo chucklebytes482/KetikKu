@@ -1234,6 +1234,18 @@ class SettingsRepository(
             }
         }
 
+        /** Kata di Sampah yang kurang dari 10 karakter (kolom kata, dipangkas). */
+        const val SHORT_TRASH_MAX_EXCLUSIVE = 10
+
+        fun isShortInTrash(entry: PersonalDictionaryEntry): Boolean {
+            if (entry.deleted || normalizeFolderPath(entry.folder) != FOLDER_SAMPAH) return false
+            return entry.word.trim().length < SHORT_TRASH_MAX_EXCLUSIVE
+        }
+
+        /** Entri Sampah yang boleh dihapus permanen: duplikat aktif, atau kata pendek. */
+        fun canPermanentlyDeleteFromTrash(entry: PersonalDictionaryEntry, all: List<PersonalDictionaryEntry>): Boolean =
+            isDuplicateInTrash(entry, all) || isShortInTrash(entry)
+
         fun normalizeFolderPath(raw: String?): String {
             if (raw.isNullOrBlank()) return ""
             val cleaned = raw.replace('\\', ' ')

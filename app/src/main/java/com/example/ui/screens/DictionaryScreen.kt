@@ -259,13 +259,13 @@ fun DictionaryScreen(
                         onPermanentDeleteSelected = {
                             val eligible = selectedEntryIds.filter { id ->
                                 val entry = dictionary.firstOrNull { it.id == id }
-                                entry != null && SettingsRepository.isDuplicateInTrash(entry, dictionary)
+                                entry != null && SettingsRepository.canPermanentlyDeleteFromTrash(entry, dictionary)
                             }.toSet()
                             val skipped = selectedEntryIds.size - eligible.size
                             if (eligible.isEmpty()) {
                                 Toast.makeText(
                                     context,
-                                    "Hanya entri Sampah yang punya duplikat aktif bisa dihapus permanen",
+                                    "Hanya entri Sampah yang duplikat atau kurang dari 10 karakter bisa dihapus permanen",
                                     Toast.LENGTH_LONG
                                 ).show()
                             } else {
