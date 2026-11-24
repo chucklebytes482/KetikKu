@@ -76,7 +76,7 @@ import com.example.ui.theme.GoogleYellow700
 import com.example.ui.theme.GoogleGreen700
 import kotlinx.coroutines.delay
 
-internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/ketikku-site/"
+internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/KetikKu/"
 
 internal const val KETIKKU_GENERAL_AI_PROMPT = """Struktur berkas JSON kamus pribadi KetikKu. Cadangan dipecah jadi 4 berkas: ketikku_umum.json, ketikku_kata_sandi.json, ketikku_kredensial.json, dan ketikku_a2f.json. Semua berkas memakai struktur sama dan hanya berisi entri jenisnya (folder Kata Sandi masuk kata_sandi, Kredensial masuk kredensial, A2F masuk a2f, selain itu umum):
 {

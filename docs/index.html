@@ -408,7 +408,7 @@
         kamus pribadi berbasis <em>personality</em>, serta cadangan otomatis kamus pribadi ke perangkat yang mudah diedit dengan AI.
       </p>
       <div class="hero-actions">
-        <a class="btn btn-white" href="https://github.com/chucklebytes482/ketikku-site/releases/latest/download/ketikku-latest-arm64-v8a.apk" download>
+        <a class="btn btn-white" href="https://github.com/chucklebytes482/KetikKu/releases/latest/download/ketikku-latest-arm64-v8a.apk" download>
           Unduh Aplikasi KetikKu (APK)
         </a>
         <a class="btn btn-ghost" href="#instruksi-ai">Salin Variasi Instruksi AI</a>
@@ -817,7 +817,7 @@ Kategori folder atau daftar kamus tambahan yang ingin difolderkan:
       });
       var releaseEl = document.getElementById("release-updated");
       if (releaseEl && typeof fetch === "function") {
-        fetch("https://api.github.com/repos/chucklebytes482/ketikku-site/releases/latest")
+        fetch("https://api.github.com/repos/chucklebytes482/KetikKu/releases/latest")
           .then(function (res) { return res.ok ? res.json() : null; })
           .then(function (data) {
             if (!data || !data.published_at) return;
