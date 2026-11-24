@@ -480,7 +480,7 @@ class ExampleRobolectricTest {
                 DictionaryScreen(
                     settings = KeyboardSettings(),
                     dictionary = entries,
-                    onUpsertEntry = { word, shortcut, _, existingId, _, _ ->
+                    onUpsertEntry = { word, shortcut, _, existingId, _, _, _, _ ->
                         savedWord = word
                         savedShortcut = shortcut
                         savedExistingId = existingId
@@ -772,7 +772,7 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
         composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("device_push_down_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("device_merge_button").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithTag("drive_connect_google_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("local_export_json_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("local_import_json_button").fetchSemanticsNodes().isEmpty())
@@ -1570,10 +1570,9 @@ class ExampleRobolectricTest {
     @Test
     @Config(qualifiers = "w411dp-h891dp")
     fun deviceBackupSheetBody_rendersStatusPathSyncAndConditionalFolderAccessButton() {
-        var syncClicks = 0
+        var mergeClicks = 0
         var folderClicks = 0
         var resetClicks = 0
-        var pullClicks = 0
         var needsAccess by mutableStateOf(false)
         var hasCustomFolder by mutableStateOf(false)
         var customPath by mutableStateOf(com.example.data.DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH)
@@ -1588,8 +1587,7 @@ class ExampleRobolectricTest {
                     needsFolderAccess = needsAccess,
                     backupDisplayPath = customPath,
                     hasCustomFolder = hasCustomFolder,
-                    onTimpaKeBawah = { syncClicks++ },
-                    onTimpaKeAtas = { pullClicks++ },
+                    onGabungkan = { mergeClicks++ },
                     onRequestFolderAccess = { folderClicks++ },
                     onResetFolderToDefault = { resetClicks++ }
                 )
@@ -1599,7 +1597,7 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
         composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("device_push_down_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("device_merge_button").assertIsDisplayed()
         composeRule.onNodeWithText(
             "/storage/emulated/0/Documents/ketikku_*.json",
             substring = true
@@ -1616,12 +1614,9 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithText("Google Drive", substring = true).fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Jadwal Sinkronisasi").fetchSemanticsNodes().isEmpty())
 
-        composeRule.onNodeWithTag("device_push_down_button").performClick()
+        composeRule.onNodeWithTag("device_merge_button").performClick()
         composeRule.waitForIdle()
-        assertEquals(1, syncClicks)
-        composeRule.onNodeWithTag("device_pull_up_button").performClick()
-        composeRule.waitForIdle()
-        assertEquals(1, pullClicks)
+        assertEquals(1, mergeClicks)
 
         // Custom subfolder displays dynamically and offers reset button to return to Documents/ root
         hasCustomFolder = true
@@ -1751,7 +1746,7 @@ class ExampleRobolectricTest {
                     settings = KeyboardSettings(),
                     dictionary = entries,
                     folders = folders,
-                    onUpsertEntry = { _, _, _, _, _, _ -> },
+                    onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
                     onDeleteEntry = {},
                     onMoveItems = { eIds, fPaths, target ->
                         movedEntries = eIds
@@ -2027,7 +2022,7 @@ class ExampleRobolectricTest {
                     settings = KeyboardSettings(),
                     dictionary = entries,
                     folders = folders,
-                    onUpsertEntry = { _, _, _, _, _, _ -> },
+                    onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
                     onDeleteEntry = {},
                     onDeleteItems = { entryIds, folderPaths ->
                         deletedCalls++
@@ -2102,7 +2097,7 @@ class ExampleRobolectricTest {
                     settings = KeyboardSettings(),
                     dictionary = entries,
                     folders = emptyList(),
-                    onUpsertEntry = { _, _, _, _, _, _ -> },
+                    onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
                     onDeleteEntry = {}
                 )
             }

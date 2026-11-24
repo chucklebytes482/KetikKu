@@ -51,38 +51,71 @@ internal fun DictionaryEntryDialog(
     initialEntry: PersonalDictionaryEntry?,
     defaultFolderPath: String,
     isA2f: Boolean = false,
-    usedA2fShortcuts: List<String> = emptyList(),
+    usedShortcuts: List<String> = emptyList(),
     onDismiss: () -> Unit,
-    onSave: (word: String, shortcut: String, language: String, folder: String, secretPlain: String?) -> Unit
+    onSave: (word: String, shortcut: String, language: String, folder: String, secretPlain: String?, email: String, website: String) -> Unit,
+    onDuplicate: (() -> Unit)? = null,
+    onTrash: (() -> Unit)? = null,
+    onRestore: (() -> Unit)? = null
 ) {
+    val inTrash = initialEntry != null &&
+        SettingsRepository.normalizeFolderPath(initialEntry.folder) == SettingsRepository.FOLDER_SAMPAH
+    val folder = SettingsRepository.normalizeFolderPath(initialEntry?.folder ?: defaultFolderPath)
+    val isNew = initialEntry == null
+    val language = initialEntry?.language ?: "id-ID"
+    // Entri A2F menyimpan "email\nwebsite" di kolom kata.
+    val a2fParts = initialEntry?.word?.split('\n').orEmpty()
+
+    var email by remember(initialEntry) { mutableStateOf(if (isA2f) a2fParts.getOrElse(0) { "" } else "") }
+    var website by remember(initialEntry) { mutableStateOf(if (isA2f) a2fParts.getOrElse(1) { "" } else "") }
     var word by remember(initialEntry) { mutableStateOf(if (isA2f) "" else initialEntry?.word.orEmpty()) }
     var shortcut by remember(initialEntry) { mutableStateOf(initialEntry?.shortcut.orEmpty()) }
-    val targetFolder = initialEntry?.folder ?: defaultFolderPath
-    val language = initialEntry?.language ?: "id-ID"
-    val needSecret = isA2f && initialEntry?.secretCipher.isNullOrBlank()
-    val secretError = when {
-        !isA2f -> null
-        word.isBlank() && needSecret -> "Seed wajib diisi"
-        word.isNotBlank() && !TotpGenerator.isValidBase32Secret(word) -> "Seed base32 tidak valid (min. 16 karakter A-Z, 2-7)"
+    var seed by remember(initialEntry) { mutableStateOf("") }
+
+    // Kata/email/website read-only untuk entri yang sudah ada. Seed hanya boleh diubah sekali (duplikat).
+    val seedEditable = !inTrash && (initialEntry == null || initialEntry.seedEditsLeft > 0)
+    val fieldsLocked = !isNew
+
+    val emailRegex = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
+    val emailError = when {
+        !isA2f || !isNew -> null
+        email.isBlank() -> "Email wajib diisi"
+        !email.trim().matches(emailRegex) -> "Email tidak valid"
         else -> null
     }
-    val shortcutError = if (isA2f) when {
-        shortcut.isBlank() -> "Pintasan wajib diisi"
-        shortcut.trim().length > 30 || shortcut.trim().any { !it.isLetterOrDigit() } -> "Pintasan A2F: maksimal 30 huruf/angka tanpa spasi"
-        usedA2fShortcuts.any { it.equals(shortcut.trim(), true) } -> "Pintasan A2F sudah dipakai"
+    val siteError = if (isA2f && isNew && website.isBlank()) "Website wajib diisi" else null
+    val seedError = when {
+        !isA2f || !seedEditable -> null
+        seed.isBlank() -> if (isNew) "Seed wajib diisi" else null
+        !TotpGenerator.isValidBase32Secret(seed) -> "Seed base32 tidak valid (min. 16 karakter A-Z, 2-7)"
         else -> null
-    } else null
-    val canSave = shortcut.isNotBlank() && shortcutError == null && (if (isA2f) secretError == null else word.isNotBlank())
+    }
+    val shortcutError = when {
+        isA2f && shortcut.isBlank() -> "Pintasan wajib diisi"
+        isA2f && (shortcut.trim().length > 30 || shortcut.trim().any { !it.isLetterOrDigit() }) ->
+            "Pintasan A2F: maksimal 30 huruf/angka tanpa spasi"
+        shortcut.isNotBlank() && usedShortcuts.any { it.equals(shortcut.trim(), true) } -> "Pintasan sudah dipakai"
+        else -> null
+    }
+    val wordError = when {
+        isA2f || !isNew -> null
+        word.isBlank() -> "Kata wajib diisi"
+        folder == SettingsRepository.FOLDER_GMAIL && !word.contains('@') -> "Gmail harus berupa alamat email"
+        else -> null
+    }
+    val canSave = !inTrash && shortcutError == null && emailError == null && siteError == null &&
+        seedError == null && wordError == null
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
                 when {
-                    isA2f && initialEntry == null -> "Tambah Akun A2F"
-                    isA2f -> "Edit Akun A2F"
-                    initialEntry == null -> "Tambah ke Kamus Pribadi"
-                    else -> "Edit Kata & Pintasan"
+                    inTrash -> "Entri di Sampah"
+                    isA2f && isNew -> "Tambah Akun A2F"
+                    isA2f -> "Akun A2F"
+                    isNew -> "Tambah ke Kamus Pribadi"
+                    else -> "Edit Pintasan"
                 }
             )
         },
@@ -90,71 +123,131 @@ internal fun DictionaryEntryDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (isA2f) {
                     OutlinedTextField(
-                        value = word,
-                        onValueChange = { word = it },
+                        value = email,
+                        onValueChange = { email = it },
+                        readOnly = fieldsLocked,
+                        label = { Text("Email") },
+                        singleLine = true,
+                        isError = emailError != null,
+                        supportingText = { Text(emailError ?: if (fieldsLocked) "Dikunci" else "Juga masuk ke folder Gmail") },
+                        modifier = Modifier.fillMaxWidth().testTag("a2f_email_input")
+                    )
+                    OutlinedTextField(
+                        value = website,
+                        onValueChange = { website = it },
+                        readOnly = fieldsLocked,
+                        label = { Text("Website") },
+                        singleLine = true,
+                        isError = siteError != null,
+                        supportingText = { if (siteError != null) Text(siteError) else if (fieldsLocked) Text("Dikunci") },
+                        modifier = Modifier.fillMaxWidth().testTag("a2f_website_input")
+                    )
+                    OutlinedTextField(
+                        value = seed,
+                        onValueChange = { seed = it },
+                        readOnly = !seedEditable,
                         label = {
-                            Text(if (initialEntry == null) "Seed (secret base32)" else "Seed baru (kosongkan jika tetap)")
+                            Text(
+                                when {
+                                    isNew -> "Seed (secret base32)"
+                                    seedEditable -> "Seed baru (sekali, lalu terkunci)"
+                                    else -> "Seed (terkunci)"
+                                }
+                            )
                         },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
-                        isError = secretError != null,
+                        isError = seedError != null,
                         supportingText = {
-                            Text(secretError ?: "TOTP SHA-1, 6 digit, 30 detik. Disimpan di Android Keystore.")
+                            Text(
+                                seedError ?: when {
+                                    !seedEditable -> "Seed tersimpan terkunci"
+                                    isNew -> "TOTP SHA-1, 6 digit, 30 detik. Disimpan di Android Keystore."
+                                    else -> "Kosongkan jika tetap"
+                                }
+                            )
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("a2f_secret_input")
+                        modifier = Modifier.fillMaxWidth().testTag("a2f_secret_input")
                     )
                 } else {
                     OutlinedTextField(
                         value = word,
                         onValueChange = { word = it },
+                        readOnly = fieldsLocked,
                         label = { Text("Kata atau Frasa") },
                         singleLine = false,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("dictionary_word_input")
+                        isError = wordError != null,
+                        supportingText = { wordError?.let { Text(it) } },
+                        modifier = Modifier.fillMaxWidth().testTag("dictionary_word_input")
                     )
                 }
                 OutlinedTextField(
                     value = shortcut,
                     onValueChange = { shortcut = it },
-                    label = { Text(if (isA2f) "Pintasan (misal: gh)" else "Pintasan (misal: ttd)") },
+                    readOnly = inTrash,
+                    label = { Text(if (isA2f) "Pintasan (misal: gh)" else "Pintasan (kosong = otomatis)") },
                     isError = shortcutError != null,
                     supportingText = { if (shortcutError != null) Text(shortcutError) },
                     singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("dictionary_shortcut_input")
+                    modifier = Modifier.fillMaxWidth().testTag("dictionary_shortcut_input")
                 )
+                if (inTrash) {
+                    Text(
+                        text = "Pulihkan untuk mengedit lagi. Entri di Sampah tidak muncul di saran.",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (!isNew && !inTrash) {
+                    if (isA2f && onDuplicate != null) {
+                        TextButton(onClick = onDuplicate, modifier = Modifier.testTag("duplicate_a2f_button")) {
+                            Text("Duplikasi")
+                        }
+                    }
+                    if (onTrash != null) {
+                        TextButton(
+                            onClick = onTrash,
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.testTag("move_to_trash_button")
+                        ) {
+                            Text("Pindahkan ke Sampah")
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val folder = SettingsRepository.normalizeFolderPath(targetFolder)
-                    if (isA2f) {
-                        // Kata disimpan sebagai penanda; seed dienkripsi dan kosong = pertahankan seed lama.
+            if (inTrash) {
+                Button(
+                    onClick = { onRestore?.invoke() },
+                    enabled = onRestore != null,
+                    modifier = Modifier.testTag("restore_dictionary_button")
+                ) {
+                    Text("Pulihkan")
+                }
+            } else {
+                Button(
+                    onClick = {
                         onSave(
-                            A2F_MASK,
+                            word,
                             shortcut,
                             language,
                             folder,
-                            word.takeIf { it.isNotBlank() }?.let { TotpGenerator.normalizeBase32(it) }
+                            if (isA2f && seedEditable && seed.isNotBlank()) TotpGenerator.normalizeBase32(seed) else null,
+                            email,
+                            website
                         )
-                    } else {
-                        onSave(word, shortcut, language, folder, null)
-                    }
-                },
-                enabled = canSave,
-                modifier = Modifier.testTag("save_dictionary_button")
-            ) {
-                Text("Simpan")
+                    },
+                    enabled = canSave,
+                    modifier = Modifier.testTag("save_dictionary_button")
+                ) {
+                    Text("Simpan")
+                }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text("Tutup")
             }
         }
     )
@@ -388,8 +481,8 @@ internal fun ConfirmDeleteItemsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Hapus Item Terpilih?") },
-        text = { Text("Yakin ingin menghapus $summary dari Kamus Pribadi?") },
+        title = { Text("Pindahkan ke Sampah?") },
+        text = { Text("Pindahkan $summary ke folder Sampah? Bisa dipulihkan lagi.") },
         confirmButton = {
             Button(
                 onClick = onConfirm,
@@ -399,7 +492,7 @@ internal fun ConfirmDeleteItemsDialog(
                 ),
                 modifier = Modifier.testTag("confirm_delete_items_button")
             ) {
-                Text("Hapus")
+                Text("Pindahkan")
             }
         },
         dismissButton = {

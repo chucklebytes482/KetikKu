@@ -248,8 +248,7 @@ private fun KetikKuMainScaffold(
                 dictionary = dictionary,
                 syncLocalState = syncLocalState,
                 deviceSyncUiState = deviceSyncUiState,
-                onTimpaKeBawah = { mainViewModel.timpaKeBawah() },
-                onTimpaKeAtas = { mainViewModel.timpaKeAtas() },
+                onGabungkan = { mainViewModel.gabungkanCadangan() },
                 onFolderAuthorized = { uriString ->
                     mainViewModel.onDeviceBackupFolderGranted(uriString)
                 },
@@ -301,15 +300,23 @@ private fun KetikKuNavHost(
                 settings = settings,
                 dictionary = dictionary,
                 folders = folders,
-                onUpsertEntry = { word, shortcut, language, existingId, folder, secretCipher ->
+                onUpsertEntry = { word, shortcut, language, existingId, folder, secretCipher, email, website ->
                     mainViewModel.upsertDictionaryEntry(
                         word = word,
                         shortcut = shortcut,
                         language = language,
                         existingId = existingId,
                         folder = folder,
-                        secretCipher = secretCipher
+                        secretCipher = secretCipher,
+                        email = email,
+                        website = website
                     )
+                },
+                onDuplicateEntry = { sourceId ->
+                    mainViewModel.duplicateDictionaryEntry(sourceId)
+                },
+                onRestoreEntries = { entryIds ->
+                    mainViewModel.restoreDictionaryEntries(entryIds)
                 },
                 onDeleteEntry = { entryId ->
                     mainViewModel.deleteDictionaryEntry(entryId)

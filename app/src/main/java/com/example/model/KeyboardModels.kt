@@ -51,7 +51,11 @@ data class PersonalDictionaryEntry(
     val updatedAtMillis: Long = 0L,
     val deleted: Boolean = false,
     // Seed TOTP terenkripsi per perangkat (AES-GCM, Android Keystore). Format: k2:base64(iv):base64(ciphertext); cadangan lintas perangkat berpassword.
-    val secretCipher: String = ""
+    val secretCipher: String = "",
+    // Folder asal saat entri dipindah ke Sampah; kosong jika tidak di Sampah.
+    val trashedFrom: String = "",
+    // Sisa kesempatan edit seed A2F (duplikat boleh edit seed 1 kali).
+    val seedEditsLeft: Int = 0
 )
 
 @Immutable

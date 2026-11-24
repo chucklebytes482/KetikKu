@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Folder
@@ -84,8 +85,10 @@ fun DictionaryScreen(
     settings: KeyboardSettings,
     dictionary: List<PersonalDictionaryEntry>,
     folders: List<String> = emptyList(),
-    onUpsertEntry: (word: String, shortcut: String, language: String, existingId: String?, folder: String, secretCipher: String?) -> Unit,
+    onUpsertEntry: (word: String, shortcut: String, language: String, existingId: String?, folder: String, secretCipher: String?, email: String, website: String) -> Unit,
     onDeleteEntry: (entryId: String) -> Unit,
+    onDuplicateEntry: (entryId: String) -> Unit = {},
+    onRestoreEntries: (entryIds: Set<String>) -> Unit = {},
     onCreateFolder: (folderPath: String) -> Unit = {},
     onRenameFolder: (oldPath: String, newName: String) -> Unit = { _, _ -> },
     onMoveItems: (entryIds: Set<String>, folderPaths: Set<String>, targetFolderPath: String) -> Unit = { _, _, _ -> },
@@ -128,6 +131,7 @@ fun DictionaryScreen(
     val activeEntriesAll = remember(dictionary) {
         dictionary.filter { !it.deleted }
     }
+    val inTrashFolder = currentFolderPath == SettingsRepository.FOLDER_SAMPAH
 
     val q = dictSearchQuery.trim().lowercase()
     val isSearching = q.isNotEmpty()
@@ -148,7 +152,8 @@ fun DictionaryScreen(
         if (isSearching) {
             activeEntriesAll
                 .filter { entry ->
-                    entry.word.lowercase().contains(q) ||
+                    SettingsRepository.normalizeFolderPath(entry.folder) != SettingsRepository.FOLDER_SAMPAH &&
+                        entry.word.lowercase().contains(q) ||
                         entry.shortcut.lowercase().contains(q) ||
                         entry.folder.lowercase().contains(q)
                 }
@@ -239,7 +244,14 @@ fun DictionaryScreen(
                 item {
                     SelectionActionBar(
                         selectedCount = totalSelectedCount,
-                        canMoveEntries = selectedEntryIds.isNotEmpty(),
+                        canMoveEntries = selectedEntryIds.isNotEmpty() && !inTrashFolder,
+                        inTrash = inTrashFolder,
+                        onRestoreSelected = {
+                            if (selectedEntryIds.isNotEmpty()) {
+                                onRestoreEntries(selectedEntryIds)
+                                clearSelection()
+                            }
+                        },
                         onSelectAll = {
                             selectedFolderPaths = selectableFolders.toSet()
                             selectedEntryIds = visibleEntries.map { it.id }.toSet()
@@ -315,7 +327,7 @@ fun DictionaryScreen(
                             }
                         }
 
-                        Button(
+                        if (!inTrashFolder) Button(
                             onClick = { showAddDialog = true },
                             shape = RoundedCornerShape(14.dp),
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
@@ -435,28 +447,50 @@ fun DictionaryScreen(
 
     val dialogFolder = SettingsRepository.normalizeFolderPath(editingEntry?.folder ?: currentFolderPath)
     if (showAddDialog || editingEntry != null) {
+        val current = editingEntry
         DictionaryEntryDialog(
-            initialEntry = editingEntry,
+            initialEntry = current,
             defaultFolderPath = currentFolderPath,
             isA2f = dialogFolder == SettingsRepository.FOLDER_A2F,
-            usedA2fShortcuts = dictionary.filter {
-                !it.deleted && it.id != editingEntry?.id && SettingsRepository.normalizeFolderPath(it.folder) == SettingsRepository.FOLDER_A2F
+            usedShortcuts = dictionary.filter {
+                !it.deleted && it.id != current?.id && SettingsRepository.normalizeFolderPath(it.folder) != SettingsRepository.FOLDER_SAMPAH
             }.map { it.shortcut },
             onDismiss = {
                 showAddDialog = false
                 editingEntry = null
             },
-            onSave = { word, shortcut, lang, folder, secretPlain ->
+            onSave = { word, shortcut, lang, folder, secretPlain, email, website ->
                 runCatching {
                     val cipher = secretPlain?.let { SecretVault.encrypt(it) }
-                    onUpsertEntry(word, shortcut, lang, editingEntry?.id, folder, cipher)
+                    onUpsertEntry(word, shortcut, lang, current?.id, folder, cipher, email, website)
                 }.onSuccess {
                     showAddDialog = false
                     editingEntry = null
                 }.onFailure {
-                    Toast.makeText(context, "Seed A2F tidak dapat disimpan. Coba lagi tanpa menghapus akun lama.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, it.message ?: "Tidak dapat disimpan", Toast.LENGTH_LONG).show()
                 }
-            }
+            },
+            onDuplicate = if (current != null && dialogFolder == SettingsRepository.FOLDER_A2F) {
+                {
+                    onDuplicateEntry(current.id)
+                    showAddDialog = false
+                    editingEntry = null
+                }
+            } else null,
+            onTrash = if (current != null) {
+                {
+                    onDeleteEntry(current.id)
+                    showAddDialog = false
+                    editingEntry = null
+                }
+            } else null,
+            onRestore = if (current != null) {
+                {
+                    onRestoreEntries(setOf(current.id))
+                    showAddDialog = false
+                    editingEntry = null
+                }
+            } else null
         )
     }
 
@@ -598,9 +632,11 @@ private fun FolderBreadcrumbBar(
 private fun SelectionActionBar(
     selectedCount: Int,
     canMoveEntries: Boolean,
+    inTrash: Boolean,
     onSelectAll: () -> Unit,
     onMoveSelected: () -> Unit,
     onDeleteSelected: () -> Unit,
+    onRestoreSelected: () -> Unit,
     onClose: () -> Unit
 ) {
     Surface(
@@ -639,7 +675,21 @@ private fun SelectionActionBar(
                 Spacer(Modifier.width(4.dp))
                 Text("Pilih Semua")
             }
-            IconButton(
+            if (inTrash) {
+                IconButton(
+                    onClick = onRestoreSelected,
+                    enabled = selectedCount > 0,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .testTag("restore_selected_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Restore,
+                        contentDescription = "Pulihkan item terpilih",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            } else IconButton(
                 onClick = onMoveSelected,
                 enabled = canMoveEntries,
                 modifier = Modifier
@@ -652,7 +702,7 @@ private fun SelectionActionBar(
                     tint = if (canMoveEntries) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                 )
             }
-            IconButton(
+            if (!inTrash) IconButton(
                 onClick = onDeleteSelected,
                 enabled = selectedCount > 0,
                 modifier = Modifier

@@ -600,17 +600,14 @@ class DeviceDictionaryBackupManager(
         afterDictionaryWrite(result)
     }
 
-    /** Timpa ke bawah (standar 06): aplikasi -> perangkat. Berkas yang isinya sama dilewati. */
-    suspend fun timpaKeBawah(nowMillis: Long = System.currentTimeMillis()): DeviceSyncResult =
-        pushLocalToDevice(nowMillis)
-
     /**
-     * Timpa ke atas (standar 06): perangkat -> aplikasi. Entri perangkat digabung ke aplikasi per id,
-     * versi yang lebih baru menang. Entri yang hanya ada di aplikasi tetap dipertahankan; tidak ada penghapusan.
+     * Gabungkan: hanya menambah id yang belum ada di sisi lain. Entri dengan id sama tetap pakai versi masing-masing;
+     * tidak ada penimpaan dan tidak ada penghapusan. Kedua sisi berakhir dengan himpunan id yang sama.
      */
-    suspend fun timpaKeAtas(nowMillis: Long = System.currentTimeMillis()): DeviceSyncResult = syncMutex.withLock {
+    suspend fun gabungkan(nowMillis: Long = System.currentTimeMillis()): DeviceSyncResult = syncMutex.withLock {
         val result: DeviceSyncResult = withContext(Dispatchers.IO) {
             val localEntries = settingsRepository.getCurrentDictionary()
+            val localFolders = settingsRepository.getCurrentFolders()
             val syncState = settingsRepository.getCurrentSyncLocalState()
             val treeUri = syncState.deviceBackupTreeUri.takeIf { it.isNotBlank() }
             when (val read = readAll(treeUri)) {
@@ -630,30 +627,50 @@ class DeviceDictionaryBackupManager(
                     )
                     DeviceSyncResult.Error(read.message)
                 }
-                is BackupReadResult.NotFound ->
-                    DeviceSyncResult.Error("Belum ada cadangan di perangkat untuk ditimpa ke atas")
+                is BackupReadResult.NotFound -> {
+                    // Belum ada berkas di perangkat: tidak ada yang bisa digabung, tulis data aplikasi sebagai awal.
+                    val json = settingsRepository.encodeDictionaryBackupJson(
+                        entries = localEntries,
+                        updatedAtMillis = nowMillis,
+                        folders = localFolders
+                    )
+                    val activeCount = localEntries.count { !it.deleted }
+                    commitWriteResult(
+                        writeResult = writeAll(json, treeUri),
+                        activeCount = activeCount,
+                        restoredFromFile = false,
+                        nowMillis = nowMillis,
+                        previousSyncedAt = syncState.lastSyncedAtMillis,
+                        previousPending = syncState.pendingChanges
+                    )
+                }
                 is BackupReadResult.Found -> {
                     val decoded = settingsRepository.decodeDictionaryBackupJson(read.file.content)
                         ?: return@withContext DeviceSyncResult.Error("Cadangan di perangkat tidak terbaca")
-                    val merged = unionByIdNewestWins(decoded.entries, localEntries)
+                    val localIds = localEntries.map { it.id }.toSet()
+                    val deviceIds = decoded.entries.map { it.id }.toSet()
+                    // Sisi aplikasi: tambah entri perangkat yang id-nya belum ada.
+                    val mergedLocal = localEntries + decoded.entries.filter { it.id !in localIds }
+                    // Sisi perangkat: tambah entri aplikasi yang id-nya belum ada.
+                    val mergedFile = decoded.entries + localEntries.filter { it.id !in deviceIds }
                     val mergedFolders = SettingsRepository.normalizeOrderedFolders(
-                        explicitFolders = decoded.folders,
-                        entries = merged
+                        explicitFolders = localFolders + decoded.folders,
+                        entries = mergedLocal + mergedFile
                     )
-                    settingsRepository.replaceDictionaryAndFolders(merged, mergedFolders)
-                    val activeCount = merged.count { !it.deleted }
-                    val msg = "Ditimpa ke atas dari perangkat • $activeCount kata"
-                    settingsRepository.updateSyncState(
-                        lastSyncedAtMillis = nowMillis,
-                        message = msg,
-                        pendingChanges = false
+                    settingsRepository.replaceDictionaryAndFolders(mergedLocal, mergedFolders)
+                    val json = settingsRepository.encodeDictionaryBackupJson(
+                        entries = mergedFile,
+                        updatedAtMillis = nowMillis,
+                        folders = mergedFolders
                     )
-                    DeviceSyncResult.Synced(
-                        activeEntryCount = activeCount,
+                    val activeCount = mergedLocal.count { !it.deleted }
+                    commitWriteResult(
+                        writeResult = writeAll(json, treeUri),
+                        activeCount = activeCount,
                         restoredFromFile = true,
-                        wroteToFile = false,
-                        syncedAtMillis = nowMillis,
-                        message = msg
+                        nowMillis = nowMillis,
+                        previousSyncedAt = syncState.lastSyncedAtMillis,
+                        previousPending = syncState.pendingChanges
                     )
                 }
             }

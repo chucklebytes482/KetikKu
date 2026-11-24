@@ -50,6 +50,10 @@ object DictionaryEngine {
     fun isA2fEntry(entry: PersonalDictionaryEntry): Boolean =
         SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_A2F
 
+    /** Entri di Sampah tidak pernah muncul di saran. */
+    fun isTrashEntry(entry: PersonalDictionaryEntry): Boolean =
+        SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_SAMPAH
+
     fun findA2fEntry(
         currentWord: String,
         personalEntries: List<PersonalDictionaryEntry>

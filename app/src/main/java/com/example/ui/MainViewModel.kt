@@ -184,15 +184,44 @@ class MainViewModel(
         language: String,
         existingId: String? = null,
         folder: String = "",
-        secretCipher: String? = null
+        secretCipher: String? = null,
+        email: String = "",
+        website: String = ""
     ) {
         viewModelScope.launch {
             runCatching {
-                settingsRepository.upsertDictionaryEntry(word, shortcut, language, existingId, folder, secretCipher)
+                settingsRepository.upsertDictionaryEntry(
+                    word = word,
+                    shortcut = shortcut,
+                    language = language,
+                    existingId = existingId,
+                    folder = folder,
+                    secretCipher = secretCipher,
+                    email = email,
+                    website = website
+                )
                 pushLocalChangesToDevice()
             }.onFailure {
-                _deviceSyncUiState.value = DeviceSyncUiState.Error("Akun tidak disimpan: seed/pintasan tidak valid atau sudah dipakai")
+                _deviceSyncUiState.value = DeviceSyncUiState.Error(it.message ?: "Entri tidak disimpan")
             }
+        }
+    }
+
+    fun duplicateDictionaryEntry(sourceId: String) {
+        viewModelScope.launch {
+            runCatching {
+                settingsRepository.duplicateA2fEntry(sourceId)
+                pushLocalChangesToDevice()
+            }.onFailure {
+                _deviceSyncUiState.value = DeviceSyncUiState.Error(it.message ?: "Duplikat A2F gagal dibuat")
+            }
+        }
+    }
+
+    fun restoreDictionaryEntries(entryIds: Set<String>) {
+        viewModelScope.launch {
+            settingsRepository.restoreFromTrash(entryIds)
+            pushLocalChangesToDevice()
         }
     }
 
@@ -317,11 +346,8 @@ class MainViewModel(
         }
     }
 
-    /** Timpa ke bawah: aplikasi -> perangkat (tombol ↓). */
-    fun timpaKeBawah() = runDeviceSync { it.timpaKeBawah() }
-
-    /** Timpa ke atas: perangkat -> aplikasi, digabung per id, versi terbaru menang (tombol ↑). */
-    fun timpaKeAtas() = runDeviceSync { it.timpaKeAtas() }
+    /** Gabungkan: tambah id yang belum ada di kedua arah. Tidak menimpa, tidak menghapus. */
+    fun gabungkanCadangan() = runDeviceSync { it.gabungkan() }
 
     private fun runDeviceSync(block: suspend (DeviceDictionaryBackupManager) -> DeviceSyncResult) {
         val manager = deviceBackupManager ?: return

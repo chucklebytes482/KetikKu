@@ -71,8 +71,7 @@ fun DeviceBackupSheetContent(
     dictionary: List<PersonalDictionaryEntry>,
     syncLocalState: SyncLocalState,
     deviceSyncUiState: DeviceSyncUiState,
-    onTimpaKeBawah: () -> Unit,
-    onTimpaKeAtas: () -> Unit,
+    onGabungkan: () -> Unit,
     onFolderAuthorized: (String) -> Unit,
     encryptionConfigured: Boolean,
     onEnableEncryption: (CharArray, (Result<String>) -> Unit) -> Unit,
@@ -137,8 +136,7 @@ fun DeviceBackupSheetContent(
         needsFolderAccess = needsFolderAccess,
         encryptionConfigured = encryptionConfigured,
         onEnableEncryption = onEnableEncryption,
-        onTimpaKeBawah = onTimpaKeBawah,
-        onTimpaKeAtas = onTimpaKeAtas,
+        onGabungkan = onGabungkan,
         onRequestFolderAccess = {
             val initialUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 DeviceDictionaryBackupManager.INITIAL_DOCUMENTS_URI
@@ -165,8 +163,7 @@ internal fun DeviceBackupSheetBody(
     statusDotColor: Color,
     isSyncing: Boolean,
     needsFolderAccess: Boolean,
-    onTimpaKeBawah: () -> Unit,
-    onTimpaKeAtas: () -> Unit,
+    onGabungkan: () -> Unit,
     onRequestFolderAccess: () -> Unit,
     backupDisplayPath: String = DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH,
     hasCustomFolder: Boolean = false,
@@ -386,7 +383,7 @@ internal fun DeviceBackupSheetBody(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Button(
-                        onClick = onTimpaKeBawah,
+                        onClick = onGabungkan,
                         enabled = !isSyncing,
                         shape = RoundedCornerShape(28.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -397,31 +394,10 @@ internal fun DeviceBackupSheetBody(
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = 48.dp)
-                            .testTag("device_push_down_button")
+                            .testTag("device_merge_button")
                     ) {
                         Text(
-                            text = "↓ Timpa ke bawah",
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Button(
-                        onClick = onTimpaKeAtas,
-                        enabled = !isSyncing,
-                        shape = RoundedCornerShape(28.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 48.dp)
-                            .testTag("device_pull_up_button")
-                    ) {
-                        Text(
-                            text = "↑ Timpa ke atas",
+                            text = "Gabungkan",
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
