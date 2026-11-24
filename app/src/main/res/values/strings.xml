@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">KetikKu</string>
+    <string name="ime_service_label">KetikKu Keyboard</string>
+    <string name="subtype_indonesian">Bahasa Indonesia (QWERTY)</string>
+    <string name="subtype_english_us">English (US QWERTY)</string>
+
+    <string name="ime_status_active">Keyboard Aktif &amp; Siap</string>
+    <string name="ime_status_enabled_not_selected">Sudah Diaktifkan • Pilih sebagai Default</string>
+    <string name="ime_status_disabled">Belum Diaktifkan di Sistem</string>
+    <string name="action_enable_ime">Aktifkan di Setelan</string>
+    <string name="action_select_ime">Pilih KetikKu</string>
+
+    <string name="device_backup_title">Cadangan Perangkat</string>
+    <string name="device_backup_desc">Sinkronisasi otomatis kamus pribadi ke /storage/emulated/0/Documents/ketikku_dictionary.json atau folder pilihan Anda di dalam Documents.</string>
+    <string name="device_backup_sync_now">Sinkron Sekarang</string>
+</resources>
