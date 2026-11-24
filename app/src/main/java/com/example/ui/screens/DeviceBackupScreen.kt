@@ -77,8 +77,7 @@ fun DeviceBackupSheetContent(
     encryptionConfigured: Boolean,
     onEnableEncryption: (CharArray, (Result<String>) -> Unit) -> Unit,
     onResetFolderToDefault: () -> Unit = {},
-    modifier: Modifier = Modifier,
-    a2fContent: @Composable () -> Unit = {}
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val activeWordCount = remember(dictionary) { dictionary.count { !it.deleted } }
@@ -149,7 +148,6 @@ fun DeviceBackupSheetContent(
             folderPickerLauncher.launch(initialUri)
         },
         onResetFolderToDefault = onResetFolderToDefault,
-        a2fContent = a2fContent,
         modifier = modifier
     )
 }
@@ -178,8 +176,7 @@ internal fun DeviceBackupSheetBody(
         chars.fill('\u0000')
         done(Result.failure(IllegalStateException("Cadangan perangkat tidak tersedia")))
     },
-    modifier: Modifier = Modifier,
-    a2fContent: @Composable () -> Unit = {}
+    modifier: Modifier = Modifier
 ) {
     var showPassphraseDialog by remember { mutableStateOf(false) }
     var encryptionOn by remember(encryptionConfigured) { mutableStateOf(encryptionConfigured) }
@@ -433,8 +430,6 @@ internal fun DeviceBackupSheetBody(
                 }
             }
         }
-
-        a2fContent()
     }
 
     if (showPassphraseDialog) {

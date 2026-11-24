@@ -54,7 +54,6 @@ import com.example.ui.DeviceSyncUiState
 import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.screens.DeviceBackupSheetContent
-import com.example.ui.screens.A2fBackupPanel
 import com.example.ui.screens.DictionaryScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.KetikKuTheme
@@ -258,8 +257,7 @@ private fun KetikKuMainScaffold(
                 onEnableEncryption = { chars, done -> mainViewModel.enableBackupEncryption(chars, done) },
                 onResetFolderToDefault = {
                     mainViewModel.resetDeviceBackupFolderToDefault()
-                },
-                a2fContent = { A2fBackupPanel(mainViewModel) }
+                }
             )
         }
     }
