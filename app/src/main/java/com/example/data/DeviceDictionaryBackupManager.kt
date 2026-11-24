@@ -157,9 +157,13 @@ class AndroidDeviceBackupStorage(
             val matches = querySafMatchingFiles(treeUri, fileName)
             val targetUri = if (matches.isNotEmpty()) {
                 val primary = matches.maxByOrNull { it.lastModifiedMillis }!!.uri
-                // Remove any stray duplicate entries with the same display name so strictly 1 file remains
+                // Duplikat nama tidak dihapus (isinya mungkin belum ikut tergabung): cukup ganti nama
+                // agar tidak lagi dianggap berkas cadangan, lalu pengguna bisa memeriksanya manual.
+                val stamp = System.currentTimeMillis()
                 matches.filter { it.uri != primary }.forEach { dup ->
-                    runCatching { DocumentsContract.deleteDocument(resolver, dup.uri) }
+                    runCatching {
+                        DocumentsContract.renameDocument(resolver, dup.uri, "duplikat-$stamp-$fileName")
+                    }
                 }
                 primary
             } else {
@@ -454,12 +458,12 @@ class DeviceDictionaryBackupManager(
         return syncNow()
     }
 
-    /** Setelah sinkron kamus berhasil, perbarui berkas A2F terenkripsi. Saat sinkron penuh, akun dari berkas ikut digabung. */
-    private suspend fun afterDictionaryWrite(result: DeviceSyncResult, mergeA2f: Boolean): DeviceSyncResult {
+    /** Setelah sinkron kamus berhasil, perbarui berkas A2F terenkripsi (selalu digabung dulu dengan isi berkas). */
+    private suspend fun afterDictionaryWrite(result: DeviceSyncResult): DeviceSyncResult {
         if (result !is DeviceSyncResult.Synced || cipher?.isConfigured() != true) return result
         val treeUri = settingsRepository.getCurrentSyncLocalState().deviceBackupTreeUri.takeIf { it.isNotBlank() }
         val error = try {
-            syncA2fAuto(treeUri, mergeA2f)
+            syncA2fAuto(treeUri)
         } catch (e: Exception) {
             e.localizedMessage ?: "Gagal memperbarui cadangan A2F"
         }
@@ -473,14 +477,15 @@ class DeviceDictionaryBackupManager(
     }
 
     /**
-     * Berkas A2F terenkripsi. Dengan [mergeIncoming], akun dari berkas yang belum ada lokal ditambahkan dulu.
-     * Lalu himpunan A2F aktif lokal ditulis. Himpunan lokal kosong tidak pernah menimpa berkas.
+     * Berkas A2F terenkripsi. Akun dari berkas yang belum ada lokal ditambahkan dulu, lalu himpunan A2F aktif lokal
+     * ditulis. Himpunan lokal kosong tidak pernah menimpa berkas.
      * Mengembalikan pesan error, atau null jika berhasil.
      */
-    private suspend fun syncA2fAuto(treeUri: String?, mergeIncoming: Boolean): String? = withContext(Dispatchers.IO) {
+    private suspend fun syncA2fAuto(treeUri: String?): String? = withContext(Dispatchers.IO) {
         val backupCipher = cipher ?: return@withContext null
         if (!backupCipher.isConfigured()) return@withContext null
-        if (mergeIncoming) {
+        // Selalu gabungkan dulu: akun yang ada di berkas tapi belum ada di HP tidak boleh hilang saat ditulis ulang.
+        run {
             when (val read = storage.readBackup(BACKUP_FILE_A2F_AUTO, treeUri)) {
                 is BackupReadResult.NeedsFolderAccess -> return@withContext read.reason
                 is BackupReadResult.Error -> return@withContext read.message
@@ -592,7 +597,7 @@ class DeviceDictionaryBackupManager(
                 previousPending = true
             )
         }
-        afterDictionaryWrite(result, mergeA2f = false)
+        afterDictionaryWrite(result)
     }
 
     suspend fun syncNow(nowMillis: Long = System.currentTimeMillis()): DeviceSyncResult = syncMutex.withLock {
@@ -907,7 +912,7 @@ class DeviceDictionaryBackupManager(
                 }
             }
         }
-        afterDictionaryWrite(result, mergeA2f = true)
+        afterDictionaryWrite(result)
     }
 
     /** Membaca keempat berkas jenis dan menggabungkannya menjadi satu envelope JSON. */
@@ -972,8 +977,22 @@ class DeviceDictionaryBackupManager(
 
     /** Menulis keempat berkas jenis dari satu envelope JSON. Jenis tanpa isi ditulis sebagai `[]`. */
     private fun writeAll(json: String, treeUri: String?): BackupWriteResult {
-        val decoded = settingsRepository.decodeDictionaryBackupJson(json)
+        val incoming = settingsRepository.decodeDictionaryBackupJson(json)
             ?: return BackupWriteResult.Error("Gagal menyiapkan data cadangan.")
+        // Gabungkan dulu dengan isi berkas yang sudah ada: entri tidak boleh hilang karena penulisan berikutnya.
+        // Jika berkas tidak bisa dibaca, jangan menulis sama sekali.
+        val existing = when (val current = readAll(treeUri)) {
+            is BackupReadResult.Found -> settingsRepository.decodeDictionaryBackupJson(current.file.content)
+                ?: return BackupWriteResult.Error("Berkas cadangan tidak terbaca; tidak ada yang ditulis.")
+            is BackupReadResult.NotFound -> null
+            is BackupReadResult.NeedsFolderAccess -> return BackupWriteResult.NeedsFolderAccess(current.reason)
+            is BackupReadResult.Error -> return BackupWriteResult.Error(current.message)
+        }
+        val decoded = if (existing == null) incoming else incoming.copy(
+            // Folder mengikuti keputusan lokal (folder yang dihapus tidak kembali); entri digabung per id.
+            entries = unionByIdNewestWins(incoming.entries, existing.entries),
+            updatedAtMillis = maxOf(incoming.updatedAtMillis, existing.updatedAtMillis)
+        )
         var latest = 0L
         for (kind in DeviceDictionaryBackupManager.BACKUP_KINDS) {
             // Never write device-bound seeds or overwrite an existing portable A2F backup.
@@ -1113,6 +1132,24 @@ class DeviceDictionaryBackupManager(
     }
 
     companion object {
+        /**
+         * Gabungan per id: entri yang hanya ada di salah satu sisi selalu dipertahankan.
+         * Jika ada di keduanya, versi dengan updatedAtMillis lebih baru menang (termasuk penanda hapus).
+         * Seri: sisi [primary] menang.
+         */
+        internal fun unionByIdNewestWins(
+            primary: List<PersonalDictionaryEntry>,
+            other: List<PersonalDictionaryEntry>
+        ): List<PersonalDictionaryEntry> {
+            val byId = LinkedHashMap<String, PersonalDictionaryEntry>()
+            for (entry in other) byId[entry.id] = entry
+            for (entry in primary) {
+                val existing = byId[entry.id]
+                if (existing == null || entry.updatedAtMillis >= existing.updatedAtMillis) byId[entry.id] = entry
+            }
+            return byId.values.toList()
+        }
+
         const val BACKUP_RELATIVE_PATH = "Documents"
         const val BACKUP_FILE_UMUM = "ketikku_umum.json"
         const val BACKUP_FILE_KATA_SANDI = "ketikku_kata_sandi.json"
