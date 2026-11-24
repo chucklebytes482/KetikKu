@@ -1788,7 +1788,8 @@ class ExampleRobolectricTest {
             )
         }
         composeRule.onNodeWithTag("folder_menu_Kerja").assertIsDisplayed()
-        composeRule.onNodeWithTag("add_folder_button").assertIsDisplayed()
+        // Root tidak punya toolbar lagi; tambah folder dilakukan dari dalam kamus
+        assertTrue(composeRule.onAllNodesWithTag("add_folder_button").fetchSemanticsNodes().isEmpty())
 
         // Open Balasan Cepat -> verifies legacy Keuangan entry is automatically shown inside Balasan Cepat
         composeRule.onNodeWithTag("folder_item_Balasan Cepat").performClick()
@@ -1927,7 +1928,7 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("add_dictionary_button").assertIsDisplayed()
 
         composeRule.onNodeWithTag("add_dictionary_button").performClick()
-        composeRule.waitForIdle()
+        composeRule.mainClock.advanceTimeBy(600L)
         // Kata kosong: Simpan nonaktif, tapi tidak ada pesan "wajib diisi"
         composeRule.onNodeWithTag("save_dictionary_button").assertIsNotEnabled()
         assertTrue(composeRule.onAllNodesWithText("Kata wajib diisi").fetchSemanticsNodes().isEmpty())
