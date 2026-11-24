@@ -617,7 +617,7 @@
     <section id="sinkronisasi-perangkat" class="card">
       <h2>5. Sinkronisasi Otomatis Kamus Pribadi ke Perangkat</h2>
       <p class="section-desc">
-        KetikKu bekerja <strong>100% luring tanpa izin internet</strong> sehingga seluruh ketikan dan kata sandi tetap aman di perangkat Anda. Secara bawaan cadangan disimpan langsung di <code>/storage/emulated/0/Documents/ketikku_dictionary.json</code> <strong>tanpa membuat folder otomatis</strong>, dan Anda bebas memilih subfolder mana saja di dalam <code>/storage/emulated/0/Documents/</code> kapan saja. Setiap perubahan kamus atau folder di aplikasi <strong>langsung menimpa</strong> berkas tunggal tersebut agar folder yang dihapus tidak kembali lagi.
+        KetikKu bekerja <strong>100% luring tanpa izin internet</strong> sehingga seluruh ketikan dan kata sandi tetap aman di perangkat Anda. Cadangan dipecah jadi 4 berkas di <code>/storage/emulated/0/Documents/</code> <strong>tanpa membuat folder otomatis</strong>: <code>ketikku_umum.json</code>, <code>ketikku_kata_sandi.json</code>, <code>ketikku_kredensial.json</code>, dan <code>ketikku_a2f.json</code>. Anda bebas memilih subfolder lain di dalam Documents kapan saja. Sinkron hanya ke folder perangkat (timpa atas/bawah), tanpa Drive dan tanpa GitHub. Setiap perubahan <strong>langsung menimpa</strong> berkas terkait agar folder yang dihapus tidak kembali lagi. Entri A2F disimpan terenkripsi dengan kunci perangkat, jadi saat dipulihkan di perangkat lain seed A2F harus diisi ulang.
       </p>
       <div class="grid-2">
         <div class="subcard">
@@ -638,7 +638,7 @@
     <section id="instruksi-ai" class="card">
       <h2>6. Variasi Instruksi AI untuk Edit Kamus JSON</h2>
       <p class="section-desc">
-        Pilih variasi instruksi di bawah, klik tombol <strong>Salin Instruksi</strong> (atau klik langsung kotak kodenya), lalu kirim bersama file <code>ketikku_dictionary.json</code> dari <code>/storage/emulated/0/Documents/</code> (atau subfolder pilihan Anda) ke AI pilihan Anda.
+        Pilih variasi instruksi di bawah, klik tombol <strong>Salin Instruksi</strong> (atau klik langsung kotak kodenya), lalu kirim bersama berkas <code>ketikku_*.json</code> dari <code>/storage/emulated/0/Documents/</code> (atau subfolder pilihan Anda) ke AI pilihan Anda.
       </p>
 
       <div class="prompt-list">
@@ -648,7 +648,7 @@
             <button class="copy-btn" type="button" data-copy-target="prompt-1">Salin Instruksi</button>
           </div>
           <p class="prompt-note">Format wajib seragam dengan 6 field pasti pada setiap entri dan folder satu tingkat (tanpa subfolder).</p>
-          <pre id="prompt-1" class="prompt-box" title="Klik untuk menyalin">Struktur berkas JSON kamus pribadi KetikKu (ketikku_dictionary.json):
+          <pre id="prompt-1" class="prompt-box" title="Klik untuk menyalin">Struktur berkas JSON kamus pribadi KetikKu (ketikku_umum.json, ketikku_kata_sandi.json, ketikku_kredensial.json; semua berkas memakai struktur sama dan hanya berisi entri jenisnya):
 {
   "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
   "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat"],
@@ -680,7 +680,7 @@ Daftar kalimat, pintasan &amp; folder yang ingin ditambahkan:
             <button class="copy-btn" type="button" data-copy-target="prompt-2">Salin Instruksi</button>
           </div>
           <p class="prompt-note">Meminta AI merapikan template balasan pelanggan ke dalam folder seperti Kerja, CS, atau Order.</p>
-          <pre id="prompt-2" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan file ketikku_dictionary.json. Tolong tambahkan daftar template balasan kerja/CS di bawah ke dalam array "entries" dan kelola foldernya tanpa menghapus entri lama.
+          <pre id="prompt-2" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan file ketikku_umum.json. Tolong tambahkan daftar template balasan kerja/CS di bawah ke dalam array "entries" dan kelola foldernya tanpa menghapus entri lama.
 Ketentuan format JSON:
 - Root wajib: { "updatedAtMillis": &lt;epoch_ms&gt;, "folders": [...], "entries": [...] }
 - Setiap entri wajib punya TEPAT 6 field ini (tanpa field opsional/tambahan dan tanpa "language"):
@@ -699,10 +699,10 @@ Topik/kalimat balasan yang saya butuhkan:
             <button class="copy-btn" type="button" data-copy-target="prompt-3">Salin Instruksi</button>
           </div>
           <p class="prompt-note">Tempelkan dokumen/catatan Anda bersama file JSON kamus agar AI memilih frasa penting dan menaruhnya di folder khusus.</p>
-          <pre id="prompt-3" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan dokumen/catatan dan file ketikku_dictionary.json.
+          <pre id="prompt-3" class="prompt-box" title="Klik untuk menyalin">Saya melampirkan dokumen/catatan dan file ketikku_umum.json.
 Tugas Anda:
 1. Ekstrak maksimal 25 kalimat, istilah penting, nomor/kode referensi, atau template frasa yang paling sering dipakai dari dokumen tersebut.
-2. Tambahkan hasilnya ke "entries" pada ketikku_dictionary.json ke dalam folder 1 tingkat yang relevan (mis. "Materi" atau "Istilah", tanpa subfolder dan tanpa "/") tanpa mengubah entri lama.
+2. Tambahkan hasilnya ke "entries" pada ketikku_umum.json ke dalam folder 1 tingkat yang relevan (mis. "Materi" atau "Istilah", tanpa subfolder dan tanpa "/") tanpa mengubah entri lama.
 3. Setiap entri wajib memiliki keenam field seragam:
    - "id": unik (mis. "doc_001")
    - "word": teks bersih siap tempel
@@ -719,7 +719,7 @@ Tugas Anda:
             <button class="copy-btn" type="button" data-copy-target="prompt-4">Salin Instruksi</button>
           </div>
           <p class="prompt-note">Membersihkan duplikat, menyeragamkan ke 6 field baku, dan menyinkronkan array folder secara rapi.</p>
-          <pre id="prompt-4" class="prompt-box" title="Klik untuk menyalin">Tolong rapikan file ketikku_dictionary.json berikut dengan aturan:
+          <pre id="prompt-4" class="prompt-box" title="Klik untuk menyalin">Tolong rapikan file ketikku_umum.json berikut dengan aturan:
 1. Hapus entri duplikat yang isi "word"-nya persis sama (pertahankan yang "updatedAtMillis"-nya paling baru beserta "id" dan "folder"-nya).
 2. Hapus field "language" dan "schemaVersion" jika masih ada.
 3. Seragamkan setiap entri agar selalu memiliki 6 field: "id", "word", "shortcut", "folder", "updatedAtMillis", dan "deleted".
@@ -733,7 +733,7 @@ Tugas Anda:
             <button class="copy-btn" type="button" data-copy-target="prompt-5">Salin Instruksi</button>
           </div>
           <p class="prompt-note">Khusus untuk menyusun ulang atau menggabungkan ratusan kata, email, nomor, kode, atau banyak kategori ke struktur Folder satu tingkat yang rapi.</p>
-          <pre id="prompt-5" class="prompt-box" title="Klik untuk menyalin">Tolong kelompokkan dan atur seluruh isi file ketikku_dictionary.json (serta daftar tambahan di bawah) ke dalam struktur Folder 1 tingkat yang terorganisir rapi.
+          <pre id="prompt-5" class="prompt-box" title="Klik untuk menyalin">Tolong kelompokkan dan atur seluruh isi file ketikku_umum.json (serta daftar tambahan di bawah) ke dalam struktur Folder 1 tingkat yang terorganisir rapi.
 Aturan pemfolderan:
 1. Pertahankan/pisahkan alamat @gmail.com ke folder "Gmail" dan nomor telepon berawalan +62/62/08 ke folder "Nomor".
 2. Kelompokkan entri lain ke folder bertema jelas tanpa subfolder dan tanpa "/" (contoh: "Kerja", "CS", "Alamat", "Belajar").
@@ -747,7 +747,7 @@ Aturan pemfolderan:
      "updatedAtMillis": &lt;timestamp_ms_terbaru&gt;,
      "deleted": false
    }
-5. Kembalikan hanya 1 blok kode JSON valid siap simpan ke /storage/emulated/0/Documents/ketikku_dictionary.json (atau folder pilihan Anda di dalam Documents).
+5. Kembalikan hanya 1 blok kode JSON valid siap simpan ke /storage/emulated/0/Documents/ketikku_umum.json (atau folder pilihan Anda di dalam Documents).
 
 Kategori folder atau daftar kamus tambahan yang ingin difolderkan:
 - [tulis pembagian kategori/folder atau tempel beberapa daftar kamus di sini]</pre>
