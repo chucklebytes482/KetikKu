@@ -77,6 +77,7 @@ class SettingsRepository(
         val DICTIONARY_JSON = stringPreferencesKey("dictionary_json")
         val FOLDERS_JSON = stringPreferencesKey("dictionary_folders_json")
         val FOLDER_RENAME_V2_DONE = booleanPreferencesKey("folder_rename_v2_done")
+        val NUM_SHORTCUT_CLEARED_V1 = booleanPreferencesKey("num_shortcut_cleared_v1")
         val PERSONALITY_JSON = stringPreferencesKey("suggestion_personality_json")
         val CLIPBOARD_REVISION = longPreferencesKey("clipboard_revision")
         val DISMISSED_CLIPBOARD_ID = stringPreferencesKey("dismissed_clipboard_id")
@@ -111,6 +112,7 @@ class SettingsRepository(
     val dictionaryFlow: Flow<List<PersonalDictionaryEntry>> = dataStore.data
         .onEach { prefs ->
             if (prefs[Keys.FOLDER_RENAME_V2_DONE] != true) migrateFolderNamesV2()
+            if (prefs[Keys.NUM_SHORTCUT_CLEARED_V1] != true) clearNumShortcutsV1()
         }
         .map { prefs -> prefs[Keys.DICTIONARY_JSON] }
         .distinctUntilChanged()
@@ -183,6 +185,30 @@ class SettingsRepository(
     suspend fun getCurrentFolders(): List<String> = foldersFlow.first()
 
     suspend fun getCurrentSyncLocalState(): SyncLocalState = syncLocalStateFlow.first()
+
+    /** Sekali jalan: folder num tidak punya pintasan otomatis, jadi pintasan num otomatis yang lama dikosongkan. */
+    private suspend fun clearNumShortcutsV1() {
+        val now = System.currentTimeMillis()
+        dataStore.edit { prefs ->
+            if (prefs[Keys.NUM_SHORTCUT_CLEARED_V1] == true) return@edit
+            val raw = prefs[Keys.DICTIONARY_JSON]
+            if (!raw.isNullOrBlank()) {
+                val list = parseDictionaryList(raw)
+                var changed = 0
+                val updated = list.map { e ->
+                    if (!e.deleted && normalizeFolderPath(e.folder) == FOLDER_NOMOR && e.shortcut.isNotEmpty()) {
+                        changed++
+                        e.copy(shortcut = "", updatedAtMillis = now)
+                    } else e
+                }
+                if (changed > 0) {
+                    prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(updated)
+                    prefs[Keys.PENDING_CHANGES] = true
+                }
+            }
+            prefs[Keys.NUM_SHORTCUT_CLEARED_V1] = true
+        }
+    }
 
     /**
      * Sekali jalan: ganti nama folder tersimpan ke kode pendek, buat ulang pintasan otomatis,
@@ -290,6 +316,11 @@ class SettingsRepository(
             val targetFolder = existing?.let { normalizeFolderPath(it.folder) } ?: normalizedFolder
             require(targetFolder != FOLDER_SAMPAH) { "Entri di Sampah harus dipulihkan dulu" }
             val isA2f = targetFolder == FOLDER_A2F
+            // Folder terkunci: pintasan entri tersimpan tidak bisa diubah; entri baru selalu otomatis.
+            val inputShortcut = when {
+                isShortcutLockedFolder(targetFolder) -> existing?.shortcut?.trim()?.lowercase(Locale.ROOT).orEmpty()
+                else -> trimmedShortcut
+            }
 
             val wordStored: String
             var cipher = ""
@@ -318,7 +349,7 @@ class SettingsRepository(
             }
 
             // Pintasan A2F selalu otomatis (aut + email + website), tidak bisa diisi manual.
-            val requestedShortcut = if (isA2f) autoShortcut(FOLDER_A2F, wordStored, current, id) else trimmedShortcut
+            val requestedShortcut = if (isA2f) autoShortcut(FOLDER_A2F, wordStored, current, id) else inputShortcut
             if (isA2f) require(requestedShortcut.isNotEmpty()) { "Pintasan A2F tidak dapat dibuat dari email dan website" }
             val shortcutChanged = existing == null || existing.shortcut.trim().lowercase(Locale.ROOT) != requestedShortcut.lowercase(Locale.ROOT)
             if (requestedShortcut.isNotEmpty() && shortcutChanged) {
@@ -329,7 +360,7 @@ class SettingsRepository(
             }
             val finalShortcut = when {
                 isA2f -> requestedShortcut
-                trimmedShortcut.isNotEmpty() -> trimmedShortcut
+                inputShortcut.isNotEmpty() -> inputShortcut
                 else -> autoShortcut(targetFolder, wordStored, current, id)
             }
 
@@ -1146,8 +1177,6 @@ class SettingsRepository(
                     .takeIf { it.isNotEmpty() }?.let { "gm$it" }.orEmpty()
                 FOLDER_KATA_SANDI -> w.firstOrNull { it.isLetterOrDigit() }
                     ?.lowercaseChar()?.let { "pw$it" }.orEmpty()
-                FOLDER_NOMOR -> w.filter { it.isDigit() }.take(4)
-                    .takeIf { it.isNotEmpty() }?.let { "num$it" }.orEmpty()
                 FOLDER_A2F -> {
                     val parts = w.split('\n')
                     val local = parts.getOrElse(0) { "" }.trim().substringBefore('@')
@@ -1206,7 +1235,10 @@ class SettingsRepository(
         }
 
         /** Folder auto-pintasan: pintasan dibuat ulang saat entri ditambah atau diubah di sini. */
-        private val AUTO_SHORTCUT_FOLDERS = setOf(FOLDER_GMAIL, FOLDER_KATA_SANDI, FOLDER_NOMOR, FOLDER_A2F, FOLDER_KREDENSIAL)
+        private val AUTO_SHORTCUT_FOLDERS = setOf(FOLDER_GMAIL, FOLDER_KATA_SANDI, FOLDER_A2F, FOLDER_KREDENSIAL)
+
+        /** Folder terkunci: pintasan otomatis, dan entri yang sudah disimpan tidak bisa diubah. */
+        fun isShortcutLockedFolder(folder: String): Boolean = normalizeFolderPath(folder) in AUTO_SHORTCUT_FOLDERS
 
         /** Kunci pembanding duplikat. A2F pakai email + website; entri lain pakai kata. */
         private fun duplicateKey(word: String, folder: String): String {
@@ -1243,8 +1275,11 @@ class SettingsRepository(
         }
 
         /** Entri Sampah yang boleh dihapus permanen: duplikat aktif, atau kata pendek. */
-        fun canPermanentlyDeleteFromTrash(entry: PersonalDictionaryEntry, all: List<PersonalDictionaryEntry>): Boolean =
-            isDuplicateInTrash(entry, all) || isShortInTrash(entry)
+        fun canPermanentlyDeleteFromTrash(entry: PersonalDictionaryEntry, all: List<PersonalDictionaryEntry>): Boolean {
+            // Akun A2F tidak pernah bisa dihapus permanen, baik di Sampah maupun asalnya.
+            if (normalizeFolderPath(entry.folder) == FOLDER_A2F || normalizeFolderPath(entry.trashedFrom) == FOLDER_A2F) return false
+            return isDuplicateInTrash(entry, all) || isShortInTrash(entry)
+        }
 
         fun normalizeFolderPath(raw: String?): String {
             if (raw.isNullOrBlank()) return ""

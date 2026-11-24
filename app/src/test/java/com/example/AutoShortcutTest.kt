@@ -3,6 +3,8 @@ package com.example
 import com.example.data.SettingsRepository
 import com.example.model.PersonalDictionaryEntry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AutoShortcutTest {
@@ -16,8 +18,31 @@ class AutoShortcutTest {
     }
 
     @Test
-    fun numShortcutUsesFirstFourDigits() {
-        assertEquals("num0812", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_NOMOR, "081234567890", emptyList(), null))
+    fun numFolderHasNoAutoShortcut() {
+        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_NOMOR, "081234567890", emptyList(), null))
+        assertFalse(SettingsRepository.isShortcutLockedFolder(SettingsRepository.FOLDER_NOMOR))
+    }
+
+    @Test
+    fun lockedFoldersAreGmPwAutKred() {
+        listOf(SettingsRepository.FOLDER_GMAIL, SettingsRepository.FOLDER_KATA_SANDI,
+            SettingsRepository.FOLDER_A2F, SettingsRepository.FOLDER_KREDENSIAL).forEach {
+            assertTrue(it, SettingsRepository.isShortcutLockedFolder(it))
+        }
+    }
+
+    @Test
+    fun trashedA2fIsNeverPermanentlyDeletable() {
+        val a2fTrashed = PersonalDictionaryEntry(
+            id = "a", word = "x@y.com\nsite.com", shortcut = "", folder = SettingsRepository.FOLDER_SAMPAH,
+            trashedFrom = SettingsRepository.FOLDER_A2F
+        )
+        assertFalse(SettingsRepository.canPermanentlyDeleteFromTrash(a2fTrashed, listOf(a2fTrashed)))
+        val shortWord = PersonalDictionaryEntry(
+            id = "b", word = "abc", shortcut = "", folder = SettingsRepository.FOLDER_SAMPAH,
+            trashedFrom = SettingsRepository.FOLDER_PRIBADI
+        )
+        assertTrue(SettingsRepository.canPermanentlyDeleteFromTrash(shortWord, listOf(shortWord)))
     }
 
     @Test

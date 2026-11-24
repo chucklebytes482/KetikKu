@@ -2,7 +2,15 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import android.content.ClipData
+import android.content.Context
+import android.os.Build
+import android.os.PersistableBundle
+import android.widget.Toast
+import android.content.ClipboardManager
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -75,6 +84,10 @@ internal fun DictionaryEntryDialog(
     // Entri yang sudah tersimpan terkunci: kata/email/website/seed tidak bisa diubah. Hanya pintasan non-A2F yang bisa diedit.
     val seedEditable = !inTrash && isNew
     val fieldsLocked = !isNew
+    // Folder gm/pw/aut/kred: pintasan otomatis. Entri yang sudah tersimpan terkunci penuh.
+    val shortcutLockedFolder = SettingsRepository.isShortcutLockedFolder(folder)
+    val savedLockedFolder = !isNew && shortcutLockedFolder
+    val context = LocalContext.current
 
     val emailRegex = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     // Field wajib kosong: menonaktifkan Simpan, tanpa pesan dan tanpa warna merah.
@@ -123,6 +136,7 @@ internal fun DictionaryEntryDialog(
                     isA2f && isNew -> "Tambah Akun A2F"
                     isA2f -> "Akun A2F"
                     isNew -> "Tambah ke Kamus Pribadi"
+                    savedLockedFolder -> "Entri Terkunci"
                     else -> "Edit Pintasan"
                 }
             )
@@ -130,6 +144,7 @@ internal fun DictionaryEntryDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (isA2f) {
+                    CopyOverlayBox(enabled = fieldsLocked, onCopy = { copyDictionaryField(context, email, false) }) {
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
@@ -139,6 +154,8 @@ internal fun DictionaryEntryDialog(
                         supportingText = { Text(if (fieldsLocked) "Dikunci" else "Juga masuk ke folder gm") },
                         modifier = Modifier.fillMaxWidth().testTag("a2f_email_input")
                     )
+                    }
+                    CopyOverlayBox(enabled = fieldsLocked, onCopy = { copyDictionaryField(context, website, false) }) {
                     OutlinedTextField(
                         value = website,
                         onValueChange = { website = it },
@@ -148,6 +165,8 @@ internal fun DictionaryEntryDialog(
                         supportingText = { if (fieldsLocked) Text("Dikunci") },
                         modifier = Modifier.fillMaxWidth().testTag("a2f_website_input")
                     )
+                    }
+                    // Seed A2F tidak bisa disalin: tidak ada overlay salin.
                     OutlinedTextField(
                         value = seed,
                         onValueChange = { seed = it },
@@ -171,6 +190,9 @@ internal fun DictionaryEntryDialog(
                         modifier = Modifier.fillMaxWidth().testTag("a2f_secret_input")
                     )
                 } else {
+                    CopyOverlayBox(enabled = fieldsLocked, onCopy = {
+                        copyDictionaryField(context, word, sensitive = folder == SettingsRepository.FOLDER_KATA_SANDI)
+                    }) {
                     OutlinedTextField(
                         value = word,
                         onValueChange = { word = it },
@@ -179,21 +201,34 @@ internal fun DictionaryEntryDialog(
                         singleLine = false,
                         modifier = Modifier.fillMaxWidth().testTag("dictionary_word_input")
                     )
+                    }
                 }
+                CopyOverlayBox(enabled = inTrash || shortcutLockedFolder, onCopy = { copyDictionaryField(context, shortcut, false) }) {
                 OutlinedTextField(
                     value = shortcut,
                     onValueChange = { shortcut = it },
-                    readOnly = inTrash || isA2f,
-                    label = { Text(if (isA2f) "Pintasan (Dibuat otomatis)" else "Pintasan (kosong = otomatis)") },
+                    readOnly = inTrash || shortcutLockedFolder,
+                    label = {
+                        Text(
+                            when {
+                                shortcutLockedFolder -> "Pintasan (dibuat otomatis)"
+                                folder == SettingsRepository.FOLDER_NOMOR -> "Pintasan (kosong = tanpa pintasan)"
+                                else -> "Pintasan (kosong = otomatis)"
+                            }
+                        )
+                    },
                     supportingText = {
                         if (isA2f) Text("Dibuat otomatis: aut + 2 huruf email + 2 huruf website")
                     },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("dictionary_shortcut_input")
                 )
+                }
                 if (inTrash) {
                     Text(
-                        text = if (onPermanentDelete != null) {
+                        text = if (isA2f) {
+                            "Akun A2F tidak bisa dihapus permanen. Pulihkan untuk mengedit lagi."
+                        } else if (onPermanentDelete != null) {
                             "Bisa dihapus permanen (duplikat atau kurang dari 10 karakter), atau pulihkan untuk mengedit lagi."
                         } else {
                             "Pulihkan untuk mengedit lagi. Entri di Sampah tidak muncul di saran."
@@ -235,6 +270,9 @@ internal fun DictionaryEntryDialog(
                         }
                     }
                 }
+            } else if (savedLockedFolder) {
+                // Entri tersimpan di folder terkunci: tidak ada yang bisa disimpan ulang.
+                Spacer(Modifier.width(0.dp))
             } else {
                 Button(
                     onClick = {
@@ -341,4 +379,36 @@ internal fun ConfirmDeleteItemsDialog(
             }
         }
     )
+}
+
+/** Overlay transparan di atas field readOnly: ketuk untuk menyalin. Field yang bisa diedit tidak diberi overlay. */
+@Composable
+private fun CopyOverlayBox(enabled: Boolean, onCopy: () -> Unit, content: @Composable () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        content()
+        if (enabled) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable(onClick = onCopy)
+            )
+        }
+    }
+}
+
+/** Salin isi field ke clipboard dan tampilkan "Disalin". Field kosong tidak disalin. */
+private fun copyDictionaryField(context: Context, value: String, sensitive: Boolean) {
+    if (value.isBlank()) {
+        Toast.makeText(context, "Kosong", Toast.LENGTH_SHORT).show()
+        return
+    }
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clip = ClipData.newPlainText("KetikKu", value)
+    if (sensitive && Build.VERSION.SDK_INT >= 33) {
+        clip.description.extras = PersistableBundle().apply {
+            putBoolean("android.content.extra.IS_SENSITIVE", true)
+        }
+    }
+    clipboard.setPrimaryClip(clip)
+    Toast.makeText(context, "Disalin", Toast.LENGTH_SHORT).show()
 }
