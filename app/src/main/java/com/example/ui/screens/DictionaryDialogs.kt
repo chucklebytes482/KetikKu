@@ -54,7 +54,6 @@ internal fun DictionaryEntryDialog(
     usedShortcuts: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (word: String, shortcut: String, language: String, folder: String, secretPlain: String?, email: String, website: String) -> Unit,
-    onDuplicate: (() -> Unit)? = null,
     onTrash: (() -> Unit)? = null,
     onRestore: (() -> Unit)? = null,
     onPermanentDelete: (() -> Unit)? = null
@@ -73,15 +72,14 @@ internal fun DictionaryEntryDialog(
     var shortcut by remember(initialEntry) { mutableStateOf(initialEntry?.shortcut.orEmpty()) }
     var seed by remember(initialEntry) { mutableStateOf("") }
 
-    // Duplikat A2F (editable) boleh ubah semua field. Entri A2F asli dan entri lain: kata/email/website terkunci.
-    val a2fEditable = isA2f && initialEntry?.editable == true && !inTrash
-    val seedEditable = !inTrash && (initialEntry == null || a2fEditable || initialEntry.seedEditsLeft > 0)
-    val fieldsLocked = !isNew && !a2fEditable
+    // Entri yang sudah tersimpan terkunci: kata/email/website/seed tidak bisa diubah. Hanya pintasan non-A2F yang bisa diedit.
+    val seedEditable = !inTrash && isNew
+    val fieldsLocked = !isNew
 
     val emailRegex = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     // Field wajib kosong: menonaktifkan Simpan, tanpa pesan dan tanpa warna merah.
-    val emailMissing = isA2f && (isNew || a2fEditable) && email.isBlank()
-    val siteMissing = isA2f && (isNew || a2fEditable) && website.isBlank()
+    val emailMissing = isA2f && isNew && email.isBlank()
+    val siteMissing = isA2f && isNew && website.isBlank()
     val seedMissing = isA2f && isNew && seed.isBlank()
     // Pintasan A2F dibuat otomatis saat simpan (email + website), jadi tidak pernah wajib diisi di dialog.
     val shortcutMissing = false
@@ -89,7 +87,7 @@ internal fun DictionaryEntryDialog(
 
     // Pesan format (bukan kosong) tetap ditampilkan.
     val emailError = when {
-        !isA2f || (!isNew && !a2fEditable) -> null
+        !isA2f || !isNew -> null
         !email.trim().matches(emailRegex) -> "Email tidak valid"
         else -> null
     }
@@ -159,8 +157,6 @@ internal fun DictionaryEntryDialog(
                             Text(
                                 when {
                                     isNew -> "Seed (secret base32)"
-                                    a2fEditable -> "Seed (kosongkan jika tetap)"
-                                    seedEditable -> "Seed baru (sekali, lalu terkunci)"
                                     else -> "Seed (terkunci)"
                                 }
                             )
@@ -172,8 +168,7 @@ internal fun DictionaryEntryDialog(
                             Text(
                                 seedError ?: when {
                                     !seedEditable -> "Seed tersimpan terkunci"
-                                    isNew -> "TOTP SHA-1, 6 digit, 30 detik. Disimpan di Android Keystore."
-                                    else -> "Kosongkan jika tetap"
+                                    else -> "TOTP SHA-1, 6 digit, 30 detik. Disimpan di Android Keystore."
                                 }
                             )
                         },
@@ -218,11 +213,6 @@ internal fun DictionaryEntryDialog(
                     )
                 }
                 if (!isNew && !inTrash) {
-                    if (isA2f && onDuplicate != null) {
-                        TextButton(onClick = onDuplicate, modifier = Modifier.testTag("duplicate_a2f_button")) {
-                            Text("Duplikasi")
-                        }
-                    }
                     if (onTrash != null) {
                         TextButton(
                             onClick = onTrash,

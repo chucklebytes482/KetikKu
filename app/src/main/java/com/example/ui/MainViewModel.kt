@@ -207,17 +207,6 @@ class MainViewModel(
         }
     }
 
-    fun duplicateDictionaryEntry(sourceId: String) {
-        viewModelScope.launch {
-            runCatching {
-                settingsRepository.duplicateA2fEntry(sourceId)
-                pushLocalChangesToDevice()
-            }.onFailure {
-                _deviceSyncUiState.value = DeviceSyncUiState.Error(it.message ?: "Duplikat A2F gagal dibuat")
-            }
-        }
-    }
-
     fun regenerateDictionaryShortcuts() {
         viewModelScope.launch {
             runCatching {

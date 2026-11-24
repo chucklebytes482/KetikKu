@@ -312,9 +312,6 @@ private fun KetikKuNavHost(
                         website = website
                     )
                 },
-                onDuplicateEntry = { sourceId ->
-                    mainViewModel.duplicateDictionaryEntry(sourceId)
-                },
                 onRestoreEntries = { entryIds ->
                     mainViewModel.restoreDictionaryEntries(entryIds)
                 },

@@ -88,7 +88,6 @@ fun DictionaryScreen(
     folders: List<String> = emptyList(),
     onUpsertEntry: (word: String, shortcut: String, language: String, existingId: String?, folder: String, secretCipher: String?, email: String, website: String) -> Unit,
     onDeleteEntry: (entryId: String) -> Unit,
-    onDuplicateEntry: (entryId: String) -> Unit = {},
     onRestoreEntries: (entryIds: Set<String>) -> Unit = {},
     onPermanentDeleteEntries: (entryIds: Set<String>) -> Unit = {},
     onRegenerateShortcuts: () -> Unit = {},
@@ -488,13 +487,6 @@ fun DictionaryScreen(
                     Toast.makeText(context, it.message ?: "Tidak dapat disimpan", Toast.LENGTH_LONG).show()
                 }
             },
-            onDuplicate = if (current != null && dialogFolder == SettingsRepository.FOLDER_A2F) {
-                {
-                    onDuplicateEntry(current.id)
-                    showAddDialog = false
-                    editingEntry = null
-                }
-            } else null,
             onTrash = if (current != null) {
                 {
                     onDeleteEntry(current.id)

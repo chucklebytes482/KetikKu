@@ -293,9 +293,7 @@ class SettingsRepository(
 
             val wordStored: String
             var cipher = ""
-            var seedLeft = 0
-            var newA2f = false
-            // Email yang harus ada di Gmail setelah simpan (akun baru, atau duplikat yang emailnya berubah).
+            // Email yang harus ada di Gmail setelah simpan (hanya akun A2F baru).
             var gmailEmailToEnsure: String? = null
             if (isA2f) {
                 if (existing == null) {
@@ -304,27 +302,12 @@ class SettingsRepository(
                     require(!secretCipher.isNullOrBlank() && SecretVault.decryptOrNull(secretCipher) != null) { "Seed A2F wajib diisi" }
                     wordStored = "$cleanEmail\n$cleanSite"
                     cipher = secretCipher
-                    newA2f = true
                     gmailEmailToEnsure = cleanEmail
                 } else {
-                    // Duplikat (editable) boleh ubah semua field. Entri asli hanya boleh ubah pintasan.
-                    val oldEmail = existing.word.split('\n').getOrElse(0) { "" }
-                    if (existing.editable) {
-                        require(EMAIL_REGEX.matches(cleanEmail)) { "Email A2F wajib diisi dengan benar" }
-                        require(cleanSite.isNotBlank()) { "Website A2F wajib diisi" }
-                        wordStored = "$cleanEmail\n$cleanSite"
-                        if (!cleanEmail.equals(oldEmail, ignoreCase = true)) gmailEmailToEnsure = cleanEmail
-                    } else {
-                        wordStored = existing.word
-                    }
+                    // Entri A2F yang sudah tersimpan terkunci: email, website, dan seed tidak bisa diubah.
+                    require(secretCipher == null) { "Seed A2F sudah terkunci" }
+                    wordStored = existing.word
                     cipher = existing.secretCipher
-                    seedLeft = existing.seedEditsLeft
-                    if (secretCipher != null) {
-                        require(existing.editable || existing.seedEditsLeft > 0) { "Seed A2F sudah terkunci" }
-                        require(SecretVault.decryptOrNull(secretCipher) != null) { "Seed A2F tidak dapat dibaca" }
-                        cipher = secretCipher
-                        seedLeft = if (existing.editable) 0 else existing.seedEditsLeft - 1
-                    }
                 }
             } else if (existing != null) {
                 wordStored = existing.word
@@ -359,9 +342,7 @@ class SettingsRepository(
                 updatedAtMillis = now,
                 deleted = false,
                 secretCipher = if (isA2f) cipher else "",
-                trashedFrom = "",
-                seedEditsLeft = if (isA2f) seedLeft else 0,
-                editable = isA2f && existing?.editable == true
+                trashedFrom = ""
             )
             var updatedList = current.filterNot { it.id == id } + entry
             val gmailEmail = gmailEmailToEnsure
@@ -396,31 +377,6 @@ class SettingsRepository(
             )
             prefs[Keys.PENDING_CHANGES] = true
         }
-    }
-
-    /** Duplikasi A2F: seed dan email/website ikut, pintasan baru, seed boleh diedit 1 kali. */
-    suspend fun duplicateA2fEntry(sourceId: String): String {
-        var newId = ""
-        val now = System.currentTimeMillis()
-        dataStore.edit { prefs ->
-            val current = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
-            val src = current.firstOrNull {
-                it.id == sourceId && !it.deleted && normalizeFolderPath(it.folder) == FOLDER_A2F
-            } ?: error("Entri A2F tidak ditemukan")
-            val id = UUID.randomUUID().toString().take(12)
-            val copy = src.copy(
-                id = id,
-                shortcut = nextFreeShortcut(src.shortcut.trim().lowercase(Locale.ROOT), current, null),
-                updatedAtMillis = now,
-                trashedFrom = "",
-                seedEditsLeft = 0,
-                editable = true
-            )
-            prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(current + copy)
-            prefs[Keys.PENDING_CHANGES] = true
-            newId = id
-        }
-        return newId
     }
 
     suspend fun deleteDictionaryEntry(entryId: String) {
@@ -965,8 +921,6 @@ class SettingsRepository(
                     put("deleted", entry.deleted)
                     if (entry.secretCipher.isNotBlank()) put("secretCipher", entry.secretCipher)
                     if (entry.trashedFrom.isNotBlank()) put("trashedFrom", normalizeFolderPath(entry.trashedFrom))
-                    if (entry.editable) put("editable", true)
-                    if (entry.seedEditsLeft > 0) put("seedEditsLeft", entry.seedEditsLeft)
                 })
             }
         }
@@ -1037,9 +991,7 @@ class SettingsRepository(
                             updatedAtMillis = entryTs,
                             deleted = deleted,
                             secretCipher = secretCipher,
-                            trashedFrom = normalizeFolderPath(obj.optString("trashedFrom", "")),
-                            editable = obj.optBoolean("editable", false),
-                            seedEditsLeft = obj.optInt("seedEditsLeft", 0)
+                            trashedFrom = normalizeFolderPath(obj.optString("trashedFrom", ""))
                         )
                     )
                 }
