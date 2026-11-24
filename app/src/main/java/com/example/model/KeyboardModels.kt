@@ -35,9 +35,6 @@ data class KeyboardSettings(
     val serifMiringEnabled: Boolean = false,
     val swapPeriodCommaEnabled: Boolean = false,
     val swapSymbolPanelsEnabled: Boolean = false,
-    val autoSyncDriveEnabled: Boolean = false,
-    val driveFolderName: String = "KetikKu",
-    val driveShortcutFolderId: String = "",
     val updatedAtMillis: Long = 0L
 ) {
     val heightEnum: KeyboardHeightPreset get() = KeyboardHeightPreset.fromName(heightPreset)
@@ -110,9 +107,6 @@ data class WordPersonalityStat(
 data class SyncLocalState(
     val lastSyncedAtMillis: Long = 0L,
     val lastSyncMessage: String = "Belum pernah disinkronkan",
-    val driveFolderId: String = "",
-    val driveSettingsFileId: String = "",
-    val driveDictFileId: String = "",
     val deviceBackupTreeUri: String = "",
     val pendingChanges: Boolean = false
 )

@@ -71,9 +71,6 @@ class SettingsRepository(
         val SERIF_MIRING_ENABLED = booleanPreferencesKey("serif_miring_enabled")
         val SWAP_PERIOD_COMMA = booleanPreferencesKey("swap_period_comma")
         val SWAP_SYMBOL_PANELS = booleanPreferencesKey("swap_symbol_panels")
-        val AUTO_SYNC_DRIVE = booleanPreferencesKey("auto_sync_drive")
-        val DRIVE_FOLDER_NAME = stringPreferencesKey("drive_folder_name")
-        val DRIVE_SHORTCUT_FOLDER_ID = stringPreferencesKey("drive_shortcut_folder_id")
         val SETTINGS_UPDATED_AT = longPreferencesKey("settings_updated_at")
 
         val DICTIONARY_JSON = stringPreferencesKey("dictionary_json")
@@ -85,9 +82,6 @@ class SettingsRepository(
 
         val LAST_SYNCED_AT = longPreferencesKey("last_synced_at")
         val LAST_SYNC_MESSAGE = stringPreferencesKey("last_sync_message")
-        val DRIVE_FOLDER_ID = stringPreferencesKey("drive_folder_id")
-        val DRIVE_SETTINGS_FILE_ID = stringPreferencesKey("drive_settings_file_id")
-        val DRIVE_DICT_FILE_ID = stringPreferencesKey("drive_dict_file_id")
         val DEVICE_BACKUP_TREE_URI = stringPreferencesKey("device_backup_tree_uri")
         val PENDING_CHANGES = booleanPreferencesKey("pending_changes")
     }
@@ -107,9 +101,6 @@ class SettingsRepository(
                 serifMiringEnabled = prefs[Keys.SERIF_MIRING_ENABLED] ?: false,
                 swapPeriodCommaEnabled = prefs[Keys.SWAP_PERIOD_COMMA] ?: false,
                 swapSymbolPanelsEnabled = prefs[Keys.SWAP_SYMBOL_PANELS] ?: false,
-                autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: false,
-                driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
-                driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
                 updatedAtMillis = prefs[Keys.SETTINGS_UPDATED_AT] ?: 0L
             )
         }
@@ -174,9 +165,6 @@ class SettingsRepository(
             SyncLocalState(
                 lastSyncedAtMillis = prefs[Keys.LAST_SYNCED_AT] ?: 0L,
                 lastSyncMessage = prefs[Keys.LAST_SYNC_MESSAGE] ?: "Belum pernah disinkronkan",
-                driveFolderId = prefs[Keys.DRIVE_FOLDER_ID] ?: "",
-                driveSettingsFileId = prefs[Keys.DRIVE_SETTINGS_FILE_ID] ?: "",
-                driveDictFileId = prefs[Keys.DRIVE_DICT_FILE_ID] ?: "",
                 deviceBackupTreeUri = prefs[Keys.DEVICE_BACKUP_TREE_URI] ?: "",
                 pendingChanges = prefs[Keys.PENDING_CHANGES] ?: false
             )
@@ -225,9 +213,6 @@ class SettingsRepository(
                 serifMiringEnabled = prefs[Keys.SERIF_MIRING_ENABLED] ?: false,
                 swapPeriodCommaEnabled = prefs[Keys.SWAP_PERIOD_COMMA] ?: false,
                 swapSymbolPanelsEnabled = prefs[Keys.SWAP_SYMBOL_PANELS] ?: false,
-                autoSyncDriveEnabled = prefs[Keys.AUTO_SYNC_DRIVE] ?: false,
-                driveFolderName = prefs[Keys.DRIVE_FOLDER_NAME] ?: "KetikKu",
-                driveShortcutFolderId = prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] ?: "",
                 updatedAtMillis = prefs[Keys.SETTINGS_UPDATED_AT] ?: 0L
             )
             val updated = transform(current).copy(
@@ -609,17 +594,11 @@ class SettingsRepository(
     suspend fun updateSyncState(
         lastSyncedAtMillis: Long,
         message: String,
-        driveFolderId: String? = null,
-        driveSettingsFileId: String? = null,
-        driveDictFileId: String? = null,
         pendingChanges: Boolean = false
     ) {
         dataStore.edit { prefs ->
             prefs[Keys.LAST_SYNCED_AT] = lastSyncedAtMillis
             prefs[Keys.LAST_SYNC_MESSAGE] = message
-            if (driveFolderId != null) prefs[Keys.DRIVE_FOLDER_ID] = driveFolderId
-            if (driveSettingsFileId != null) prefs[Keys.DRIVE_SETTINGS_FILE_ID] = driveSettingsFileId
-            if (driveDictFileId != null) prefs[Keys.DRIVE_DICT_FILE_ID] = driveDictFileId
             prefs[Keys.PENDING_CHANGES] = pendingChanges
         }
     }
@@ -627,15 +606,6 @@ class SettingsRepository(
     suspend fun saveDeviceBackupTreeUri(treeUri: String) {
         dataStore.edit { prefs ->
             prefs[Keys.DEVICE_BACKUP_TREE_URI] = treeUri.trim()
-        }
-    }
-
-    suspend fun clearDriveIdsOnDisconnect() {
-        dataStore.edit { prefs ->
-            prefs[Keys.DRIVE_FOLDER_ID] = ""
-            prefs[Keys.DRIVE_SETTINGS_FILE_ID] = ""
-            prefs[Keys.DRIVE_DICT_FILE_ID] = ""
-            prefs[Keys.LAST_SYNC_MESSAGE] = "Akun terputus"
         }
     }
 
@@ -649,11 +619,6 @@ class SettingsRepository(
             put("serifMiringEnabled", settings.serifMiringEnabled)
             put("swapPeriodCommaEnabled", settings.swapPeriodCommaEnabled)
             put("swapSymbolPanelsEnabled", settings.swapSymbolPanelsEnabled)
-            put("autoSyncDriveEnabled", settings.autoSyncDriveEnabled)
-            put("driveFolderName", settings.driveFolderName.ifBlank { "KetikKu" })
-            if (settings.driveShortcutFolderId.isNotBlank()) {
-                put("driveShortcutFolderId", settings.driveShortcutFolderId)
-            }
         }
         return JSONObject().apply {
             put("updatedAtMillis", settings.updatedAtMillis)
@@ -671,7 +636,6 @@ class SettingsRepository(
             val sObj = root.optJSONObject("settings")
                 ?: if (root.has("floatingModeEnabled") ||
                     root.has("hapticEnabled") ||
-                    root.has("driveFolderName") ||
                     root.has("swapPeriodCommaEnabled") ||
                     root.has("swapSymbolPanelsEnabled")
                 ) {
@@ -693,9 +657,6 @@ class SettingsRepository(
                 serifMiringEnabled = sObj.optBoolean("serifMiringEnabled", false),
                 swapPeriodCommaEnabled = sObj.optBoolean("swapPeriodCommaEnabled", false),
                 swapSymbolPanelsEnabled = sObj.optBoolean("swapSymbolPanelsEnabled", false),
-                autoSyncDriveEnabled = sObj.optBoolean("autoSyncDriveEnabled", false),
-                driveFolderName = sObj.optString("driveFolderName", "KetikKu").ifBlank { "KetikKu" },
-                driveShortcutFolderId = sObj.optString("driveShortcutFolderId", ""),
                 updatedAtMillis = effectiveUpdatedAt
             )
             SettingsBackupEnvelope(
@@ -883,9 +844,6 @@ class SettingsRepository(
         prefs[Keys.SERIF_MIRING_ENABLED] = s.serifMiringEnabled
         prefs[Keys.SWAP_PERIOD_COMMA] = s.swapPeriodCommaEnabled
         prefs[Keys.SWAP_SYMBOL_PANELS] = s.swapSymbolPanelsEnabled
-        prefs[Keys.AUTO_SYNC_DRIVE] = s.autoSyncDriveEnabled
-        prefs[Keys.DRIVE_FOLDER_NAME] = s.driveFolderName.ifBlank { "KetikKu" }
-        prefs[Keys.DRIVE_SHORTCUT_FOLDER_ID] = s.driveShortcutFolderId
         prefs[Keys.SETTINGS_UPDATED_AT] = s.updatedAtMillis
     }
 

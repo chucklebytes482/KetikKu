@@ -82,8 +82,6 @@ class ExampleRobolectricTest {
             floatingModeEnabled = true,
             floatingPosX = 0.35f,
             floatingPosY = 0.60f,
-            autoSyncDriveEnabled = true,
-            driveFolderName = "KetikKu",
             updatedAtMillis = 1794843619202L
         )
         val json = repo.encodeSettingsBackupJson(original)
@@ -2191,7 +2189,7 @@ class ExampleRobolectricTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SettingsRepository(context)
 
-        val encoded = repo.encodeSettingsBackupJson(KeyboardSettings(floatingModeEnabled = true, driveFolderName = "KetikKu"))
+        val encoded = repo.encodeSettingsBackupJson(KeyboardSettings(floatingModeEnabled = true))
         assertFalse("Encoded settings JSON should not contain removed syncIntervalMinutes", encoded.contains("syncIntervalMinutes"))
 
         val legacyJson = """
@@ -2200,8 +2198,7 @@ class ExampleRobolectricTest {
               "settings": {
                 "floatingModeEnabled": true,
                 "hapticEnabled": false,
-                "syncIntervalMinutes": 240,
-                "driveFolderName": "KetikKu"
+                "syncIntervalMinutes": 240
               }
             }
         """.trimIndent()
@@ -2209,7 +2206,6 @@ class ExampleRobolectricTest {
         assertNotNull(decoded)
         assertEquals(true, decoded?.settings?.floatingModeEnabled)
         assertEquals(false, decoded?.settings?.hapticEnabled)
-        assertEquals("KetikKu", decoded?.settings?.driveFolderName)
     }
 
     @Test

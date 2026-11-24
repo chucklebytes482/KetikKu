@@ -761,8 +761,7 @@ class KeyboardEngineUnitTest {
     @Test
     fun keyboardSettings_defaultsDisableBackgroundAutoSync() {
         val defaults = KeyboardSettings()
-        assertFalse(defaults.autoSyncDriveEnabled)
-        assertEquals("KetikKu", defaults.driveFolderName)
+        assertEquals(false, defaults.floatingModeEnabled)
     }
 
     @Test
