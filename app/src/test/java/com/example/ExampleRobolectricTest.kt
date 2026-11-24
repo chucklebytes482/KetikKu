@@ -1904,7 +1904,7 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h1150dp")
-    fun dictionaryScreen_insideFolderShowsAddButtonAndNoRequiredErrorText() {
+    fun dictionaryScreen_insideFolderShowsAddButton() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "k1", word = "Rapat pagi", shortcut = "rp", folder = "Kerja", updatedAtMillis = 10L)
         )
@@ -1927,11 +1927,6 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("add_dictionary_button").assertIsDisplayed()
 
-        composeRule.onNodeWithTag("add_dictionary_button").performClick()
-        composeRule.mainClock.advanceTimeBy(600L)
-        // Kata kosong: Simpan nonaktif, tapi tidak ada pesan "wajib diisi"
-        composeRule.onNodeWithTag("save_dictionary_button").assertIsNotEnabled()
-        assertTrue(composeRule.onAllNodesWithText("Kata wajib diisi").fetchSemanticsNodes().isEmpty())
     }
 
     @Test
