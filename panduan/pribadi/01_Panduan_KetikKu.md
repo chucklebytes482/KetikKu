@@ -14,7 +14,8 @@
 
 ## Folder kamus
 - Folder utama: gm (Gmail), num (Nomor), prib (Pribadi), pw (Kata Sandi), kred (Kredensial), aut (A2F), tras (Sampah), dan bc (Balasan Cepat).
-- Pintasan otomatis: gm, pw, num, aut, dan kred. Tombol Pintasan membuat ulang pintasan ini.
+- Pintasan otomatis: gm, pw, aut, dan kred. Folder num tidak membuat pintasan otomatis; pintasannya diisi manual. Tombol Pintasan membuat ulang pintasan folder otomatis.
+- Entri di folder gm, pw, aut, dan kred terkunci setelah disimpan. Entri A2F tidak pernah bisa dihapus permanen, termasuk dari Sampah.
 - Tidak ada fitur pindah folder. Hapus berarti pindah ke Sampah, dan entri di Sampah bisa dipulihkan.
 
 ## Penyimpanan dan migrasi
