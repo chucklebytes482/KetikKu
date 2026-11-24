@@ -78,7 +78,7 @@ import kotlinx.coroutines.delay
 
 internal const val KETIKKU_WEBSITE_URL = "https://chucklebytes482.github.io/KetikKu/"
 
-internal const val KETIKKU_GENERAL_AI_PROMPT = """Struktur berkas JSON kamus pribadi KetikKu. Cadangan dipecah jadi 4 berkas: ketikku_umum.json, ketikku_kata_sandi.json, ketikku_kredensial.json, dan ketikku_a2f.json. Semua berkas memakai struktur sama dan hanya berisi entri jenisnya (folder Kata Sandi masuk kata_sandi, Kredensial masuk kredensial, A2F masuk a2f, selain itu umum):
+internal const val KETIKKU_GENERAL_AI_PROMPT = """Struktur berkas JSON kamus pribadi KetikKu. Cadangan otomatis terdiri dari 3 berkas: ketikku_umum.json, ketikku_kata_sandi.json, dan ketikku_kredensial.json. Ketiganya memakai struktur sama (folder Kata Sandi masuk kata_sandi, Kredensial masuk kredensial, selain A2F masuk umum). A2F tidak ikut cadangan otomatis: ketikku_a2f.json hanya diekspor/diimpor manual dengan password melalui aplikasi. Jangan membuat, membaca seed, atau mengubah berkas A2F melalui AI:
 {
   "updatedAtMillis": 0,
   "folders": ["Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat", "A2F"],

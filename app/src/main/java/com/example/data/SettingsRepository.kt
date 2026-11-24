@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -107,6 +108,12 @@ class SettingsRepository(
         .distinctUntilChanged()
 
     val dictionaryFlow: Flow<List<PersonalDictionaryEntry>> = dataStore.data
+        .onEach { prefs ->
+            val entries = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
+            if (entries.any { DictionaryEngine.isA2fEntry(it) && it.secretCipher.isNotBlank() && !SecretVault.isDeviceCipher(it.secretCipher) }) {
+                migrateLegacyA2f()
+            }
+        }
         .map { prefs -> prefs[Keys.DICTIONARY_JSON] }
         .distinctUntilChanged()
         .map { raw ->
@@ -179,6 +186,21 @@ class SettingsRepository(
 
     suspend fun getCurrentSyncLocalState(): SyncLocalState = syncLocalStateFlow.first()
 
+    private suspend fun migrateLegacyA2f() {
+        dataStore.edit { prefs ->
+            val entries = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
+            val migrated = entries.map { entry ->
+                if (!DictionaryEngine.isA2fEntry(entry) || entry.secretCipher.isBlank() || SecretVault.isDeviceCipher(entry.secretCipher)) entry
+                else {
+                    val seed = SecretVault.decryptOrNull(entry.secretCipher)
+                        ?: error("Seed A2F lama tidak dapat dimigrasi; data asli dipertahankan")
+                    entry.copy(secretCipher = SecretVault.encrypt(seed))
+                }
+            }
+            prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(migrated)
+        }
+    }
+
     private fun parseDictionaryList(raw: String?): List<PersonalDictionaryEntry> {
         val list = if (raw.isNullOrBlank()) {
             defaultDictionaryEntries()
@@ -249,6 +271,11 @@ class SettingsRepository(
             val id = existingId ?: UUID.randomUUID().toString().take(12)
             // secretCipher null = pertahankan seed lama (edit label/pintasan saja)
             val keptCipher = current.firstOrNull { it.id == id }?.secretCipher.orEmpty()
+            if (normalizedFolder == FOLDER_A2F) {
+                require(trimmedShortcut.isNotBlank() && trimmedShortcut.length <= 30 && trimmedShortcut.all { it.isLetterOrDigit() }) { "Pintasan A2F wajib 1–30 huruf/angka" }
+                require(current.none { it.id != id && !it.deleted && DictionaryEngine.isA2fEntry(it) && it.shortcut.equals(trimmedShortcut, true) }) { "Pintasan A2F sudah dipakai" }
+                require(SecretVault.decryptOrNull(secretCipher ?: keptCipher) != null) { "Seed A2F tidak dapat dibaca" }
+            }
             val updatedList = current.filterNot { it.id == id } + PersonalDictionaryEntry(
                 id = id,
                 word = trimmedWord,
@@ -417,7 +444,27 @@ class SettingsRepository(
         var mergedResult = emptyList<PersonalDictionaryEntry>()
         dataStore.edit { prefs ->
             val local = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
-            mergedResult = mergeDictionaryLists(local, remoteEntries)
+            val safeRemote = remoteEntries.map { entry ->
+                if (!DictionaryEngine.isA2fEntry(entry)) entry else {
+                    val seed = SecretVault.decryptOrNull(entry.secretCipher)
+                        ?: error("Cadangan A2F terkunci untuk perangkat lain. Gunakan impor A2F berpassword")
+                    entry.copy(word = "••••••••", secretCipher = if (SecretVault.isDeviceCipher(entry.secretCipher)) entry.secretCipher else SecretVault.encrypt(seed))
+                }
+            }
+            require(safeRemote.map { it.id }.distinct().size == safeRemote.size) { "ID cadangan duplikat" }
+            safeRemote.forEach { incoming ->
+                val existing = local.firstOrNull { it.id == incoming.id }
+                if (existing != null && (DictionaryEngine.isA2fEntry(existing) || DictionaryEngine.isA2fEntry(incoming))) {
+                    require(DictionaryEngine.isA2fEntry(existing) && DictionaryEngine.isA2fEntry(incoming) &&
+                        SecretVault.decryptOrNull(existing.secretCipher) == SecretVault.decryptOrNull(incoming.secretCipher)) {
+                        "Akun A2F bentrok; data tidak diubah"
+                    }
+                }
+            }
+            mergedResult = mergeDictionaryLists(local, safeRemote)
+            val activeA2f = mergedResult.filter { DictionaryEngine.isA2fEntry(it) && !it.deleted }
+            require(activeA2f.all { it.shortcut.isNotBlank() && it.shortcut.length <= 30 && it.shortcut.all { c -> c.isLetterOrDigit() } }) { "Pintasan A2F tidak valid" }
+            require(activeA2f.map { it.shortcut.lowercase(Locale.ROOT) }.distinct().size == activeA2f.size) { "Pintasan A2F duplikat; data tidak diubah" }
             val localFolders = parseFolderList(prefs[Keys.FOLDERS_JSON])
             val mergedFolders = prependFoldersToStorage(
                 existingFolders = localFolders,
@@ -434,12 +481,19 @@ class SettingsRepository(
         entries: List<PersonalDictionaryEntry>,
         folders: List<String> = emptyList()
     ): Pair<List<PersonalDictionaryEntry>, List<String>> {
-        val normalizedEntries = entries.map { entry ->
+        var normalizedEntries = entries.map { entry ->
             val normFolder = normalizeFolderPath(entry.folder)
             if (normFolder == entry.folder) entry else entry.copy(folder = normFolder)
         }
-        val normalizedFolders = normalizeOrderedFolders(folders, normalizedEntries)
+        var normalizedFolders = normalizeOrderedFolders(folders, normalizedEntries)
         dataStore.edit { prefs ->
+            // Generic automatic backups must not remove local A2F accounts.
+            val existingA2f = parseDictionaryList(prefs[Keys.DICTIONARY_JSON]).filter { DictionaryEngine.isA2fEntry(it) }
+            val protectedIds = existingA2f.map { it.id }.toSet()
+            require(normalizedEntries.none { it.id in protectedIds && !DictionaryEngine.isA2fEntry(it) }) { "ID cadangan bentrok dengan A2F; data tidak diubah" }
+            // Automatic backup is never an authority for A2F, even when IDs match.
+            normalizedEntries = normalizedEntries.filterNot { DictionaryEngine.isA2fEntry(it) } + existingA2f
+            normalizedFolders = normalizeOrderedFolders(folders, normalizedEntries)
             prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(normalizedEntries)
             prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(normalizedFolders)
             prefs[Keys.PENDING_CHANGES] = false
@@ -784,7 +838,10 @@ class SettingsRepository(
         folders: List<String> = emptyList()
     ): String {
         val settingsObj = JSONObject(encodeSettingsBackupJson(settings)).getJSONObject("settings")
-        val dictRoot = JSONObject(encodeDictionaryBackupJson(entries, exportedAtMillis, folders))
+        val dictRoot = JSONObject(encodeDictionaryBackupJson(
+            entries.filterNot { DictionaryEngine.isA2fEntry(it) }, exportedAtMillis,
+            folders.filterNot { normalizeFolderPath(it) == FOLDER_A2F }
+        ))
         return JSONObject().apply {
             put("appName", "KetikKu")
             put("exportedAtMillis", exportedAtMillis)

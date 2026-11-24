@@ -30,6 +30,7 @@ object TotpGenerator {
     }
 
     fun decodeBase32(normalized: String): ByteArray? {
+        if (normalized.length % 8 !in setOf(0, 2, 4, 5, 7)) return null
         var buffer = 0
         var bits = 0
         val out = ByteArrayOutputStream()
@@ -43,10 +44,12 @@ object TotpGenerator {
                 bits -= 8
             }
         }
+        if (bits > 0 && (buffer and ((1 shl bits) - 1)) != 0) return null
         return out.toByteArray().takeIf { it.isNotEmpty() }
     }
 
     fun generate(secret: ByteArray, nowMillis: Long): String {
+        require(secret.isNotEmpty() && nowMillis >= 0)
         val counter = (nowMillis / 1000L) / PERIOD_SECONDS
         val message = ByteBuffer.allocate(8).putLong(counter).array()
         val mac = Mac.getInstance("HmacSHA1")
@@ -63,6 +66,7 @@ object TotpGenerator {
 
     /** Kode untuk seed base32 mentah (belum terenkripsi). Null jika seed tidak valid. */
     fun currentCodeFromBase32(base32: String, nowMillis: Long = System.currentTimeMillis()): String? {
+        if (nowMillis < 0 || !isValidBase32Secret(base32)) return null
         val bytes = decodeBase32(normalizeBase32(base32)) ?: return null
         return generate(bytes, nowMillis)
     }

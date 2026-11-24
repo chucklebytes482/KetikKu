@@ -1,18 +1,20 @@
 package com.example.data
 
 import android.util.Base64
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import java.security.KeyStore
 import java.security.MessageDigest
-import java.security.SecureRandom
 import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Enkripsi seed 2FA dengan AES-256-GCM. Kunci diturunkan dari konstanta aplikasi (SHA-256),
- * jadi berkas ketikku_a2f.json bisa dipulihkan di perangkat lain tanpa input ulang.
- * Ringan: tidak ada IPC Keystore, kunci dihitung sekali.
- * Format hasil: base64(iv) + ":" + base64(ciphertext). Plaintext seed tidak pernah disimpan.
+ * Seed lokal memakai kunci AES-GCM non-exportable di Android Keystore.
+ * Format v2: k2:base64(iv):base64(ciphertext). Cadangan portabel memakai password terpisah.
+ * Kunci v1 hanya untuk membaca/migrasi data lama, tidak untuk menulis data baru.
  */
 object SecretVault {
     private const val TRANSFORMATION = "AES/GCM/NoPadding"
@@ -20,19 +22,32 @@ object SecretVault {
     private const val IV_BYTES = 12
     private const val KEY_MATERIAL = "KetikKu-A2F-seed-v1"
 
-    private val secretKey: SecretKey by lazy {
+    private val legacyKey: SecretKey by lazy {
         val digest = MessageDigest.getInstance("SHA-256").digest(KEY_MATERIAL.toByteArray(Charsets.UTF_8))
         SecretKeySpec(digest, "AES")
     }
 
-    private val random = SecureRandom()
+    @Synchronized
+    private fun deviceKey(): SecretKey {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (store.getKey("ketikku.a2f.v2", null) as? SecretKey)?.let { return it }
+        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {
+            init(KeyGenParameterSpec.Builder(
+                "ketikku.a2f.v2", KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+            ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256).build())
+        }.generateKey()
+    }
+
+    fun isDeviceCipher(value: String): Boolean = value.startsWith("k2:")
 
     fun encrypt(plainSecret: String): String {
-        val iv = ByteArray(IV_BYTES).also { random.nextBytes(it) }
+        require(TotpGenerator.isValidBase32Secret(plainSecret)) { "Seed A2F tidak valid" }
         val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(GCM_TAG_BITS, iv))
-        val cipherBytes = cipher.doFinal(plainSecret.toByteArray(Charsets.UTF_8))
-        return Base64.encodeToString(iv, Base64.NO_WRAP) +
+        cipher.init(Cipher.ENCRYPT_MODE, deviceKey())
+        val cipherBytes = cipher.doFinal(TotpGenerator.normalizeBase32(plainSecret).toByteArray(Charsets.UTF_8))
+        return "k2:" + Base64.encodeToString(cipher.iv, Base64.NO_WRAP) +
             ":" + Base64.encodeToString(cipherBytes, Base64.NO_WRAP)
     }
 
@@ -40,13 +55,15 @@ object SecretVault {
     fun decryptOrNull(cipherText: String): String? {
         if (cipherText.isBlank()) return null
         return try {
-            val parts = cipherText.split(':')
+            val modern = isDeviceCipher(cipherText)
+            val parts = cipherText.removePrefix("k2:").split(':')
             if (parts.size != 2) return null
             val iv = Base64.decode(parts[0], Base64.NO_WRAP)
             val bytes = Base64.decode(parts[1], Base64.NO_WRAP)
+            if (iv.size != IV_BYTES || bytes.size < 16) return null
             val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(GCM_TAG_BITS, iv))
-            String(cipher.doFinal(bytes), Charsets.UTF_8)
+            cipher.init(Cipher.DECRYPT_MODE, if (modern) deviceKey() else legacyKey, GCMParameterSpec(GCM_TAG_BITS, iv))
+            String(cipher.doFinal(bytes), Charsets.UTF_8).takeIf { TotpGenerator.isValidBase32Secret(it) }
         } catch (_: Exception) {
             null
         }

@@ -711,6 +711,12 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
+        val isA2fTap = isA2fActive && word.length == TotpGenerator.DIGITS && word.all { it in '0'..'9' }
+        val freshCode = if (isA2fTap) {
+            DictionaryEngine.findA2fEntry(localWordPlain.toString(), personalEntries)?.let { entry ->
+                SecretVault.decryptOrNull(entry.secretCipher)?.let { TotpGenerator.currentCodeFromBase32(it) }
+            } ?: return
+        } else null
         val rawLen: Int
         val plainWord: String
         if (localContextValid) {
@@ -721,15 +727,15 @@ class KeyboardController(
             rawLen = pair.first
             plainWord = pair.second
         }
-        val styled = formatOutput(word, settings)
-        val commitValue = if (isPasswordField) styled else "$styled "
+        val styled = freshCode ?: formatOutput(word, settings)
+        val commitValue = if (isA2fTap || isPasswordField) styled else "$styled "
         if (plainWord.isNotEmpty() && rawLen > 0) {
             target.replaceWordBeforeCursor(rawLen, commitValue)
         } else {
             target.commitText(commitValue)
         }
         // Kode 2FA tidak boleh masuk statistik kebiasaan (personalityStats).
-        if (word != a2fCodeShown) {
+        if (!isA2fTap) {
             recordWordUsageInternal(word, personalEntries, forceRecord = true)
         }
         clearSelectedPreview()

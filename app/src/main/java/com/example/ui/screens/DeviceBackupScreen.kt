@@ -69,7 +69,8 @@ fun DeviceBackupSheetContent(
     onSyncNow: () -> Unit,
     onFolderAuthorized: (String) -> Unit,
     onResetFolderToDefault: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    a2fContent: @Composable () -> Unit = {}
 ) {
     val context = LocalContext.current
     val activeWordCount = remember(dictionary) { dictionary.count { !it.deleted } }
@@ -137,6 +138,7 @@ fun DeviceBackupSheetContent(
             folderPickerLauncher.launch(initialUri)
         },
         onResetFolderToDefault = onResetFolderToDefault,
+        a2fContent = a2fContent,
         modifier = modifier
     )
 }
@@ -153,7 +155,8 @@ internal fun DeviceBackupSheetBody(
     backupDisplayPath: String = DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH,
     hasCustomFolder: Boolean = false,
     onResetFolderToDefault: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    a2fContent: @Composable () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -362,6 +365,7 @@ internal fun DeviceBackupSheetBody(
                 overflow = TextOverflow.Ellipsis
             )
         }
+        a2fContent()
     }
 }
 

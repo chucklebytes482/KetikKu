@@ -74,6 +74,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.SettingsRepository
 import com.example.data.SecretVault
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 
@@ -90,6 +92,7 @@ fun DictionaryScreen(
     onDeleteItems: (entryIds: Set<String>, folderPaths: Set<String>) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var dictSearchQuery by rememberSaveable { mutableStateOf("") }
     var currentFolderPath by rememberSaveable { mutableStateOf("") }
 
@@ -436,15 +439,23 @@ fun DictionaryScreen(
             initialEntry = editingEntry,
             defaultFolderPath = currentFolderPath,
             isA2f = dialogFolder == SettingsRepository.FOLDER_A2F,
+            usedA2fShortcuts = dictionary.filter {
+                !it.deleted && it.id != editingEntry?.id && SettingsRepository.normalizeFolderPath(it.folder) == SettingsRepository.FOLDER_A2F
+            }.map { it.shortcut },
             onDismiss = {
                 showAddDialog = false
                 editingEntry = null
             },
             onSave = { word, shortcut, lang, folder, secretPlain ->
-                val cipher = secretPlain?.let { SecretVault.encrypt(it) }
-                onUpsertEntry(word, shortcut, lang, editingEntry?.id, folder, cipher)
-                showAddDialog = false
-                editingEntry = null
+                runCatching {
+                    val cipher = secretPlain?.let { SecretVault.encrypt(it) }
+                    onUpsertEntry(word, shortcut, lang, editingEntry?.id, folder, cipher)
+                }.onSuccess {
+                    showAddDialog = false
+                    editingEntry = null
+                }.onFailure {
+                    Toast.makeText(context, "Seed A2F tidak dapat disimpan. Coba lagi tanpa menghapus akun lama.", Toast.LENGTH_LONG).show()
+                }
             }
         )
     }

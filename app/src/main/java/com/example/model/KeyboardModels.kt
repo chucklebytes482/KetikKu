@@ -50,7 +50,7 @@ data class PersonalDictionaryEntry(
     @param:Json(ignore = true) val language: String = KeyboardLanguage.INDONESIAN.code,
     val updatedAtMillis: Long = 0L,
     val deleted: Boolean = false,
-    // Seed TOTP terenkripsi per perangkat (AES-GCM, Android Keystore). Format: base64(iv):base64(ciphertext).
+    // Seed TOTP terenkripsi per perangkat (AES-GCM, Android Keystore). Format: k2:base64(iv):base64(ciphertext); cadangan lintas perangkat berpassword.
     val secretCipher: String = ""
 )
 

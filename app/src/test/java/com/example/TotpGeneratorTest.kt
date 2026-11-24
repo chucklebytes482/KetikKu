@@ -23,6 +23,9 @@ class TotpGeneratorTest {
         assertEquals("287082", TotpGenerator.currentCodeFromBase32(rfcSecretBase32, 59_000L))
         assertEquals("081804", TotpGenerator.currentCodeFromBase32(rfcSecretBase32, 1_111_111_109_000L))
         assertEquals("050471", TotpGenerator.currentCodeFromBase32(rfcSecretBase32, 1_111_111_111_000L))
+        assertEquals("005924", TotpGenerator.currentCodeFromBase32(rfcSecretBase32, 1_234_567_890_000L))
+        assertEquals("279037", TotpGenerator.currentCodeFromBase32(rfcSecretBase32, 2_000_000_000_000L))
+        assertEquals("353130", TotpGenerator.currentCodeFromBase32(rfcSecretBase32, 20_000_000_000_000L))
     }
 
     @Test
@@ -41,5 +44,18 @@ class TotpGeneratorTest {
     fun secondsRemaining_isWithinPeriod() {
         assertEquals(30, TotpGenerator.secondsRemaining(0L))
         assertEquals(1, TotpGenerator.secondsRemaining(29_000L))
+        assertEquals(30, TotpGenerator.secondsRemaining(30_000L))
+        assertEquals(1L, TotpGenerator.millisUntilNextPeriod(29_999L))
+        assertEquals(30_000L, TotpGenerator.millisUntilNextPeriod(30_000L))
+    }
+
+    @Test
+    fun invalidLengthAndNonZeroPaddingBits_areRejected() {
+        org.junit.Assert.assertNull(TotpGenerator.decodeBase32("AAAAAAAAAAAAAAAAA"))
+        org.junit.Assert.assertNull(TotpGenerator.decodeBase32("AAAAAAAAAAAAAAAAAB"))
+        org.junit.Assert.assertNull(TotpGenerator.currentCodeFromBase32("ABC", 0L))
+        org.junit.Assert.assertNull(TotpGenerator.currentCodeFromBase32(rfcSecretBase32, -1L))
+        assertFalse(TotpGenerator.currentCodeFromBase32(rfcSecretBase32, 29_999L) ==
+            TotpGenerator.currentCodeFromBase32(rfcSecretBase32, 30_000L))
     }
 }

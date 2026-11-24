@@ -51,6 +51,7 @@ internal fun DictionaryEntryDialog(
     initialEntry: PersonalDictionaryEntry?,
     defaultFolderPath: String,
     isA2f: Boolean = false,
+    usedA2fShortcuts: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (word: String, shortcut: String, language: String, folder: String, secretPlain: String?) -> Unit
 ) {
@@ -65,7 +66,13 @@ internal fun DictionaryEntryDialog(
         word.isNotBlank() && !TotpGenerator.isValidBase32Secret(word) -> "Seed base32 tidak valid (min. 16 karakter A-Z, 2-7)"
         else -> null
     }
-    val canSave = shortcut.isNotBlank() && (if (isA2f) secretError == null else word.isNotBlank())
+    val shortcutError = if (isA2f) when {
+        shortcut.isBlank() -> "Pintasan wajib diisi"
+        shortcut.trim().length > 30 || shortcut.trim().any { !it.isLetterOrDigit() } -> "Pintasan A2F: maksimal 30 huruf/angka tanpa spasi"
+        usedA2fShortcuts.any { it.equals(shortcut.trim(), true) } -> "Pintasan A2F sudah dipakai"
+        else -> null
+    } else null
+    val canSave = shortcut.isNotBlank() && shortcutError == null && (if (isA2f) secretError == null else word.isNotBlank())
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -92,7 +99,7 @@ internal fun DictionaryEntryDialog(
                         visualTransformation = PasswordVisualTransformation(),
                         isError = secretError != null,
                         supportingText = {
-                            Text(secretError ?: "Tempel dari halaman setup 2FA. Disimpan terenkripsi.")
+                            Text(secretError ?: "TOTP SHA-1, 6 digit, 30 detik. Disimpan di Android Keystore.")
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -113,6 +120,8 @@ internal fun DictionaryEntryDialog(
                     value = shortcut,
                     onValueChange = { shortcut = it },
                     label = { Text(if (isA2f) "Pintasan (misal: gh)" else "Pintasan (misal: ttd)") },
+                    isError = shortcutError != null,
+                    supportingText = { if (shortcutError != null) Text(shortcutError) },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()

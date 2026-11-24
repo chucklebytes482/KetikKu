@@ -2090,7 +2090,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    @Config(qualifiers = "w411dp-h1150dp")
+    @Config(qualifiers = "w411dp-h2200dp")
     fun dictionaryScreen_sortsShortcutBearingEntriesAbovePlainEntries() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "plain_a", word = "Alamat biasa", shortcut = "", folder = "", updatedAtMillis = 100L),

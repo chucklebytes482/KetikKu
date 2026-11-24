@@ -12,6 +12,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.DeviceDictionaryBackupManager
 import com.example.data.DeviceSyncResult
 import com.example.data.SettingsRepository
+import com.example.data.A2fBackup
+import com.example.data.DictionaryEngine
+import com.example.data.SecretVault
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.example.ime.KeyboardController
 import com.example.ime.TextFieldImeTarget
 import com.example.model.ClipboardItem
@@ -183,8 +188,12 @@ class MainViewModel(
         secretCipher: String? = null
     ) {
         viewModelScope.launch {
-            settingsRepository.upsertDictionaryEntry(word, shortcut, language, existingId, folder, secretCipher)
-            pushLocalChangesToDevice()
+            runCatching {
+                settingsRepository.upsertDictionaryEntry(word, shortcut, language, existingId, folder, secretCipher)
+                pushLocalChangesToDevice()
+            }.onFailure {
+                _deviceSyncUiState.value = DeviceSyncUiState.Error("Akun tidak disimpan: seed/pintasan tidak valid atau sudah dipakai")
+            }
         }
     }
 
@@ -281,6 +290,39 @@ class MainViewModel(
         val currentDict = settingsRepository.getCurrentDictionary()
         val currentFolders = settingsRepository.getCurrentFolders()
         return settingsRepository.encodeFullBackupJson(currentSettings, currentDict, folders = currentFolders)
+    }
+
+    suspend fun exportA2fBackup(password: CharArray): String = withContext(Dispatchers.IO) {
+        try { A2fBackup.encode(settingsRepository.getCurrentDictionary(), password) }
+        finally { password.fill('\u0000') }
+    }
+
+    suspend fun importA2fBackup(raw: String, password: CharArray): Int = withContext(Dispatchers.IO) {
+        try {
+            val imported = if (org.json.JSONObject(raw).has("format")) A2fBackup.decode(raw, password)
+            else {
+                // Explicit legacy recovery; weak old files are never restored automatically.
+                val decoded = settingsRepository.decodeDictionaryBackupJson(raw)
+                    ?: error("Format cadangan tidak valid")
+                decoded.entries.filter { DictionaryEngine.isA2fEntry(it) && !it.deleted }.map {
+                    require(!SecretVault.isDeviceCipher(it.secretCipher)) { "Cadangan ini terikat perangkat lama" }
+                    val seed = SecretVault.decryptOrNull(it.secretCipher) ?: error("Seed cadangan lama tidak valid")
+                    it.copy(word = "••••••••", secretCipher = SecretVault.encrypt(seed))
+                }.also { require(it.isNotEmpty()) { "Tidak ada akun A2F dalam cadangan" } }
+            }
+            require(imported.map { it.id }.distinct().size == imported.size && imported.all { it.id.isNotBlank() }) { "ID akun cadangan tidak valid" }
+            require(imported.all { it.shortcut.isNotBlank() && it.shortcut.length <= 30 && it.shortcut.all { c -> c.isLetterOrDigit() } }) { "Pintasan cadangan tidak valid" }
+            require(imported.map { it.shortcut.lowercase(java.util.Locale.ROOT) }.distinct().size == imported.size) { "Pintasan cadangan duplikat" }
+            val local = settingsRepository.getCurrentDictionary()
+            imported.forEach { entry ->
+                require(local.none { it.id == entry.id && !DictionaryEngine.isA2fEntry(it) }) { "ID akun bentrok; data tidak diubah" }
+                require(local.none { !it.deleted && it.id != entry.id && it.shortcut.equals(entry.shortcut, true) && DictionaryEngine.isA2fEntry(it) }) { "Pintasan sudah dipakai; data tidak diubah" }
+                val existing = local.firstOrNull { it.id == entry.id }
+                require(existing == null || SecretVault.decryptOrNull(existing.secretCipher) == SecretVault.decryptOrNull(entry.secretCipher)) { "Seed akun berbeda; data tidak diubah" }
+            }
+            settingsRepository.mergeRemoteDictionary(imported, listOf(SettingsRepository.FOLDER_A2F))
+            imported.size
+        } finally { password.fill('\u0000') }
     }
 
     fun importLocalBackupJson(rawJson: String, onComplete: (Result<String>) -> Unit) {

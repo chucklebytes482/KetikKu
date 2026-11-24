@@ -820,6 +820,8 @@ class DeviceDictionaryBackupManager(
         var lastModified = 0L
         var foundAny = false
         for (kind in DeviceDictionaryBackupManager.BACKUP_KINDS) {
+            // A2F is restored only via the explicit password import, never by auto-sync.
+            if (kind == "a2f") continue
             val fileName = DeviceDictionaryBackupManager.backupFileNameFor(kind)
             when (val result = storage.readBackup(fileName, treeUri)) {
                 is BackupReadResult.NeedsFolderAccess -> return result
@@ -829,7 +831,7 @@ class DeviceDictionaryBackupManager(
                     foundAny = true
                     lastModified = maxOf(lastModified, result.file.lastModifiedMillis)
                     val decoded = settingsRepository.decodeDictionaryBackupJson(result.file.content) ?: continue
-                    entries += decoded.entries
+                    entries += decoded.entries.filterNot { DictionaryEngine.isA2fEntry(it) }
                     folders += decoded.folders
                     updatedAt = maxOf(updatedAt, decoded.updatedAtMillis)
                 }
@@ -837,7 +839,14 @@ class DeviceDictionaryBackupManager(
         }
         if (!foundAny) {
             // Migrasi: belum ada berkas per jenis, baca berkas tunggal lama (tidak dihapus).
-            return storage.readBackup(DeviceDictionaryBackupManager.LEGACY_DICTIONARY_FILE_NAME, treeUri)
+            val legacy = storage.readBackup(DeviceDictionaryBackupManager.LEGACY_DICTIONARY_FILE_NAME, treeUri)
+            if (legacy !is BackupReadResult.Found) return legacy
+            val decoded = settingsRepository.decodeDictionaryBackupJson(legacy.file.content) ?: return legacy
+            val safe = settingsRepository.encodeDictionaryBackupJson(
+                decoded.entries.filterNot { DictionaryEngine.isA2fEntry(it) }, decoded.updatedAtMillis,
+                decoded.folders.filterNot { SettingsRepository.normalizeFolderPath(it) == SettingsRepository.FOLDER_A2F }
+            )
+            return BackupReadResult.Found(legacy.file.copy(content = safe))
         }
         val byId = LinkedHashMap<String, PersonalDictionaryEntry>()
         for (entry in entries) {
@@ -858,6 +867,8 @@ class DeviceDictionaryBackupManager(
             ?: return BackupWriteResult.Error("Gagal menyiapkan data cadangan.")
         var latest = 0L
         for (kind in DeviceDictionaryBackupManager.BACKUP_KINDS) {
+            // Never write device-bound seeds or overwrite an existing portable A2F backup.
+            if (kind == "a2f") continue
             val kindEntries = decoded.entries.filter { SettingsRepository.backupKindFor(it.folder) == kind }
             val kindFolders = decoded.folders.filter { SettingsRepository.backupKindFor(it) == kind }
             val content = if (kindEntries.isEmpty() && kindFolders.isEmpty()) {
