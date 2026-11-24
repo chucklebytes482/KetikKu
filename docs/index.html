@@ -5,40 +5,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>KetikKu — Panduan Penggunaan, Pintasan Ctrl &amp; Cadangan Perangkat</title>
   <meta name="description" content="Panduan lengkap penggunaan keyboard Android KetikKu yang 100% luring tanpa izin internet, daftar pintasan Ctrl, dan cadangan kamus pribadi ke perangkat." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #f4f7f8;
-      --surface: #ffffff;
-      --surface-soft: #eef4f6;
-      --border: #d5e1e6;
-      --text: #132229;
-      --muted: #4b616b;
-      --primary: #0f5f70;
-      --primary-dark: #0a4653;
-      --primary-soft: #dff1f5;
-      --accent: #187a58;
-      --code-bg: #102027;
-      --code-text: #e6f2f5;
-      --radius: 18px;
-      --shadow: 0 8px 24px rgba(15, 52, 64, 0.06);
+      --bg: #FFFFFF;
+      --surface: #FFFFFF;
+      --surface-soft: #F1F3F4;
+      --border: #DADCE0;
+      --text: #202124;
+      --muted: #5F6368;
+      --primary: #4285F4;
+      --primary-soft: #E8F0FE;
+      --red: #EA4335;
+      --yellow: #FBBC05;
+      --accent: #34A853;
+      --code-bg: #F1F3F4;
+      --code-text: #202124;
+      --radius: 16px;
+      --shadow: none;
     }
 
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #0c1418;
-        --surface: #131f25;
-        --surface-soft: #1a2a32;
-        --border: #273c46;
-        --text: #e7f0f3;
-        --muted: #9eb4be;
-        --primary: #4dc0d4;
-        --primary-dark: #74d4e4;
-        --primary-soft: #163742;
-        --accent: #4dd09e;
-        --code-bg: #091115;
-        --code-text: #d9edf2;
-        --shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+        --bg: #202124;
+        --surface: #292A2D;
+        --surface-soft: #3C4043;
+        --border: #5F6368;
+        --text: #E8EAED;
+        --muted: #9AA0A6;
+        --primary: #8AB4F8;
+        --primary-soft: #394457;
+        --red: #F28B82;
+        --yellow: #FBBC05;
+        --accent: #81C995;
+        --code-bg: #3C4043;
+        --code-text: #E8EAED;
+        --shadow: none;
       }
+    }
+
+    h1, h2, h3 {
+      font-weight: 500;
     }
 
     * {
@@ -53,7 +62,7 @@
 
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: var(--bg);
       color: var(--text);
       line-height: 1.6;
@@ -69,10 +78,11 @@
     }
 
     header.hero {
-      background: linear-gradient(135deg, #0d4f5e 0%, #147484 100%);
-      color: #ffffff;
-      border-radius: 24px;
-      padding: 28px 24px;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 16px;
       box-shadow: var(--shadow);
       margin-bottom: 20px;
     }
@@ -83,7 +93,8 @@
       font-weight: 700;
       letter-spacing: 0.4px;
       text-transform: uppercase;
-      background: rgba(255, 255, 255, 0.16);
+      background: var(--primary-soft);
+      color: var(--primary);
       padding: 4px 10px;
       border-radius: 999px;
       margin-bottom: 10px;
@@ -97,7 +108,7 @@
 
     header.hero p {
       margin: 0 0 18px;
-      color: rgba(255, 255, 255, 0.9);
+      color: var(--muted);
       max-width: 680px;
     }
 
@@ -110,7 +121,7 @@
     header.hero p.download-meta {
       margin: 10px 0 0;
       font-size: 13px;
-      color: rgba(255, 255, 255, 0.88);
+      color: var(--muted);
       overflow-wrap: anywhere;
     }
 
@@ -133,15 +144,15 @@
       transform: scale(0.98);
     }
 
-    .btn-white {
-      background: #ffffff;
-      color: #0d4f5e;
+    .btn-primary {
+      background: var(--primary);
+      color: var(--bg);
     }
 
     .btn-ghost {
-      background: rgba(255, 255, 255, 0.14);
-      color: #ffffff;
-      border-color: rgba(255, 255, 255, 0.28);
+      background: transparent;
+      color: var(--primary);
+      border-color: var(--border);
     }
 
     nav.toc {
@@ -170,7 +181,7 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 22px 20px;
+      padding: 24px 16px;
       box-shadow: var(--shadow);
       margin-bottom: 20px;
       max-width: 100%;
@@ -196,7 +207,7 @@
     .grid-2 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-      gap: 14px;
+      gap: 16px;
     }
 
     .grid-2 > * {
@@ -207,7 +218,7 @@
       background: var(--surface-soft);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 14px 16px;
+      padding: 16px;
       min-width: 0;
       max-width: 100%;
       overflow-wrap: anywhere;
@@ -232,7 +243,7 @@
     }
 
     code {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-family: "Roboto Mono", ui-monospace, monospace;
       font-size: 0.88em;
       background: var(--surface-soft);
       padding: 1px 5px;
@@ -251,7 +262,7 @@
       padding: 2px 7px;
       font-size: 12.5px;
       font-weight: 700;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-family: "Roboto Mono", ui-monospace, monospace;
       background: var(--surface);
       border: 1px solid var(--border);
       border-bottom-width: 2px;
@@ -282,7 +293,7 @@
 
     th {
       background: var(--surface-soft);
-      font-weight: 700;
+      font-weight: 500;
       font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0.3px;
@@ -337,7 +348,7 @@
         kamus pribadi berbasis <em>personality</em>, serta cadangan otomatis kamus pribadi ke perangkat.
       </p>
       <div class="hero-actions">
-        <a class="btn btn-white" href="https://github.com/chucklebytes482/KetikKu/releases/latest/download/ketikku-latest-arm64-v8a.apk" download>
+        <a class="btn btn-primary" href="https://github.com/chucklebytes482/KetikKu/releases/latest/download/ketikku-latest-arm64-v8a.apk" download>
           Unduh Aplikasi KetikKu (APK)
         </a>
       </div>
@@ -370,9 +381,9 @@
         </div>
 
         <div class="subcard">
-          <h3>Kamus Pribadi (6 Folder Utama Permanen)</h3>
+          <h3>Kamus Pribadi (8 Folder Utama Permanen)</h3>
           <ul>
-            <li>Kelola kamus satu tingkat (tanpa subfolder) dengan 6 folder utama permanen di urutan atas: <strong>Gmail</strong>, <strong>Nomor</strong>, <strong>Pribadi</strong>, <strong>Kata Sandi</strong>, <strong>Kredensial</strong>, dan <strong>Balasan Cepat</strong> (folder utama terlindungi agar tidak dapat diubah nama, dipindahkan, atau dihapus).</li>
+            <li>Kelola kamus satu tingkat (tanpa subfolder) dengan 8 folder utama permanen di urutan atas: <strong>Gmail</strong>, <strong>Nomor</strong>, <strong>Pribadi</strong>, <strong>Kata Sandi</strong>, <strong>Kredensial</strong>, <strong>A2F</strong>, <strong>Sampah</strong>, dan <strong>Balasan Cepat</strong> (folder utama tidak dapat diubah nama atau dihapus). Tidak ada fitur pindah folder: hapus berarti dipindah ke Sampah dan bisa dipulihkan.</li>
             <li>Entri di folder <strong>Kata Sandi</strong> dan <strong>Kredensial</strong> dijaga privasinya: tidak pernah muncul saat kolom kosong maupun saat mengetik awalan isinya, dan <strong>hanya muncul di bilah saran jika pintasannya diketik</strong>.</li>
             <li>Mengetik pintasan <strong>tidak mengganti teks secara otomatis</strong> saat menekan Spasi/Enter — entri muncul di Kolom 1 &amp; 2 bilah saran di <strong>semua kolom teks (termasuk kolom kata sandi)</strong> dan masuk saat chip diketuk.</li>
             <li><strong>Kolom pratinjau ketiga</strong> (di sebelah bilah alat) menampilkan pratinjau <strong>teks yang sedang dipilih (disorot)</strong> maupun <strong>karakter yang sedang diketik</strong> dengan ukuran huruf setara saran teks, gulir horizontal otomatis, serta pembatas kolom yang tegas dari atas hingga bawah.</li>
@@ -544,13 +555,13 @@
     <section id="sinkronisasi-perangkat" class="card">
       <h2>5. Sinkronisasi Otomatis Kamus Pribadi ke Perangkat</h2>
       <p class="section-desc">
-        KetikKu bekerja <strong>100% luring tanpa izin internet</strong> sehingga seluruh ketikan dan kata sandi tetap aman di perangkat Anda. Cadangan otomatis dipecah jadi 3 berkas di <code>/storage/emulated/0/Documents/</code> <strong>tanpa membuat folder otomatis</strong>: <code>ketikku_umum.json</code>, <code>ketikku_kata_sandi.json</code>, dan <code>ketikku_kredensial.json</code>. Anda bebas memilih subfolder lain di dalam Documents kapan saja. Sinkron hanya ke folder perangkat (timpa atas/bawah), tanpa Drive dan tanpa GitHub. Setiap perubahan <strong>langsung menimpa</strong> berkas terkait agar folder yang dihapus tidak kembali lagi. Seed A2F lokal dilindungi Android Keystore dan tidak ikut sinkron otomatis. Cadangan A2F ikut sinkron otomatis dan dienkripsi dengan passphrase perangkat; ekspor/impor A2F manual sudah dihapus. Passphrase tidak dapat dipulihkan. Data A2F lama dimigrasi di perangkat; berkas <code>ketikku_a2f.json</code> lama tetap tidak aman sampai Anda menghapusnya sendiri. Kode SHA-1 6 digit/30 detik muncul saat pintasan diketik dan dihitung ulang saat disentuh, tanpa format atau spasi tambahan.
+        KetikKu bekerja <strong>100% luring tanpa izin internet</strong> sehingga seluruh ketikan dan kata sandi tetap aman di perangkat Anda. Cadangan otomatis dipecah jadi 5 berkas di <code>/storage/emulated/0/Documents/</code> <strong>tanpa membuat folder otomatis</strong>: <code>ketikku_umum.json</code>, <code>ketikku_pw.json</code>, <code>ketikku_kred.json</code>, <code>ketikku_aut.json</code>, dan <code>ketikku_aut_terenkripsi.json</code>. Anda bebas memilih subfolder lain di dalam Documents kapan saja. Sinkron hanya ke folder perangkat (timpa atas/bawah), tanpa Drive dan tanpa GitHub. Setiap perubahan <strong>langsung menimpa</strong> berkas terkait agar folder yang dihapus tidak kembali lagi. Seed A2F lokal dilindungi Android Keystore dan tidak ikut sinkron otomatis. Cadangan A2F ikut sinkron otomatis dan dienkripsi dengan passphrase perangkat; ekspor/impor A2F manual sudah dihapus. Passphrase tidak dapat dipulihkan. Data A2F lama dimigrasi di perangkat; berkas <code>ketikku_a2f.json</code> lama tetap tidak aman sampai Anda menghapusnya sendiri. Kode SHA-1 6 digit/30 detik muncul saat pintasan diketik dan dihitung ulang saat disentuh, tanpa format atau spasi tambahan.
       </p>
       <div class="grid-2">
         <div class="subcard">
-          <h3>1 Berkas Tunggal &amp; Jalur Bebas di Documents</h3>
+          <h3>5 Berkas &amp; Jalur Bebas di Documents</h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Hanya mencadangkan <strong>Kamus Pribadi</strong>: daftar <code>"folders"</code> serta array <code>"entries"</code> dengan 6 field seragam (<code>id</code>, <code>word</code>, <code>shortcut</code>, <code>folder</code>, <code>updatedAtMillis</code>, <code>deleted</code>) tanpa field <code>"language"</code>. Anda bebas memilih folder mana saja di dalam <code>Documents/</code> atau kembali ke bawaan kapan saja.
+            Masing-masing jenis punya berkasnya sendiri. Berkas kamus berisi daftar <code>"folders"</code> serta array <code>"entries"</code> dengan 6 field seragam (<code>id</code>, <code>word</code>, <code>shortcut</code>, <code>folder</code>, <code>updatedAtMillis</code>, <code>deleted</code>) tanpa field <code>"language"</code>. Anda bebas memilih folder mana saja di dalam <code>Documents/</code> atau kembali ke bawaan kapan saja.
           </p>
         </div>
         <div class="subcard">
