@@ -32,7 +32,6 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
-import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.DeleteForever
@@ -306,7 +305,7 @@ fun DictionaryScreen(
                         onClose = { clearSelection() }
                     )
                 }
-            } else {
+            } else if (currentFolderPath.isNotEmpty()) {
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -332,21 +331,6 @@ fun DictionaryScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                        }
-
-                        if (selectableFolders.isNotEmpty() || visibleEntries.isNotEmpty()) {
-                            IconButton(
-                                onClick = { selectionMode = true },
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .testTag("toggle_selection_mode_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Checklist,
-                                    contentDescription = "Mode Pilih Banyak",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
                         }
 
                         if (currentFolderPath.isEmpty()) {
@@ -993,19 +977,13 @@ private fun DictionaryItemCard(
                             color = MaterialTheme.colorScheme.primaryContainer
                         ) {
                             Text(
-                                text = "Pintasan: ${entry.shortcut}",
+                                text = entry.shortcut,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }
-                    } else {
-                        Text(
-                            text = "Tanpa pintasan",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                     if (showFolderBadge && entry.folder.isNotBlank()) {
                         Surface(
