@@ -75,9 +75,6 @@ class MainViewModel(
     private val _deviceSyncUiState = MutableStateFlow<DeviceSyncUiState>(DeviceSyncUiState.Idle)
     val deviceSyncUiState: StateFlow<DeviceSyncUiState> = _deviceSyncUiState.asStateFlow()
 
-    @Volatile
-    private var lastAutoSyncTriggerMillis: Long = 0L
-
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -200,7 +197,6 @@ class MainViewModel(
                     email = email,
                     website = website
                 )
-                pushLocalChangesToDevice()
             }.onFailure {
                 _deviceSyncUiState.value = DeviceSyncUiState.Error(it.message ?: "Entri tidak disimpan")
             }
@@ -210,8 +206,7 @@ class MainViewModel(
     fun regenerateDictionaryShortcuts() {
         viewModelScope.launch {
             runCatching {
-                val changed = settingsRepository.regenerateAutoShortcuts()
-                if (changed > 0) pushLocalChangesToDevice()
+                settingsRepository.regenerateAutoShortcuts()
             }.onFailure {
                 _deviceSyncUiState.value = DeviceSyncUiState.Error(it.message ?: "Gagal generate ulang pintasan")
             }
@@ -221,15 +216,13 @@ class MainViewModel(
     fun restoreDictionaryEntries(entryIds: Set<String>) {
         viewModelScope.launch {
             settingsRepository.restoreFromTrash(entryIds)
-            pushLocalChangesToDevice()
         }
     }
 
     fun permanentlyDeleteDictionaryEntries(entryIds: Set<String>) {
         viewModelScope.launch {
             runCatching {
-                val removed = settingsRepository.permanentlyDeleteDuplicates(entryIds)
-                if (removed > 0) pushLocalChangesToDevice()
+                settingsRepository.permanentlyDeleteDuplicates(entryIds)
             }.onFailure {
                 _deviceSyncUiState.value = DeviceSyncUiState.Error(it.message ?: "Gagal menghapus permanen")
             }
@@ -239,28 +232,24 @@ class MainViewModel(
     fun deleteDictionaryEntry(entryId: String) {
         viewModelScope.launch {
             settingsRepository.deleteDictionaryEntry(entryId)
-            pushLocalChangesToDevice()
         }
     }
 
     fun createDictionaryFolder(folderPath: String) {
         viewModelScope.launch {
             settingsRepository.createFolder(folderPath)
-            pushLocalChangesToDevice()
         }
     }
 
     fun renameDictionaryFolder(oldPath: String, newName: String) {
         viewModelScope.launch {
             settingsRepository.renameFolder(oldPath, newName)
-            pushLocalChangesToDevice()
         }
     }
 
     fun deleteDictionaryItems(entryIds: Set<String>, folderPaths: Set<String>) {
         viewModelScope.launch {
             settingsRepository.deleteEntriesAndFolders(entryIds, folderPaths)
-            pushLocalChangesToDevice()
         }
     }
 
@@ -327,26 +316,7 @@ class MainViewModel(
     fun importLocalBackupJson(rawJson: String, onComplete: (Result<String>) -> Unit) {
         viewModelScope.launch {
             val result = settingsRepository.importLocalBackupJson(rawJson)
-            if (result.isSuccess) {
-                pushLocalChangesToDevice()
-            }
             onComplete(result)
-        }
-    }
-
-    private suspend fun pushLocalChangesToDevice() {
-        val manager = deviceBackupManager ?: return
-        lastAutoSyncTriggerMillis = System.currentTimeMillis()
-        _deviceSyncUiState.value = DeviceSyncUiState.Syncing
-        val result = try {
-            manager.pushLocalToDevice()
-        } catch (t: Throwable) {
-            DeviceSyncResult.Error(t.localizedMessage ?: "Gagal memperbarui cadangan kamus ke perangkat.")
-        }
-        _deviceSyncUiState.value = when (result) {
-            is DeviceSyncResult.Synced -> DeviceSyncUiState.Idle
-            is DeviceSyncResult.NeedsFolderAccess -> DeviceSyncUiState.NeedsFolderAccess(result.message)
-            is DeviceSyncResult.Error -> DeviceSyncUiState.Error(result.message)
         }
     }
 
@@ -356,7 +326,6 @@ class MainViewModel(
     private fun runDeviceSync(block: suspend (DeviceDictionaryBackupManager) -> DeviceSyncResult) {
         val manager = deviceBackupManager ?: return
         if (_deviceSyncUiState.value is DeviceSyncUiState.Syncing) return
-        lastAutoSyncTriggerMillis = System.currentTimeMillis()
         _deviceSyncUiState.value = DeviceSyncUiState.Syncing
         viewModelScope.launch {
             val result = try {
@@ -372,19 +341,9 @@ class MainViewModel(
         }
     }
 
-    fun syncDictionaryWithDevice(force: Boolean = false) {
+    /** Sinkron penuh ke folder cadangan. Hanya dipanggil dari aksi pengguna (ganti folder). */
+    fun syncDictionaryWithDevice() {
         val manager = deviceBackupManager ?: return
-        val now = System.currentTimeMillis()
-        if (!force) {
-            if (_deviceSyncUiState.value is DeviceSyncUiState.Syncing) return
-            if (lastAutoSyncTriggerMillis > 0L &&
-                !syncLocalState.value.pendingChanges &&
-                (now - lastAutoSyncTriggerMillis) < 3_000L
-            ) {
-                return
-            }
-        }
-        lastAutoSyncTriggerMillis = now
         _deviceSyncUiState.value = DeviceSyncUiState.Syncing
         viewModelScope.launch {
             val result = try {
@@ -446,14 +405,14 @@ class MainViewModel(
         }
         viewModelScope.launch {
             settingsRepository.saveDeviceBackupTreeUri(treeUri)
-            syncDictionaryWithDevice(force = true)
+            syncDictionaryWithDevice()
         }
     }
 
     fun resetDeviceBackupFolderToDefault() {
         viewModelScope.launch {
             settingsRepository.saveDeviceBackupTreeUri("")
-            syncDictionaryWithDevice(force = true)
+            syncDictionaryWithDevice()
         }
     }
 }
