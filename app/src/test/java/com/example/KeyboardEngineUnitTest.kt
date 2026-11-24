@@ -768,19 +768,19 @@ class KeyboardEngineUnitTest {
     fun settingsRepository_normalizeFolderPathFlattensSubfoldersAndCanonicalizesSixPrimaryFolders() {
         assertEquals("Kerja CS", SettingsRepository.normalizeFolderPath("Kerja/CS"))
         assertEquals("Kerja CS", SettingsRepository.normalizeFolderPath("  Kerja \\ CS  "))
-        assertEquals("gm", SettingsRepository.normalizeFolderPath("gmail"))
-        assertEquals("num", SettingsRepository.normalizeFolderPath("nomor"))
-        assertEquals("prib", SettingsRepository.normalizeFolderPath("pribadi"))
-        assertEquals("pw", SettingsRepository.normalizeFolderPath("kata sandi"))
-        assertEquals("kred", SettingsRepository.normalizeFolderPath("KREDENSIAL"))
-        assertEquals("bc", SettingsRepository.normalizeFolderPath("balasan cepat"))
-        assertEquals("bc", SettingsRepository.normalizeFolderPath("keuangan"))
-        assertEquals("bc", SettingsRepository.normalizeFolderPath("Keuangan"))
+        assertEquals("gm", SettingsRepository.normalizeFolderPath("GM"))
+        assertEquals("num", SettingsRepository.normalizeFolderPath("Num"))
+        assertEquals("prib", SettingsRepository.normalizeFolderPath("PRIB"))
+        assertEquals("pw", SettingsRepository.normalizeFolderPath("pw"))
+        assertEquals("kred", SettingsRepository.normalizeFolderPath("KRED"))
+        assertEquals("bc", SettingsRepository.normalizeFolderPath("bc"))
+        assertEquals("balasan cepat", SettingsRepository.normalizeFolderPath("balasan cepat"))
+        assertEquals("Keuangan", SettingsRepository.normalizeFolderPath("Keuangan"))
         assertEquals("", SettingsRepository.normalizeFolderPath("///"))
         assertFalse(SettingsRepository.normalizeFolderPath("A/B/C").contains('/'))
 
         val ordered = SettingsRepository.normalizeOrderedFolders(
-            explicitFolders = listOf("Kerja", "kata sandi", "kredensial", "Keuangan"),
+            explicitFolders = listOf("Kerja", "PW", "kred"),
             entries = emptyList()
         )
         assertEquals(

@@ -110,10 +110,6 @@ class SettingsRepository(
 
     val dictionaryFlow: Flow<List<PersonalDictionaryEntry>> = dataStore.data
         .onEach { prefs ->
-            val entries = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
-            if (entries.any { DictionaryEngine.isA2fEntry(it) && it.secretCipher.isNotBlank() && !SecretVault.isDeviceCipher(it.secretCipher) }) {
-                migrateLegacyA2f()
-            }
             if (prefs[Keys.FOLDER_RENAME_V2_DONE] != true) migrateFolderNamesV2()
         }
         .map { prefs -> prefs[Keys.DICTIONARY_JSON] }
@@ -215,21 +211,6 @@ class SettingsRepository(
             prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(normalizeOrderedFolders(rawFolders, migrated))
             if (changedCount > 0) prefs[Keys.PENDING_CHANGES] = true
             prefs[Keys.FOLDER_RENAME_V2_DONE] = true
-        }
-    }
-
-    private suspend fun migrateLegacyA2f() {
-        dataStore.edit { prefs ->
-            val entries = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
-            val migrated = entries.map { entry ->
-                if (!DictionaryEngine.isA2fEntry(entry) || entry.secretCipher.isBlank() || SecretVault.isDeviceCipher(entry.secretCipher)) entry
-                else {
-                    val seed = SecretVault.decryptOrNull(entry.secretCipher)
-                        ?: error("Seed A2F lama tidak dapat dimigrasi; data asli dipertahankan")
-                    entry.copy(secretCipher = SecretVault.encrypt(seed))
-                }
-            }
-            prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(migrated)
         }
     }
 
@@ -1178,19 +1159,6 @@ class SettingsRepository(
         const val FOLDER_BALASAN_CEPAT = "bc"
         private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 
-        /** Nama folder sebelum rename kode pendek (huruf kecil). Dibaca saat normalisasi: data lama, cadangan lama, sync perangkat lama. */
-        private val LEGACY_FOLDER_ALIASES: Map<String, String> = mapOf(
-            "gmail" to FOLDER_GMAIL,
-            "nomor" to FOLDER_NOMOR,
-            "pribadi" to FOLDER_PRIBADI,
-            "kata sandi" to FOLDER_KATA_SANDI,
-            "kredensial" to FOLDER_KREDENSIAL,
-            "a2f" to FOLDER_A2F,
-            "sampah" to FOLDER_SAMPAH,
-            "balasan cepat" to FOLDER_BALASAN_CEPAT,
-            "keuangan" to FOLDER_BALASAN_CEPAT
-        )
-
         /** Jenis berkas cadangan untuk entri pada folder ini (satu berkas per jenis). */
         fun backupKindFor(folder: String): String =
             when (normalizeFolderPath(folder).substringBefore('/')) {
@@ -1322,9 +1290,9 @@ class SettingsRepository(
                 .replace(Regex("\\s+"), " ")
             if (cleaned.isEmpty() || cleaned == "." || cleaned == "..") return ""
             val lower = cleaned.lowercase(Locale.ROOT)
-            // Nama baru dan nama lama sama-sama dikenali, tanpa memperhatikan huruf besar/kecil.
+            // Hanya kode folder utama yang dikenali (tanpa memperhatikan huruf besar/kecil); nama lain tetap folder kustom.
             PRIMARY_FOLDERS.firstOrNull { it == lower }?.let { return it }
-            return LEGACY_FOLDER_ALIASES[lower] ?: cleaned
+            return cleaned
         }
 
         /** Folder kustom yang namanya sama dengan folder utama baru (tanpa memperhatikan huruf besar/kecil). Dipakai migrasi untuk laporan. */
@@ -1333,11 +1301,6 @@ class SettingsRepository(
                 .map { it.trim() }
                 .filter { it.isNotEmpty() && it.lowercase(Locale.ROOT) in PRIMARY_FOLDERS }
                 .toSet()
-
-        fun expandFolderAncestors(path: String): List<String> {
-            val normalized = normalizeFolderPath(path)
-            return if (normalized.isEmpty()) emptyList() else listOf(normalized)
-        }
 
         fun isSameOrDescendantFolder(path: String, parent: String): Boolean {
             val normPath = normalizeFolderPath(path)

@@ -1732,9 +1732,8 @@ class ExampleRobolectricTest {
             PersonalDictionaryEntry(id = "e_gmail", word = "adminsuperpanjang@gmail.com", shortcut = "", folder = "gm", updatedAtMillis = 11L),
             PersonalDictionaryEntry(id = "e_nomor", word = "081234567890", shortcut = "", folder = "num", updatedAtMillis = 12L),
             PersonalDictionaryEntry(id = "e_kerja", word = "Mohon ditunggu sebentar", shortcut = "mds", folder = "Kerja", updatedAtMillis = 13L),
-            PersonalDictionaryEntry(id = "e_legacy_keuangan", word = "Siap, segera diproses", shortcut = "sp", folder = "Keuangan", updatedAtMillis = 14L)
         )
-        val folders = listOf("Kerja", "gm", "num", "Keuangan")
+        val folders = listOf("Kerja", "gm", "num")
         composeRule.setContent {
             KetikKuTheme(darkTheme = false) {
                 DictionaryScreen(
@@ -1766,9 +1765,6 @@ class ExampleRobolectricTest {
         assertTrue("Balasan Cepat must be above custom folders", balasanBounds.bottom <= kerjaBounds.top + 1f)
         assertTrue("Custom folders must be above unfoldered entries", kerjaBounds.bottom <= rootEntryBounds.top + 1f)
 
-        // Legacy "Keuangan" folder must not appear separately; its entry auto-migrated to "bc"
-        assertTrue(composeRule.onAllNodesWithTag("folder_item_Keuangan").fetchSemanticsNodes().isEmpty())
-
         // None of the 6 primary folders show a 3-dot menu
         SettingsRepository.PRIMARY_FOLDERS.forEach { primary ->
             assertTrue(
@@ -1780,11 +1776,10 @@ class ExampleRobolectricTest {
         // Root tidak punya toolbar lagi; tambah folder dilakukan dari dalam kamus
         assertTrue(composeRule.onAllNodesWithTag("add_folder_button").fetchSemanticsNodes().isEmpty())
 
-        // Open Balasan Cepat -> verifies legacy Keuangan entry is automatically shown inside Balasan Cepat
+        // Open Balasan Cepat -> breadcrumb tampil di dalam folder utama
         composeRule.onNodeWithTag("folder_item_bc").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("folder_breadcrumb_bar").assertIsDisplayed()
-        composeRule.onNodeWithTag("dictionary_item_e_legacy_keuangan").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithTag("add_folder_button").fetchSemanticsNodes().isEmpty())
 
         // Navigate back to Utama

@@ -19,12 +19,12 @@
 
 ## Penyimpanan dan migrasi
 - Seed baru dienkripsi AES-256-GCM dengan kunci non-exportable Android Keystore, format lokal `k2:iv:ciphertext`.
-- Data lokal versi lama dibaca dengan format lama kemudian dienkripsi ulang saat kamus dimuat. Migrasi tidak menghapus akun atau berkas cadangan.
+- Data lokal versi lama tetap dibaca lewat jalur format lama, tetapi tidak lagi dienkripsi ulang otomatis saat kamus dimuat. Aplikasi tidak menghapus akun atau berkas cadangan.
 - Kunci lama yang publik tetap tersedia hanya untuk pemulihan/migrasi. Mengenkripsi ulang tidak membatalkan kebocoran seed lama: jika pernah terekspos, daftar ulang A2F di layanan terkait.
 - Android system backup dan transfer data otomatis dinonaktifkan. Ciphertext lokal bukan cadangan lintas perangkat.
 
 ## Cadangan otomatis terenkripsi
-- Berkas: `ketikku_umum.json`, `ketikku_pw.json`, `ketikku_kred.json`, `ketikku_aut.json`, dan `ketikku_aut_terenkripsi.json`. Nama lama (`ketikku_kata_sandi.json`, `ketikku_kredensial.json`, `ketikku_a2f_terenkripsi.json`) tetap dibaca sebagai cadangan jika berkas baru belum ada.
+- Berkas: `ketikku_umum.json`, `ketikku_pw.json`, `ketikku_kred.json`, `ketikku_aut.json`, dan `ketikku_aut_terenkripsi.json`. Nama lama (`ketikku_kata_sandi.json`, `ketikku_kredensial.json`, `ketikku_a2f_terenkripsi.json`) tidak dibaca lagi.
 - Semua berkas dienkripsi dengan satu passphrase: AES-256-GCM, kunci = SHA-256(passphrase), format `ketikku-enc-v2`. Setiap berkas terikat jenisnya lewat AAD `format|jenis`, jadi tidak bisa ditukar antar-jenis.
 - Berkas `ketikku-enc-v1` (PBKDF2) dari versi lama tetap bisa dibaca. Semua penulisan baru memakai v2.
 - Kartu cadangan perangkat punya tiga langkah: (1) atur passphrase, minimal 12 karakter; (2) pilih folder di Documents; (3) tombol **↓ Timpa ke bawah** (aplikasi → perangkat) dan **↑ Timpa ke atas** (perangkat → aplikasi).
@@ -40,7 +40,7 @@
 - Cadangan A2F otomatis: akun baru ditambahkan dari berkas ke aplikasi, tetapi aplikasi tidak menghapus akun A2F lokal karena berkas. Menghapus akun A2F terakhir tidak mengosongkan berkas, sehingga akun bisa kembali pada sinkron berikutnya.
 - “Timpa ke atas” (↑) berarti perangkat → aplikasi; “Timpa ke bawah” (↓) berarti aplikasi → perangkat. Istilah lain (unggah, unduh, push) tidak dipakai di antarmuka.
 - Timpa ke atas menggabungkan entri per id dan versi yang lebih baru menang. Entri yang hanya ada di aplikasi tetap ada.
-- Aplikasi tidak otomatis menghapus berkas tujuan, termasuk `ketikku_a2f.json` lama. Berkas `ketikku_a2f.json` (ekspor berpassword manual) tidak ditulis otomatis.
+- Aplikasi tidak menghapus berkas lain di Documents, termasuk `ketikku_a2f.json` lama. Berkas `ketikku_a2f.json` tidak ditulis dan tidak dibaca otomatis.
 
 ## Cadangan A2F
 - Cadangan A2F ikut sinkron otomatis dan dienkripsi dengan passphrase perangkat (AES-GCM, kunci SHA-256).
@@ -48,9 +48,9 @@
 - Simpan passphrase di tempat aman. Passphrase tidak disimpan aplikasi dan tidak dapat dipulihkan.
 
 ## Pemulihan cadangan lama
-- Berkas A2F lama (`ketikku_a2f.json`) tidak dipulihkan lewat panel. Aplikasi tidak membacanya secara otomatis.
+- Berkas A2F lama (`ketikku_a2f.json`) tidak dibaca lagi, baik lewat panel maupun otomatis.
 - Berkas dengan ciphertext Keystore dari HP lain tidak dapat dipulihkan.
-- Hapus atau ganti berkas `ketikku_a2f.json` lama **secara manual**. Migrasi aplikasi tidak membuat berkas lama aman.
+- Berkas `ketikku_a2f.json` lama yang masih ada di Documents hapus atau ganti **secara manual**. Aplikasi tidak menghapusnya.
 - Jangan mengirim seed atau cadangan lama ke AI, log, tiket, atau repositori.
 
 ## Verifikasi

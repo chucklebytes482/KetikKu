@@ -8,12 +8,13 @@ import org.junit.Test
 
 class FolderRenameTest {
     @Test
-    fun legacyFolderNamesMapToShortCodes() {
-        assertEquals("gm", SettingsRepository.normalizeFolderPath("Gmail"))
-        assertEquals("pw", SettingsRepository.normalizeFolderPath("Kata Sandi"))
-        assertEquals("tras", SettingsRepository.normalizeFolderPath("Sampah"))
-        assertEquals("aut", SettingsRepository.normalizeFolderPath("A2F"))
-        assertEquals("bc", SettingsRepository.normalizeFolderPath("Keuangan"))
+    fun oldFolderNamesStayCustomAndPrimaryCodesStillMatch() {
+        assertEquals("gm", SettingsRepository.normalizeFolderPath("GM"))
+        assertEquals("pw", SettingsRepository.normalizeFolderPath("Pw"))
+        assertEquals("Gmail", SettingsRepository.normalizeFolderPath("Gmail"))
+        assertEquals("Kata Sandi", SettingsRepository.normalizeFolderPath("Kata Sandi"))
+        assertEquals("Sampah", SettingsRepository.normalizeFolderPath("Sampah"))
+        assertEquals("Keuangan", SettingsRepository.normalizeFolderPath("Keuangan"))
     }
 
     @Test
@@ -23,13 +24,10 @@ class FolderRenameTest {
     }
 
     @Test
-    fun backupFileNamesUseNewPatternAndKeepLegacyFallback() {
+    fun backupFileNamesUseNewPattern() {
         assertEquals("ketikku_pw.json", DeviceDictionaryBackupManager.BACKUP_FILE_KATA_SANDI)
         assertEquals("ketikku_kred.json", DeviceDictionaryBackupManager.BACKUP_FILE_KREDENSIAL)
         assertEquals("ketikku_aut.json", DeviceDictionaryBackupManager.BACKUP_FILE_A2F)
         assertEquals("ketikku_aut_terenkripsi.json", DeviceDictionaryBackupManager.BACKUP_FILE_A2F_AUTO)
-        assertEquals("ketikku_kata_sandi.json", DeviceDictionaryBackupManager.LEGACY_BACKUP_FILE_NAMES[DeviceDictionaryBackupManager.BACKUP_FILE_KATA_SANDI])
-        assertEquals("ketikku_a2f_terenkripsi.json", DeviceDictionaryBackupManager.LEGACY_BACKUP_FILE_NAMES[DeviceDictionaryBackupManager.BACKUP_FILE_A2F_AUTO])
-        assertTrue(DeviceDictionaryBackupManager.LEGACY_BACKUP_FILE_NAMES.values.none { it == DeviceDictionaryBackupManager.BACKUP_FILE_UMUM })
     }
 }
