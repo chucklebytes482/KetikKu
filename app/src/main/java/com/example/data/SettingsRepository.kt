@@ -863,6 +863,9 @@ class SettingsRepository(
     suspend fun importLocalBackupJson(rawJson: String): Result<String> {
         val full = decodeFullBackupJson(rawJson)
         if (full != null && full.appName.isNotBlank()) {
+            if (full.dictionary.any { DictionaryEngine.isA2fEntry(it) }) {
+                return Result.failure(IllegalArgumentException("Gunakan panel Impor A2F untuk pemulihan seed; setelan tidak diubah"))
+            }
             val now = System.currentTimeMillis()
             applyRemoteSettings(full.settings.copy(updatedAtMillis = maxOf(full.settings.updatedAtMillis, now)))
             val merged = mergeRemoteDictionary(full.dictionary, full.folders)
@@ -888,6 +891,9 @@ class SettingsRepository(
 
         val dictOnly = decodeDictionaryBackupJson(rawJson)
         if (dictOnly != null) {
+            if (dictOnly.entries.any { DictionaryEngine.isA2fEntry(it) }) {
+                return Result.failure(IllegalArgumentException("Gunakan panel Impor A2F untuk pemulihan seed"))
+            }
             val merged = mergeRemoteDictionary(dictOnly.entries, dictOnly.folders)
             return Result.success("${merged.count { !it.deleted }} kata kamus berhasil digabungkan dari JSON lokal.")
         }

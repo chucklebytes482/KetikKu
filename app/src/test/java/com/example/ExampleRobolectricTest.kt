@@ -888,7 +888,8 @@ class ExampleRobolectricTest {
             val firstSync = manager.syncNow()
             assertTrue("Expected Synced result, got $firstSync", firstSync is com.example.data.DeviceSyncResult.Synced)
             val filesAfterFirst = tempDir.listFiles()?.toList().orEmpty()
-            assertEquals("Exactly 4 backup files must exist", 4, filesAfterFirst.size)
+            assertEquals("Exactly 3 automatic backup files must exist", 3, filesAfterFirst.size)
+            assertFalse(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_A2F).exists())
             assertTrue(filesAfterFirst.any { it.name == com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM })
 
             val firstContent = storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)
@@ -907,7 +908,7 @@ class ExampleRobolectricTest {
             val secondSync = manager.syncNow()
             assertTrue(secondSync is com.example.data.DeviceSyncResult.Synced)
             val filesAfterSecond = tempDir.listFiles()?.toList().orEmpty()
-            assertEquals("Re-sync must overwrite in-place without duplicates", 4, filesAfterSecond.size)
+            assertEquals("Re-sync must overwrite in-place without duplicates", 3, filesAfterSecond.size)
             val secondContent = storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)
             assertTrue(secondContent.contains("Halo Perangkat"))
             assertTrue(secondContent.contains("Balasan Cepat Baru"))
@@ -931,7 +932,7 @@ class ExampleRobolectricTest {
             val dictAfterPull = repo.getCurrentDictionary()
             assertTrue(dictAfterPull.any { !it.deleted && it.word == "Template AI Terbaru" && it.folder == "AI" })
             assertTrue(repo.getCurrentFolders().contains("AI"))
-            assertEquals(4, tempDir.listFiles()?.size ?: 0)
+            assertEquals(3, tempDir.listFiles()?.size ?: 0)
 
             // 4. Empty local dictionary (simulating reinstall) -> auto-restores from existing file
             repo.replaceDictionaryAndFolders(emptyList(), emptyList())
@@ -941,7 +942,14 @@ class ExampleRobolectricTest {
             assertTrue((restoreSync as com.example.data.DeviceSyncResult.Synced).restoredFromFile)
             val restoredEntries = repo.getCurrentDictionary()
             assertTrue(restoredEntries.any { !it.deleted && it.word == "Template AI Terbaru" })
-            assertEquals(4, tempDir.listFiles()?.size ?: 0)
+            assertEquals(3, tempDir.listFiles()?.size ?: 0)
+
+            // Existing A2F exports are never overwritten or deleted by ordinary sync.
+            val protectedA2f = storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_A2F)
+            protectedA2f.writeText("password-backup-sentinel")
+            repo.upsertDictionaryEntry("Ordinary update", "ou", KeyboardLanguage.INDONESIAN.code, existingId = "ordinary_update")
+            assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
+            assertEquals("password-backup-sentinel", protectedA2f.readText())
         } finally {
             tempDir.deleteRecursively()
         }
