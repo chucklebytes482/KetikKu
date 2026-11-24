@@ -1136,9 +1136,8 @@ class DeviceDictionaryBackupManager(
     }
 
     /**
-     * Menggabungkan entri lokal dan eksternal sembari menjaga agar entri aktif di lokal
-     * tidak pernah berubah menjadi terhapus (deleted = true) akibat berkas eksternal
-     * yang lebih sedikit/terpotong, namun tetap mengambil entri baru & pembaruan aktif.
+     * Menggabungkan entri lokal dan eksternal berdasarkan updatedAtMillis terbaru per id.
+     * Entri yang hilang dari berkas eksternal tidak dihitung sebagai hapus; tombstone menang kalau lebih baru.
      */
     private fun mergePreservingActiveLocal(
         local: List<PersonalDictionaryEntry>,
@@ -1150,14 +1149,10 @@ class DeviceDictionaryBackupManager(
         }
         for (remoteItem in remote) {
             val existing = byId[remoteItem.id]
-            when {
-                existing == null -> byId[remoteItem.id] = remoteItem
-                !existing.deleted && remoteItem.deleted -> {
-                    // Lindungi entri aktif lokal dari penghapusan tak sengaja saat berkas eksternal menyusut
-                }
-                remoteItem.updatedAtMillis >= existing.updatedAtMillis -> {
-                    byId[remoteItem.id] = remoteItem
-                }
+            // Penanda hapus (tombstone, termasuk hapus permanen) ikut menang kalau lebih baru.
+            // Entri yang lebih lama tidak pernah menimpa entri lokal yang lebih baru.
+            if (existing == null || remoteItem.updatedAtMillis >= existing.updatedAtMillis) {
+                byId[remoteItem.id] = remoteItem
             }
         }
         return byId.values.toList()

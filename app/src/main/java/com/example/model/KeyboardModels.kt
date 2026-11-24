@@ -55,7 +55,9 @@ data class PersonalDictionaryEntry(
     // Folder asal saat entri dipindah ke Sampah; kosong jika tidak di Sampah.
     val trashedFrom: String = "",
     // Sisa kesempatan edit seed A2F (duplikat boleh edit seed 1 kali).
-    val seedEditsLeft: Int = 0
+    val seedEditsLeft: Int = 0,
+    // Duplikat A2F: semua field boleh diedit. Entri asli tetap terkunci.
+    val editable: Boolean = false
 )
 
 @Immutable
