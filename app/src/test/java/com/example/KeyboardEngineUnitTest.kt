@@ -784,7 +784,7 @@ class KeyboardEngineUnitTest {
             entries = emptyList()
         )
         assertEquals(
-            listOf("Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "Balasan Cepat", "Kerja"),
+            listOf("Gmail", "Nomor", "Pribadi", "Kata Sandi", "Kredensial", "A2F", "Balasan Cepat", "Kerja"),
             ordered
         )
     }
