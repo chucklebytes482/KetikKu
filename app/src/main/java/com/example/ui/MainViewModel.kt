@@ -379,6 +379,42 @@ class MainViewModel(
         }
     }
 
+    fun isBackupEncryptionConfigured(): Boolean = deviceBackupManager?.isEncryptionConfigured() == true
+
+    /**
+     * Mengaktifkan cadangan otomatis terenkripsi. [passphrase] dikosongkan setelah dipakai.
+     */
+    fun enableBackupEncryption(passphrase: CharArray, onComplete: (Result<String>) -> Unit) {
+        val manager = deviceBackupManager
+        if (manager == null) {
+            passphrase.fill('\u0000')
+            onComplete(Result.failure(IllegalStateException("Cadangan perangkat tidak tersedia")))
+            return
+        }
+        _deviceSyncUiState.value = DeviceSyncUiState.Syncing
+        viewModelScope.launch {
+            val result = try {
+                manager.enableEncryption(passphrase)
+            } catch (t: Throwable) {
+                DeviceSyncResult.Error(t.localizedMessage ?: "Gagal mengaktifkan enkripsi cadangan")
+            } finally {
+                passphrase.fill('\u0000')
+            }
+            _deviceSyncUiState.value = when (result) {
+                is DeviceSyncResult.Synced -> DeviceSyncUiState.Idle
+                is DeviceSyncResult.NeedsFolderAccess -> DeviceSyncUiState.NeedsFolderAccess(result.message)
+                is DeviceSyncResult.Error -> DeviceSyncUiState.Error(result.message)
+            }
+            onComplete(
+                when (result) {
+                    is DeviceSyncResult.Synced -> Result.success("Cadangan terenkripsi aktif")
+                    is DeviceSyncResult.NeedsFolderAccess -> Result.failure(IllegalStateException(result.message))
+                    is DeviceSyncResult.Error -> Result.failure(IllegalStateException(result.message))
+                }
+            )
+        }
+    }
+
     fun onDeviceBackupFolderGranted(treeUri: String) {
         if (treeUri.isBlank()) return
         if (!DeviceDictionaryBackupManager.isValidDocumentsTreeUri(treeUri)) {

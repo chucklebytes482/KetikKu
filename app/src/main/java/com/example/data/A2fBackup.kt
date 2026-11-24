@@ -27,8 +27,8 @@ object A2fBackup {
         } finally { spec.clearPassword() }
     }
 
-    fun encode(entries: List<PersonalDictionaryEntry>, password: CharArray): String {
-        require(password.size >= 12) { "Password cadangan minimal 12 karakter" }
+    /** Isi A2F aktif sebagai JSON array (id, shortcut, seed). Seed dibaca dari Keystore. */
+    fun payloadJson(entries: List<PersonalDictionaryEntry>): String {
         val payload = JSONArray()
         entries.filter { DictionaryEngine.isA2fEntry(it) && !it.deleted }.forEach { entry ->
             val seed = SecretVault.decryptOrNull(entry.secretCipher)
@@ -36,7 +36,12 @@ object A2fBackup {
             payload.put(JSONObject().put("id", entry.id).put("shortcut", entry.shortcut)
                 .put("seed", seed).put("updatedAtMillis", entry.updatedAtMillis))
         }
-        val plain = payload.toString().toByteArray(Charsets.UTF_8)
+        return payload.toString()
+    }
+
+    fun encode(entries: List<PersonalDictionaryEntry>, password: CharArray): String {
+        require(password.size >= 12) { "Password cadangan minimal 12 karakter" }
+        val plain = payloadJson(entries).toByteArray(Charsets.UTF_8)
         require(plain.size <= MAX_BYTES) { "Cadangan A2F terlalu besar" }
         val salt = ByteArray(16).also { random.nextBytes(it) }
         val iv = ByteArray(12).also { random.nextBytes(it) }
@@ -70,8 +75,13 @@ object A2fBackup {
         return payload
     }
 
-    fun decode(raw: String, password: CharArray): List<PersonalDictionaryEntry> {
-        val payload = decryptPayload(raw, password)
+    fun decode(raw: String, password: CharArray): List<PersonalDictionaryEntry> =
+        entriesFromPayload(decryptPayload(raw, password))
+
+    /** Dipakai cadangan A2F otomatis: payload plaintext hasil dekripsi amplop. */
+    fun entriesFromPayloadJson(raw: String): List<PersonalDictionaryEntry> = entriesFromPayload(JSONArray(raw))
+
+    private fun entriesFromPayload(payload: JSONArray): List<PersonalDictionaryEntry> {
         val ids = mutableSetOf<String>()
         val shortcuts = mutableSetOf<String>()
         // Validate entire payload before creating any local ciphertext.

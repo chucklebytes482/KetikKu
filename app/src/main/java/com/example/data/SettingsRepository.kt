@@ -477,6 +477,41 @@ class SettingsRepository(
         return mergedResult
     }
 
+    /**
+     * Cadangan A2F otomatis hanya MENAMBAH akun yang id-nya belum ada lokal (termasuk yang sudah dihapus lokal,
+     * agar tidak bangkit lagi). Pintasan yang bentrok dengan akun aktif lokal dilewati. Tidak pernah menghapus.
+     */
+    suspend fun addMissingA2fAccounts(incoming: List<PersonalDictionaryEntry>): Int {
+        var added = 0
+        dataStore.edit { prefs ->
+            val local = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
+            val localIds = local.map { it.id }.toSet()
+            val activeShortcuts = local
+                .filter { DictionaryEngine.isA2fEntry(it) && !it.deleted }
+                .map { it.shortcut.lowercase(Locale.ROOT) }
+                .toMutableSet()
+            val toAdd = mutableListOf<PersonalDictionaryEntry>()
+            for (entry in incoming) {
+                if (entry.id in localIds || entry.id.isBlank()) continue
+                val shortcut = entry.shortcut.lowercase(Locale.ROOT)
+                if (!activeShortcuts.add(shortcut)) continue
+                toAdd += entry.copy(word = "••••••••", folder = FOLDER_A2F)
+            }
+            if (toAdd.isNotEmpty()) {
+                val merged = local + toAdd
+                val folders = prependFoldersToStorage(
+                    existingFolders = parseFolderList(prefs[Keys.FOLDERS_JSON]),
+                    newFolderPaths = listOf(FOLDER_A2F),
+                    entries = merged
+                )
+                prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(merged)
+                prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(folders)
+                added = toAdd.size
+            }
+        }
+        return added
+    }
+
     suspend fun replaceDictionaryAndFolders(
         entries: List<PersonalDictionaryEntry>,
         folders: List<String> = emptyList()

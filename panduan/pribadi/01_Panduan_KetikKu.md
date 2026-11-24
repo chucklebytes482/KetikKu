@@ -18,12 +18,17 @@
 - Kunci lama yang publik tetap tersedia hanya untuk pemulihan/migrasi. Mengenkripsi ulang tidak membatalkan kebocoran seed lama: jika pernah terekspos, daftar ulang A2F di layanan terkait.
 - Android system backup dan transfer data otomatis dinonaktifkan. Ciphertext lokal bukan cadangan lintas perangkat.
 
-## Cadangan otomatis biasa
-- Hanya tiga berkas: `ketikku_umum.json`, `ketikku_kata_sandi.json`, `ketikku_kredensial.json`.
-- Ketiganya JSON biasa, **bukan cadangan berpassword**; amankan foldernya karena kata sandi/kredensial dapat terbaca.
-- A2F tidak ditulis atau dipulihkan otomatis dari berkas tersebut. Mengimpor kamus biasa tidak menghapus akun A2F lokal.
+## Cadangan otomatis terenkripsi
+- Berkas: `ketikku_umum.json`, `ketikku_kata_sandi.json`, `ketikku_kredensial.json`, dan `ketikku_a2f_terenkripsi.json`.
+- Semua berkas dienkripsi dengan satu passphrase (AES-256-GCM, PBKDF2-HMAC-SHA1 600.000 iterasi, salt acak per berkas). Setiap berkas terikat jenisnya, jadi tidak bisa ditukar antar-jenis.
+- Aktifkan lewat panel cadangan A2F → **Aktifkan cadangan otomatis terenkripsi**. Minimal 12 karakter. Sebelum aktif, tiga berkas tetap JSON biasa dan berkas A2F otomatis belum dibuat.
+- Passphrase disimpan di perangkat dalam bentuk terbungkus Android Keystore. Siapa pun yang bisa membuka perangkat atau data aplikasi dapat memulihkannya.
+- HP baru: pasang aplikasi, buka cadangan (berkas terenkripsi terbaca hanya setelah passphrase dimasukkan), lalu aktifkan dengan passphrase yang sama. Keystore tidak ikut pindah, jadi passphrase wajib.
+- Berkas tanpa enkripsi tetap dibaca untuk kompatibilitas, lalu ditulis ulang terenkripsi setelah passphrase aktif.
+- Kata sandi dan kredensial hanya aman selama passphrase dijaga; simpan passphrase terpisah dari berkas.
+- Cadangan A2F otomatis: akun baru ditambahkan dari berkas ke aplikasi, tetapi aplikasi tidak menghapus akun A2F lokal karena berkas. Menghapus akun A2F terakhir tidak mengosongkan berkas, sehingga akun bisa kembali pada sinkron berikutnya.
 - “Timpa ke atas” berarti berkas → aplikasi; “Timpa ke bawah” berarti aplikasi → berkas.
-- Aplikasi tidak otomatis menghapus berkas tujuan, termasuk `ketikku_a2f.json` lama.
+- Aplikasi tidak otomatis menghapus berkas tujuan, termasuk `ketikku_a2f.json` lama. Berkas `ketikku_a2f.json` (ekspor berpassword manual) tidak ditulis otomatis.
 
 ## Cadangan A2F lintas perangkat
 1. Buka panel cadangan perangkat → **Ekspor A2F berpassword**.

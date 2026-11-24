@@ -411,9 +411,95 @@ class AndroidDeviceBackupStorage(
 
 class DeviceDictionaryBackupManager(
     private val settingsRepository: SettingsRepository,
-    private val storage: DeviceBackupStorage
+    private val storage: DeviceBackupStorage,
+    private val cipher: BackupCipher? = null
 ) {
     private val syncMutex = Mutex()
+
+    fun isEncryptionConfigured(): Boolean = cipher?.isConfigured() == true
+
+    /**
+     * Mengaktifkan enkripsi cadangan otomatis. Jika di perangkat sudah ada cadangan terenkripsi,
+     * passphrase dicocokkan dengannya (pemulihan di HP baru); jika belum, passphrase baru dibuat.
+     * Setelah itu sinkronisasi penuh dijalankan. Tidak boleh dipanggil dari dalam syncMutex.
+     */
+    suspend fun enableEncryption(passphrase: CharArray): DeviceSyncResult {
+        val backupCipher = cipher ?: return DeviceSyncResult.Error("Enkripsi cadangan tidak tersedia")
+        try {
+            if (backupCipher.isConfigured()) return DeviceSyncResult.Error("Cadangan terenkripsi sudah aktif")
+            val treeUri = settingsRepository.getCurrentSyncLocalState().deviceBackupTreeUri.takeIf { it.isNotBlank() }
+            withContext(Dispatchers.IO) {
+                var remoteEnvelope: String? = null
+                for (fileName in ENCRYPTABLE_FILE_NAMES) {
+                    when (val read = storage.readBackup(fileName, treeUri)) {
+                        is BackupReadResult.Found -> {
+                            if (remoteEnvelope == null && BackupCrypto.isEnvelope(read.file.content)) {
+                                remoteEnvelope = read.file.content
+                            }
+                        }
+                        is BackupReadResult.NeedsFolderAccess -> throw IllegalStateException(read.reason)
+                        is BackupReadResult.Error -> throw IllegalStateException(read.message)
+                        is BackupReadResult.NotFound -> Unit
+                    }
+                }
+                val envelope = remoteEnvelope
+                if (envelope != null) backupCipher.unlock(passphrase, envelope)
+                else backupCipher.setup(passphrase)
+            }
+        } catch (e: Exception) {
+            return DeviceSyncResult.Error(e.message ?: "Gagal mengaktifkan enkripsi cadangan")
+        } finally {
+            passphrase.fill('\u0000')
+        }
+        return syncNow()
+    }
+
+    /** Setelah sinkron kamus berhasil, perbarui berkas A2F terenkripsi. Saat sinkron penuh, akun dari berkas ikut digabung. */
+    private suspend fun afterDictionaryWrite(result: DeviceSyncResult, mergeA2f: Boolean): DeviceSyncResult {
+        if (result !is DeviceSyncResult.Synced || cipher?.isConfigured() != true) return result
+        val treeUri = settingsRepository.getCurrentSyncLocalState().deviceBackupTreeUri.takeIf { it.isNotBlank() }
+        val error = try {
+            syncA2fAuto(treeUri, mergeA2f)
+        } catch (e: Exception) {
+            e.localizedMessage ?: "Gagal memperbarui cadangan A2F"
+        }
+        if (error == null) return result
+        settingsRepository.updateSyncState(
+            lastSyncedAtMillis = result.syncedAtMillis,
+            message = error,
+            pendingChanges = true
+        )
+        return DeviceSyncResult.Error(error)
+    }
+
+    /**
+     * Berkas A2F terenkripsi. Dengan [mergeIncoming], akun dari berkas yang belum ada lokal ditambahkan dulu.
+     * Lalu himpunan A2F aktif lokal ditulis. Himpunan lokal kosong tidak pernah menimpa berkas.
+     * Mengembalikan pesan error, atau null jika berhasil.
+     */
+    private suspend fun syncA2fAuto(treeUri: String?, mergeIncoming: Boolean): String? = withContext(Dispatchers.IO) {
+        val backupCipher = cipher ?: return@withContext null
+        if (!backupCipher.isConfigured()) return@withContext null
+        if (mergeIncoming) {
+            when (val read = storage.readBackup(BACKUP_FILE_A2F_AUTO, treeUri)) {
+                is BackupReadResult.NeedsFolderAccess -> return@withContext read.reason
+                is BackupReadResult.Error -> return@withContext read.message
+                is BackupReadResult.NotFound -> Unit
+                is BackupReadResult.Found -> {
+                    val payload = backupCipher.decrypt(KIND_A2F_AUTO, read.file.content)
+                    settingsRepository.addMissingA2fAccounts(A2fBackup.entriesFromPayloadJson(payload))
+                }
+            }
+        }
+        val localA2f = settingsRepository.getCurrentDictionary()
+        if (localA2f.none { DictionaryEngine.isA2fEntry(it) && !it.deleted }) return@withContext null
+        val sealed = backupCipher.encrypt(KIND_A2F_AUTO, A2fBackup.payloadJson(localA2f))
+        when (val write = storage.writeBackup(BACKUP_FILE_A2F_AUTO, sealed, treeUri)) {
+            is BackupWriteResult.Success -> null
+            is BackupWriteResult.NeedsFolderAccess -> write.reason
+            is BackupWriteResult.Error -> write.message
+        }
+    }
 
     /**
      * Dipanggil seketika setiap kali ada perubahan kamus atau folder di dalam aplikasi
@@ -425,7 +511,7 @@ class DeviceDictionaryBackupManager(
      * penimpaan buta diblokir dan entri perangkat diselamatkan terlebih dahulu lewat penggabungan aman.
      */
     suspend fun pushLocalToDevice(nowMillis: Long = System.currentTimeMillis()): DeviceSyncResult = syncMutex.withLock {
-        withContext(Dispatchers.IO) {
+        val result: DeviceSyncResult = withContext(Dispatchers.IO) {
             val localEntries = settingsRepository.getCurrentDictionary()
             val localFolders = settingsRepository.getCurrentFolders()
             val syncState = settingsRepository.getCurrentSyncLocalState()
@@ -476,7 +562,17 @@ class DeviceDictionaryBackupManager(
                         }
                     }
 
-                    is BackupReadResult.NotFound, is BackupReadResult.Error -> Unit
+                    is BackupReadResult.Error -> {
+                        // Berkas tidak terbaca (mis. terenkripsi tanpa passphrase): jangan timpa.
+                        settingsRepository.updateSyncState(
+                            lastSyncedAtMillis = syncState.lastSyncedAtMillis,
+                            message = existingRead.message,
+                            pendingChanges = true
+                        )
+                        return@withContext DeviceSyncResult.Error(existingRead.message)
+                    }
+
+                    is BackupReadResult.NotFound -> Unit
                 }
             }
 
@@ -496,10 +592,11 @@ class DeviceDictionaryBackupManager(
                 previousPending = true
             )
         }
+        afterDictionaryWrite(result, mergeA2f = false)
     }
 
     suspend fun syncNow(nowMillis: Long = System.currentTimeMillis()): DeviceSyncResult = syncMutex.withLock {
-        withContext(Dispatchers.IO) {
+        val result: DeviceSyncResult = withContext(Dispatchers.IO) {
             val localEntries = settingsRepository.getCurrentDictionary()
             val localFolders = settingsRepository.getCurrentFolders()
             val syncState = settingsRepository.getCurrentSyncLocalState()
@@ -810,6 +907,7 @@ class DeviceDictionaryBackupManager(
                 }
             }
         }
+        afterDictionaryWrite(result, mergeA2f = true)
     }
 
     /** Membaca keempat berkas jenis dan menggabungkannya menjadi satu envelope JSON. */
@@ -830,7 +928,18 @@ class DeviceDictionaryBackupManager(
                 is BackupReadResult.Found -> {
                     foundAny = true
                     lastModified = maxOf(lastModified, result.file.lastModifiedMillis)
-                    val decoded = settingsRepository.decodeDictionaryBackupJson(result.file.content) ?: continue
+                    val plain = if (!BackupCrypto.isEnvelope(result.file.content)) {
+                        result.file.content
+                    } else {
+                        val c = cipher
+                        if (c == null || !c.isConfigured()) return BackupReadResult.Error(LOCKED_MESSAGE)
+                        try {
+                            c.decrypt(kind, result.file.content)
+                        } catch (e: Exception) {
+                            return BackupReadResult.Error(e.message ?: LOCKED_MESSAGE)
+                        }
+                    }
+                    val decoded = settingsRepository.decodeDictionaryBackupJson(plain) ?: continue
                     entries += decoded.entries.filterNot { DictionaryEngine.isA2fEntry(it) }
                     folders += decoded.folders
                     updatedAt = maxOf(updatedAt, decoded.updatedAtMillis)
@@ -881,7 +990,17 @@ class DeviceDictionaryBackupManager(
                 )
             }
             val fileName = DeviceDictionaryBackupManager.backupFileNameFor(kind)
-            when (val result = storage.writeBackup(fileName, content, treeUri)) {
+            val c = cipher
+            val payload = if (c != null && c.isConfigured()) {
+                try {
+                    c.encrypt(kind, content)
+                } catch (e: Exception) {
+                    return BackupWriteResult.Error(e.message ?: "Gagal mengenkripsi cadangan")
+                }
+            } else {
+                content
+            }
+            when (val result = storage.writeBackup(fileName, payload, treeUri)) {
                 is BackupWriteResult.Success -> latest = maxOf(latest, result.writtenAtMillis)
                 is BackupWriteResult.NeedsFolderAccess -> return result
                 is BackupWriteResult.Error -> return result
@@ -999,6 +1118,14 @@ class DeviceDictionaryBackupManager(
         const val BACKUP_FILE_KATA_SANDI = "ketikku_kata_sandi.json"
         const val BACKUP_FILE_KREDENSIAL = "ketikku_kredensial.json"
         const val BACKUP_FILE_A2F = "ketikku_a2f.json"
+        /** Cadangan otomatis A2F (terenkripsi passphrase). Berkas `ketikku_a2f.json` tetap hanya untuk impor manual. */
+        const val BACKUP_FILE_A2F_AUTO = "ketikku_a2f_terenkripsi.json"
+        const val KIND_A2F_AUTO = "a2f_auto"
+        const val LOCKED_MESSAGE = "Cadangan terenkripsi terkunci: masukkan passphrase cadangan"
+        /** Berkas yang ikut dienkripsi saat passphrase aktif. */
+        val ENCRYPTABLE_FILE_NAMES = listOf(
+            BACKUP_FILE_UMUM, BACKUP_FILE_KATA_SANDI, BACKUP_FILE_KREDENSIAL, BACKUP_FILE_A2F_AUTO
+        )
         /** Berkas tunggal lama; hanya dibaca untuk migrasi, tidak pernah dihapus. */
         const val LEGACY_DICTIONARY_FILE_NAME = "ketikku_dictionary.json"
         const val BACKUP_SHORT_PATH = "Documents/ketikku_*.json"
