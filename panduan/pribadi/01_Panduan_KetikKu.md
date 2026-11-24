@@ -37,18 +37,15 @@
 - Timpa ke atas menggabungkan entri per id dan versi yang lebih baru menang. Entri yang hanya ada di aplikasi tetap ada.
 - Aplikasi tidak otomatis menghapus berkas tujuan, termasuk `ketikku_a2f.json` lama. Berkas `ketikku_a2f.json` (ekspor berpassword manual) tidak ditulis otomatis.
 
-## Cadangan A2F lintas perangkat
-1. Buka panel cadangan perangkat → **Ekspor A2F berpassword**.
-2. Gunakan password unik minimal 12 karakter; ulangi untuk konfirmasi.
-3. Pilih lokasi berkas `ketikku_a2f.json`. Semua metadata akun dan seed ada dalam payload terenkripsi AES-256-GCM. Kunci berasal dari PBKDF2-HMAC-SHA1, 600.000 iterasi, salt acak 16 byte (kompatibel API 24). Ini format terpisah dari cadangan otomatis dan belum diubah ke SHA-256.
-4. Simpan berkas dan password secara terpisah. Password tidak disimpan aplikasi dan tidak dapat dipulihkan.
-5. Ekspor **sebelum** uninstall, hapus data aplikasi, atau pindah HP. Pada perangkat tujuan pilih **Impor A2F**, isi password, lalu pilih berkas. Seed dienkripsi ulang memakai Keystore perangkat tujuan.
-6. Password salah, berkas rusak, ID bentrok, seed berbeda untuk ID yang sama, atau pintasan duplikat membatalkan impor tanpa mengganti kamus.
+## Cadangan A2F
+- Cadangan A2F ikut sinkron otomatis dan dienkripsi dengan passphrase perangkat (AES-GCM, kunci SHA-256).
+- Ekspor/impor A2F berpassword manual sudah dihapus dari panel cadangan. Seed tidak ikut pindah lewat berkas manual.
+- Simpan passphrase di tempat aman. Passphrase tidak disimpan aplikasi dan tidak dapat dipulihkan.
 
 ## Pemulihan cadangan lama
-- Gunakan tombol Impor A2F secara eksplisit dengan password kosong untuk JSON A2F lama.
-- Berkas dengan ciphertext Keystore dari HP lain tidak dapat dipulihkan melalui jalur lama; gunakan ekspor berpassword dari HP asal.
-- Setelah pemulihan, ekspor cadangan berpassword dan ganti/hapus berkas lama **secara manual**. Migrasi aplikasi tidak membuat berkas lama aman.
+- Berkas A2F lama (`ketikku_a2f.json`) tidak dipulihkan lewat panel. Aplikasi tidak membacanya secara otomatis.
+- Berkas dengan ciphertext Keystore dari HP lain tidak dapat dipulihkan.
+- Hapus atau ganti berkas `ketikku_a2f.json` lama **secara manual**. Migrasi aplikasi tidak membuat berkas lama aman.
 - Jangan mengirim seed atau cadangan lama ke AI, log, tiket, atau repositori.
 
 ## Verifikasi

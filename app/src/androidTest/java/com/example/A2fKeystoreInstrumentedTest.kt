@@ -23,13 +23,9 @@ class A2fKeystoreInstrumentedTest {
         assertNull(store.getKey("ketikku.a2f.v2", null).encoded)
         val entry = PersonalDictionaryEntry(id = "test-only", shortcut = "testotp",
             folder = SettingsRepository.FOLDER_A2F, secretCipher = local)
-        val password = "test-only-password".toCharArray()
-        try {
-            val backup = A2fBackup.encode(listOf(entry), password)
-            assertFalse(backup.contains(seed))
-            val restored = A2fBackup.decode(backup, password).single()
-            assertEquals(seed, SecretVault.decryptOrNull(restored.secretCipher))
-            assertNotEquals(local, restored.secretCipher)
-        } finally { password.fill('\u0000') }
+        val payload = A2fBackup.payloadJson(listOf(entry))
+        val restored = A2fBackup.entriesFromPayloadJson(payload).single()
+        assertEquals(seed, SecretVault.decryptOrNull(restored.secretCipher))
+        assertNotEquals(local, restored.secretCipher)
     }
 }

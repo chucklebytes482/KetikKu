@@ -447,7 +447,7 @@ class SettingsRepository(
             val safeRemote = remoteEntries.map { entry ->
                 if (!DictionaryEngine.isA2fEntry(entry)) entry else {
                     val seed = SecretVault.decryptOrNull(entry.secretCipher)
-                        ?: error("Cadangan A2F terkunci untuk perangkat lain. Gunakan impor A2F berpassword")
+                        ?: error("Cadangan A2F terkunci untuk perangkat lain; seed tidak dapat dipulihkan di sini")
                     entry.copy(word = "••••••••", secretCipher = if (SecretVault.isDeviceCipher(entry.secretCipher)) entry.secretCipher else SecretVault.encrypt(seed))
                 }
             }
@@ -899,7 +899,7 @@ class SettingsRepository(
         val full = decodeFullBackupJson(rawJson)
         if (full != null && full.appName.isNotBlank()) {
             if (full.dictionary.any { DictionaryEngine.isA2fEntry(it) }) {
-                return Result.failure(IllegalArgumentException("Gunakan panel Impor A2F untuk pemulihan seed; setelan tidak diubah"))
+                return Result.failure(IllegalArgumentException("Berkas ini berisi seed A2F dan tidak dapat dipulihkan di sini; setelan tidak diubah"))
             }
             val now = System.currentTimeMillis()
             applyRemoteSettings(full.settings.copy(updatedAtMillis = maxOf(full.settings.updatedAtMillis, now)))
@@ -927,7 +927,7 @@ class SettingsRepository(
         val dictOnly = decodeDictionaryBackupJson(rawJson)
         if (dictOnly != null) {
             if (dictOnly.entries.any { DictionaryEngine.isA2fEntry(it) }) {
-                return Result.failure(IllegalArgumentException("Gunakan panel Impor A2F untuk pemulihan seed"))
+                return Result.failure(IllegalArgumentException("Berkas ini berisi seed A2F dan tidak dapat dipulihkan di sini"))
             }
             val merged = mergeRemoteDictionary(dictOnly.entries, dictOnly.folders)
             return Result.success("${merged.count { !it.deleted }} kata kamus berhasil digabungkan dari JSON lokal.")
