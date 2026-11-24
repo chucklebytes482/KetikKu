@@ -483,7 +483,7 @@ class ExampleRobolectricTest {
                 DictionaryScreen(
                     settings = KeyboardSettings(),
                     dictionary = entries,
-                    onUpsertEntry = { word, shortcut, _, existingId, _ ->
+                    onUpsertEntry = { word, shortcut, _, existingId, _, _ ->
                         savedWord = word
                         savedShortcut = shortcut
                         savedExistingId = existingId
@@ -1754,7 +1754,7 @@ class ExampleRobolectricTest {
                     settings = KeyboardSettings(),
                     dictionary = entries,
                     folders = folders,
-                    onUpsertEntry = { _, _, _, _, _ -> },
+                    onUpsertEntry = { _, _, _, _, _, _ -> },
                     onDeleteEntry = {},
                     onMoveItems = { eIds, fPaths, target ->
                         movedEntries = eIds
@@ -2030,7 +2030,7 @@ class ExampleRobolectricTest {
                     settings = KeyboardSettings(),
                     dictionary = entries,
                     folders = folders,
-                    onUpsertEntry = { _, _, _, _, _ -> },
+                    onUpsertEntry = { _, _, _, _, _, _ -> },
                     onDeleteEntry = {},
                     onDeleteItems = { entryIds, folderPaths ->
                         deletedCalls++
@@ -2105,7 +2105,7 @@ class ExampleRobolectricTest {
                     settings = KeyboardSettings(),
                     dictionary = entries,
                     folders = emptyList(),
-                    onUpsertEntry = { _, _, _, _, _ -> },
+                    onUpsertEntry = { _, _, _, _, _, _ -> },
                     onDeleteEntry = {}
                 )
             }

@@ -179,10 +179,11 @@ class MainViewModel(
         shortcut: String,
         language: String,
         existingId: String? = null,
-        folder: String = ""
+        folder: String = "",
+        secretCipher: String? = null
     ) {
         viewModelScope.launch {
-            settingsRepository.upsertDictionaryEntry(word, shortcut, language, existingId, folder)
+            settingsRepository.upsertDictionaryEntry(word, shortcut, language, existingId, folder, secretCipher)
             pushLocalChangesToDevice()
         }
     }

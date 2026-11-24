@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Key
@@ -72,6 +73,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.SettingsRepository
+import com.example.data.SecretVault
+import com.example.data.TotpGenerator
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 
@@ -80,7 +83,7 @@ fun DictionaryScreen(
     settings: KeyboardSettings,
     dictionary: List<PersonalDictionaryEntry>,
     folders: List<String> = emptyList(),
-    onUpsertEntry: (word: String, shortcut: String, language: String, existingId: String?, folder: String) -> Unit,
+    onUpsertEntry: (word: String, shortcut: String, language: String, existingId: String?, folder: String, secretCipher: String?) -> Unit,
     onDeleteEntry: (entryId: String) -> Unit,
     onCreateFolder: (folderPath: String) -> Unit = {},
     onRenameFolder: (oldPath: String, newName: String) -> Unit = { _, _ -> },
@@ -428,7 +431,28 @@ fun DictionaryScreen(
         }
     }
 
-    if (showAddDialog || editingEntry != null) {
+    val dialogFolder = SettingsRepository.normalizeFolderPath(editingEntry?.folder ?: currentFolderPath)
+    if ((showAddDialog || editingEntry != null) && dialogFolder == SettingsRepository.FOLDER_A2F) {
+        A2fEntryDialog(
+            initialEntry = editingEntry,
+            onDismiss = {
+                showAddDialog = false
+                editingEntry = null
+            },
+            onSave = { label, shortcut, secretPlain ->
+                onUpsertEntry(
+                    label,
+                    shortcut,
+                    editingEntry?.language ?: "id-ID",
+                    editingEntry?.id,
+                    SettingsRepository.FOLDER_A2F,
+                    secretPlain?.let { SecretVault.encrypt(TotpGenerator.normalizeBase32(it)) }
+                )
+                showAddDialog = false
+                editingEntry = null
+            }
+        )
+    } else if (showAddDialog || editingEntry != null) {
         DictionaryEntryDialog(
             initialEntry = editingEntry,
             defaultFolderPath = currentFolderPath,
@@ -437,7 +461,7 @@ fun DictionaryScreen(
                 editingEntry = null
             },
             onSave = { word, shortcut, lang, folder ->
-                onUpsertEntry(word, shortcut, lang, editingEntry?.id, folder)
+                onUpsertEntry(word, shortcut, lang, editingEntry?.id, folder, null)
                 showAddDialog = false
                 editingEntry = null
             }
@@ -672,6 +696,7 @@ private fun FolderRowCard(
         SettingsRepository.FOLDER_PRIBADI -> Icons.Default.Person
         SettingsRepository.FOLDER_KATA_SANDI -> Icons.Default.Lock
         SettingsRepository.FOLDER_KREDENSIAL -> Icons.Default.Key
+        SettingsRepository.FOLDER_A2F -> Icons.Default.Shield
         SettingsRepository.FOLDER_BALASAN_CEPAT -> Icons.Default.Bolt
         else -> Icons.Default.Folder
     }

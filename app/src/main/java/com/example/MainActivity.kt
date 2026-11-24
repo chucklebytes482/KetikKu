@@ -296,13 +296,14 @@ private fun KetikKuNavHost(
                 settings = settings,
                 dictionary = dictionary,
                 folders = folders,
-                onUpsertEntry = { word, shortcut, language, existingId, folder ->
+                onUpsertEntry = { word, shortcut, language, existingId, folder, secretCipher ->
                     mainViewModel.upsertDictionaryEntry(
                         word = word,
                         shortcut = shortcut,
                         language = language,
                         existingId = existingId,
-                        folder = folder
+                        folder = folder,
+                        secretCipher = secretCipher
                     )
                 },
                 onDeleteEntry = { entryId ->
