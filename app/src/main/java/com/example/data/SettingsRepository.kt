@@ -1190,14 +1190,28 @@ class SettingsRepository(
 
     companion object {
         private const val PERSONALITY_MAX_ENTRIES = 600
-        const val FOLDER_GMAIL = "Gmail"
-        const val FOLDER_NOMOR = "Nomor"
-        const val FOLDER_PRIBADI = "Pribadi"
-        const val FOLDER_KATA_SANDI = "Kata Sandi"
-        const val FOLDER_KREDENSIAL = "Kredensial"
-        const val FOLDER_A2F = "A2F"
-        const val FOLDER_SAMPAH = "Sampah"
+        const val FOLDER_GMAIL = "gm"
+        const val FOLDER_NOMOR = "num"
+        const val FOLDER_PRIBADI = "prib"
+        const val FOLDER_KATA_SANDI = "pw"
+        const val FOLDER_KREDENSIAL = "kred"
+        const val FOLDER_A2F = "aut"
+        const val FOLDER_SAMPAH = "tras"
+        const val FOLDER_BALASAN_CEPAT = "bc"
         private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
+
+        /** Nama folder sebelum rename kode pendek (huruf kecil). Dibaca saat normalisasi: data lama, cadangan lama, sync perangkat lama. */
+        private val LEGACY_FOLDER_ALIASES: Map<String, String> = mapOf(
+            "gmail" to FOLDER_GMAIL,
+            "nomor" to FOLDER_NOMOR,
+            "pribadi" to FOLDER_PRIBADI,
+            "kata sandi" to FOLDER_KATA_SANDI,
+            "kredensial" to FOLDER_KREDENSIAL,
+            "a2f" to FOLDER_A2F,
+            "sampah" to FOLDER_SAMPAH,
+            "balasan cepat" to FOLDER_BALASAN_CEPAT,
+            "keuangan" to FOLDER_BALASAN_CEPAT
+        )
 
         /** Jenis berkas cadangan untuk entri pada folder ini (satu berkas per jenis). */
         fun backupKindFor(folder: String): String =
@@ -1207,8 +1221,6 @@ class SettingsRepository(
                 FOLDER_A2F -> "a2f"
                 else -> "umum"
             }
-        const val FOLDER_BALASAN_CEPAT = "Balasan Cepat"
-        private const val LEGACY_FOLDER_KEUANGAN = "Keuangan"
 
         val PRIMARY_FOLDERS: List<String> = listOf(
             FOLDER_GMAIL,
@@ -1314,19 +1326,18 @@ class SettingsRepository(
                 .trim()
                 .replace(Regex("\\s+"), " ")
             if (cleaned.isEmpty() || cleaned == "." || cleaned == "..") return ""
-            return when {
-                cleaned.equals(FOLDER_GMAIL, ignoreCase = true) -> FOLDER_GMAIL
-                cleaned.equals(FOLDER_NOMOR, ignoreCase = true) -> FOLDER_NOMOR
-                cleaned.equals(FOLDER_PRIBADI, ignoreCase = true) -> FOLDER_PRIBADI
-                cleaned.equals(FOLDER_KATA_SANDI, ignoreCase = true) -> FOLDER_KATA_SANDI
-                cleaned.equals(FOLDER_KREDENSIAL, ignoreCase = true) -> FOLDER_KREDENSIAL
-                cleaned.equals(FOLDER_A2F, ignoreCase = true) -> FOLDER_A2F
-                cleaned.equals(FOLDER_SAMPAH, ignoreCase = true) -> FOLDER_SAMPAH
-                cleaned.equals(FOLDER_BALASAN_CEPAT, ignoreCase = true) ||
-                    cleaned.equals(LEGACY_FOLDER_KEUANGAN, ignoreCase = true) -> FOLDER_BALASAN_CEPAT
-                else -> cleaned
-            }
+            val lower = cleaned.lowercase(Locale.ROOT)
+            // Nama baru dan nama lama sama-sama dikenali, tanpa memperhatikan huruf besar/kecil.
+            PRIMARY_FOLDERS.firstOrNull { it == lower }?.let { return it }
+            return LEGACY_FOLDER_ALIASES[lower] ?: cleaned
         }
+
+        /** Folder kustom yang namanya sama dengan folder utama baru (tanpa memperhatikan huruf besar/kecil). Dipakai migrasi untuk laporan. */
+        fun customFoldersClashingWithPrimary(rawFolders: Collection<String>): Set<String> =
+            rawFolders.asSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && it.lowercase(Locale.ROOT) in PRIMARY_FOLDERS }
+                .toSet()
 
         fun expandFolderAncestors(path: String): List<String> {
             val normalized = normalizeFolderPath(path)
@@ -1398,7 +1409,7 @@ class SettingsRepository(
                     addedInOrder.add(norm)
                 }
             }
-            // Newly created custom folders go before existing custom folders (Gmail & Nomor stay pinned first via normalizeOrderedFolders)
+            // Newly created custom folders go before existing custom folders (folder utama tetap di atas lewat normalizeOrderedFolders)
             val combined = addedInOrder.toList() + existingNorm
             return normalizeOrderedFolders(combined, entries)
         }
@@ -1425,7 +1436,7 @@ class SettingsRepository(
                 id = "preset_ttd",
                 word = "Terima kasih, salam hangat",
                 shortcut = "ttd",
-                folder = "Pribadi",
+                folder = FOLDER_PRIBADI,
                 language = KeyboardLanguage.INDONESIAN.code,
                 updatedAtMillis = 1L
             ),
@@ -1433,7 +1444,7 @@ class SettingsRepository(
                 id = "preset_omw",
                 word = "Sedang dalam perjalanan",
                 shortcut = "omw",
-                folder = "Pribadi",
+                folder = FOLDER_PRIBADI,
                 language = KeyboardLanguage.INDONESIAN.code,
                 updatedAtMillis = 1L
             ),
@@ -1441,7 +1452,7 @@ class SettingsRepository(
                 id = "preset_asap",
                 word = "As soon as possible",
                 shortcut = "asap",
-                folder = "Pribadi",
+                folder = FOLDER_PRIBADI,
                 language = KeyboardLanguage.ENGLISH.code,
                 updatedAtMillis = 1L
             )
@@ -1457,8 +1468,8 @@ class SettingsRepository(
 
         /**
          * Mengekstrak kandidat yang otomatis disimpan ke Kamus Pribadi (beserta folder otomatisnya):
-         * 1. Alamat email berakhiran @gmail.com (>= 20 karakter) -> folder "Gmail".
-         * 2. Nomor telepon berawalan +62, 62, atau 08 (>= 11 digit) -> folder "Nomor".
+         * 1. Alamat email berakhiran @gmail.com (>= 20 karakter) -> folder "gm".
+         * 2. Nomor telepon berawalan +62, 62, atau 08 (>= 11 digit) -> folder "num".
          */
         fun extractAutoSavableCategorizedEntries(rawText: String): List<AutoSavableCandidate> {
             val (start, end) = TextChunker.trimmedBounds(rawText)
