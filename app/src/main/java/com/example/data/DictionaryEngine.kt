@@ -57,6 +57,25 @@ object DictionaryEngine {
     fun isA2fEntry(entry: PersonalDictionaryEntry): Boolean =
         SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_A2F
 
+    /**
+     * Kata kontak yang boleh jadi saran: email dan website pada A2F (aut), website pada Kredensial (kred).
+     * Kata sandi (baris pertama kred) dan pw tidak pernah jadi saran.
+     */
+    fun contactWords(entry: PersonalDictionaryEntry): List<String> {
+        val parts = entry.word.split('\n')
+        val words = when (SettingsRepository.normalizeFolderPath(entry.folder)) {
+            SettingsRepository.FOLDER_A2F -> listOf(
+                parts.getOrElse(0) { "" }.trim(),
+                SettingsRepository.normalizeWebsiteDomain(parts.getOrElse(1) { "" })
+            )
+            SettingsRepository.FOLDER_KREDENSIAL -> listOf(
+                SettingsRepository.normalizeWebsiteDomain(parts.getOrElse(1) { "" })
+            )
+            else -> emptyList()
+        }
+        return words.filter { it.isNotEmpty() }
+    }
+
     /** Entri di Sampah tidak pernah muncul di saran. */
     fun isTrashEntry(entry: PersonalDictionaryEntry): Boolean =
         SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_SAMPAH
