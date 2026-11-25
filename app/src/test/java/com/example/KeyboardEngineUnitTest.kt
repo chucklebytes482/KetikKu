@@ -56,14 +56,22 @@ class KeyboardEngineUnitTest {
         )
         assertEquals(3, defaultEmptyResult.suggestions.size)
 
-        val prefixResult = DictionaryEngine.getSuggestions(
+        // Saran kata dari kamus pribadi baru muncul dari 3 huruf.
+        val twoLetterResult = DictionaryEngine.getSuggestions(
             currentWord = "Ha",
             previousWord = "",
             personalEntries = multiEntries
         )
-        assertEquals(2, prefixResult.suggestions.size)
+        assertFalse(twoLetterResult.suggestions.contains("Halo semuanya"))
+        assertFalse(twoLetterResult.suggestions.contains("Hari ini cerah"))
+
+        val prefixResult = DictionaryEngine.getSuggestions(
+            currentWord = "Hal",
+            previousWord = "",
+            personalEntries = multiEntries
+        )
         assertTrue(prefixResult.suggestions.contains("Halo semuanya"))
-        assertTrue(prefixResult.suggestions.contains("Hari ini cerah"))
+        assertFalse(prefixResult.suggestions.contains("Hari ini cerah"))
     }
 
     @Test
@@ -506,8 +514,9 @@ class KeyboardEngineUnitTest {
         )
         // Mixed-case & rapid progressive prefix lookups hit matching first-char buckets reliably
         assertEquals("KetikKu Cepat", DictionaryEngine.getSuggestions("KC", "", personal).primaryAutoCorrect)
-        assertTrue(DictionaryEngine.getSuggestions("Ka", "", personal).suggestions.contains("Kantor Pusat"))
-        assertTrue(DictionaryEngine.getSuggestions("ka", "", personal).suggestions.contains("Kantor Pusat"))
+        assertFalse(DictionaryEngine.getSuggestions("Ka", "", personal).suggestions.contains("Kantor Pusat"))
+        assertTrue(DictionaryEngine.getSuggestions("Kan", "", personal).suggestions.contains("Kantor Pusat"))
+        assertTrue(DictionaryEngine.getSuggestions("kan", "", personal).suggestions.contains("Kantor Pusat"))
         // Built-in words like "informasi" / "schedule" and unknown tokens "xzq" must NOT appear
         assertTrue(DictionaryEngine.getSuggestions("info", "", personal).suggestions.isEmpty())
         assertTrue(DictionaryEngine.getSuggestions("sche", "", personal).suggestions.isEmpty())
@@ -747,15 +756,25 @@ class KeyboardEngineUnitTest {
         assertEquals("Kantor pusat", idleSuggestions[0])
         assertEquals("Katalog promo", idleSuggestions[1])
 
-        val prefixSuggestions = DictionaryEngine.getSuggestions(
+        // Dua huruf belum memunculkan saran kata dari kamus pribadi.
+        val twoLetterSuggestions = DictionaryEngine.getSuggestions(
             currentWord = "Ka",
             previousWord = "",
             personalEntries = entries,
             personality = emptyMap(),
             nowMillis = 1_000L
         ).suggestions
+        assertFalse(twoLetterSuggestions.contains("Kantor pusat"))
+        assertFalse(twoLetterSuggestions.contains("Katalog promo"))
+
+        val prefixSuggestions = DictionaryEngine.getSuggestions(
+            currentWord = "Kan",
+            previousWord = "",
+            personalEntries = entries,
+            personality = emptyMap(),
+            nowMillis = 1_000L
+        ).suggestions
         assertEquals("Kantor pusat", prefixSuggestions[0])
-        assertEquals("Katalog promo", prefixSuggestions[1])
     }
 
     @Test
