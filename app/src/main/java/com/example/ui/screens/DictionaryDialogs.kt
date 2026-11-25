@@ -59,7 +59,6 @@ internal fun DictionaryEntryDialog(
     usedShortcuts: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (word: String, shortcut: String, language: String, folder: String, secretPlain: String?, email: String, website: String) -> Unit,
-    onTrash: (() -> Unit)? = null,
     onRestore: (() -> Unit)? = null,
     onPermanentDelete: (() -> Unit)? = null
 ) {
@@ -230,17 +229,6 @@ internal fun DictionaryEntryDialog(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
-                if (!isNew && !inTrash) {
-                    if (onTrash != null) {
-                        TextButton(
-                            onClick = onTrash,
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                            modifier = Modifier.testTag("move_to_trash_button")
-                        ) {
-                            Text("Pindahkan ke Sampah")
-                        }
-                    }
                 }
             }
         },

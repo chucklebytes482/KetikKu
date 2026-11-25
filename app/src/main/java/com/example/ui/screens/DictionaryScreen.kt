@@ -87,7 +87,6 @@ fun DictionaryScreen(
     dictionary: List<PersonalDictionaryEntry>,
     folders: List<String> = emptyList(),
     onUpsertEntry: (word: String, shortcut: String, language: String, existingId: String?, folder: String, secretCipher: String?, email: String, website: String) -> Unit,
-    onDeleteEntry: (entryId: String) -> Unit,
     onRestoreEntries: (entryIds: Set<String>) -> Unit = {},
     onPermanentDeleteEntries: (entryIds: Set<String>) -> Unit = {},
     onRegenerateShortcuts: () -> Unit = {},
@@ -487,13 +486,6 @@ fun DictionaryScreen(
                     Toast.makeText(context, it.message ?: "Tidak dapat disimpan", Toast.LENGTH_LONG).show()
                 }
             },
-            onTrash = if (current != null) {
-                {
-                    onDeleteEntry(current.id)
-                    showAddDialog = false
-                    editingEntry = null
-                }
-            } else null,
             onRestore = if (current != null) {
                 {
                     onRestoreEntries(setOf(current.id))

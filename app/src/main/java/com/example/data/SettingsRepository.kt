@@ -410,10 +410,6 @@ class SettingsRepository(
         }
     }
 
-    suspend fun deleteDictionaryEntry(entryId: String) {
-        deleteEntriesAndFolders(setOf(entryId), emptySet())
-    }
-
     suspend fun createFolder(folderPath: String) {
         val normalized = normalizeFolderPath(folderPath)
         if (normalized.isEmpty()) return

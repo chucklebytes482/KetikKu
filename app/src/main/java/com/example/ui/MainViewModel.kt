@@ -236,13 +236,6 @@ class MainViewModel(
         }
     }
 
-    fun deleteDictionaryEntry(entryId: String) {
-        viewModelScope.launch {
-            settingsRepository.deleteDictionaryEntry(entryId)
-            pushLocalChangesToDevice()
-        }
-    }
-
     fun createDictionaryFolder(folderPath: String) {
         viewModelScope.launch {
             settingsRepository.createFolder(folderPath)

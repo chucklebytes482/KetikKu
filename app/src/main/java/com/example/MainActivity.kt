@@ -321,9 +321,6 @@ private fun KetikKuNavHost(
                 onRegenerateShortcuts = {
                     mainViewModel.regenerateDictionaryShortcuts()
                 },
-                onDeleteEntry = { entryId ->
-                    mainViewModel.deleteDictionaryEntry(entryId)
-                },
                 onCreateFolder = { path ->
                     mainViewModel.createDictionaryFolder(path)
                 },

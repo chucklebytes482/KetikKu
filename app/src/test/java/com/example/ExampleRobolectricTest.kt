@@ -485,7 +485,6 @@ class ExampleRobolectricTest {
                         savedShortcut = shortcut
                         savedExistingId = existingId
                     },
-                    onDeleteEntry = {}
                 )
             }
         }
@@ -1741,7 +1740,6 @@ class ExampleRobolectricTest {
                     dictionary = entries,
                     folders = folders,
                     onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
-                    onDeleteEntry = {}
                 )
             }
         }
@@ -1823,7 +1821,6 @@ class ExampleRobolectricTest {
                     dictionary = entries,
                     folders = listOf("Kerja"),
                     onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
-                    onDeleteEntry = {}
                 )
             }
         }
@@ -1855,7 +1852,6 @@ class ExampleRobolectricTest {
                     dictionary = entries,
                     folders = listOf("Kerja"),
                     onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
-                    onDeleteEntry = {}
                 )
             }
         }
@@ -2058,7 +2054,6 @@ class ExampleRobolectricTest {
                     dictionary = entries,
                     folders = folders,
                     onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
-                    onDeleteEntry = {},
                     onDeleteItems = { entryIds, folderPaths ->
                         deletedCalls++
                         lastDeletedEntries = entryIds
@@ -2133,7 +2128,6 @@ class ExampleRobolectricTest {
                     dictionary = entries,
                     folders = emptyList(),
                     onUpsertEntry = { _, _, _, _, _, _, _, _ -> },
-                    onDeleteEntry = {}
                 )
             }
         }
