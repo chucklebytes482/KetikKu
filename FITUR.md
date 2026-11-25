@@ -1,0 +1,160 @@
+# KetikKu: daftar fitur lengkap
+
+Dokumen ini hanya referensi internal. File ini ada di root repo dan tidak dipublikasikan ke GitHub Pages (Pages membaca `/docs`).
+
+Keterangan status:
+- **Aktif**: bisa dipakai dari UI.
+- **Tersimpan, belum ada UI**: ada di data/kode, tetapi belum ditemukan kontrol di layar. Belum dianggap fitur yang bisa dipakai.
+
+---
+
+## 1. Aktivasi
+
+- Tab Setelan berisi dua langkah: "1. Aktifkan" (membuka Setelan Sistem untuk mengaktifkan IME) dan "2. Pilih" (memilih KetikKu sebagai keyboard aktif).
+- Kolom "Coba ketik di sini" di Playground untuk mencoba keyboard sebelum dipakai di aplikasi lain.
+- Status aktivasi ditampilkan (misalnya "Aktifkan KetikKu di Setelan Sistem untuk Dipakai").
+
+## 2. Kamus pribadi
+
+- Ada 8 folder tetap: **Gmail, Nomor, Pribadi, Kata Sandi, Kredensial, A2F, Sampah, Balasan Cepat**.
+- Nama folder tidak bisa diubah. Folder tidak bisa dihapus. Entri tidak bisa dipindah folder.
+- Hapus entri berarti memindahkannya ke **Sampah**. Dari Sampah entri bisa dipulihkan (`restoreDictionaryEntries`) atau dihapus permanen (`deleteDictionaryItems`).
+- Di layar Kamus tersedia pencarian, mode pilih (multi-pilih) untuk aksi massal, dan opsi folder (`DictionaryScreen.kt`, `DictionaryDialogs.kt`).
+
+## 3. Pintasan
+
+Pintasan adalah kata pemicu yang memunculkan chip di bilah saran. Teks **tidak** diganti otomatis. Isi masuk ketika chip diketuk.
+
+| Pintasan | Pola | Contoh | Perilaku |
+|---|---|---|---|
+| Kata Sandi | `pw` + huruf pertama entri | `pwg` | Muncul hanya saat diawali `pw` |
+| Kredensial | `kred` + domain utama | `kredgithub.com` | Wajib website. `kred` utuh menampilkan maksimal 3 entri terbaru. Muncul hanya saat diketik |
+| A2F | `aut` + domain utama | `autgoogle.com` | Akun dengan domain sama berbagi pintasan. Menampilkan kode TOTP |
+| Gmail | `gm` + 2 huruf | `gmxx` | Untuk entri Gmail di folder Gmail |
+| Nomor | `num` + 4 digit pertama | `num0812` | Untuk entri di folder Nomor |
+
+Catatan:
+- Entri A2F tanpa website tidak punya pintasan. Pesan yang muncul: "Pintasan A2F tidak dapat dibuat dari email dan website".
+- Kredensial lama tanpa website tetap ada dan tetap muncul lewat `kred`, tetapi tidak punya pintasan.
+
+## 4. Kredensial (kred)
+
+- Setiap entri kredensial terhubung ke **domain utama** website (misalnya `github.com`).
+- Website wajib diisi saat membuat kredensial.
+- Dialog kredensial menampilkan informasi entri dan menolak penyimpanan tanpa website.
+- Migrasi `KRED_DOMAIN_V4_DONE` mengatur data lama saat pertama dijalankan.
+
+## 5. Autentikasi dua faktor (A2F)
+
+- Bilah A2F menampilkan **satu kolom per akun**.
+- Kode TOTP: SHA-1, 6 digit, periode 30 detik.
+- Seed A2F dilindungi Android Keystore.
+- Seed A2F tidak ikut sinkron cadangan perangkat. Cadangan A2F dienkripsi dengan passphrase (lihat bagian 12).
+
+## 6. Saran kata
+
+- Kamus pribadi mulai menyarankan kata dari **3 huruf**. Di bawah 3 huruf tidak ada saran kata dari kamus pribadi.
+- Pintasan muncul dari huruf pertama pemicu (lihat bagian 3).
+- Idle suggestion: saran muncul saat tidak mengetik.
+- Autocorrect utama (`primaryAutoCorrect`).
+- Personalisasi perilaku pengguna: menyimpan hingga 600 entri (`PERSONALITY_MAX_ENTRIES = 600`).
+
+## 7. Papan klip
+
+- Riwayat menyimpan **25 item** (`HISTORY_LIMIT = 25`).
+- Preview menampilkan 200 karakter pertama.
+- Paste langsung untuk teks sampai 10.000 karakter. Teks lebih panjang dikirim per bagian (chunked).
+- Teks salinan tidak tampil di bilah saran.
+- Riwayat tersimpan di panel Papan Klip.
+- Dapat diatur lewat `clipboardHistoryEnabled`.
+- Deteksi otomatis:
+  - Gmail: teks berformat `@gmail.com` dengan panjang minimal 20 karakter.
+  - Nomor: diawali +62, 62, atau 08 dan minimal 11 digit.
+
+## 8. Keyboard
+
+- Baris bawah: tombol Ω, Ctrl, Spasi, titik/koma, Enter.
+- Tombol Hapus: ketuk untuk menghapus satu karakter. Tahan untuk menghapus terus-menerus. Hapus terverifikasi (mengecek teks yang benar-benar terhapus).
+- Tombol `,` ditahan untuk titik/koma tambahan.
+- Geser tombol Spasi untuk memindahkan kursor.
+- Tahan tombol Spasi untuk berganti ke keyboard sistem.
+- Mode Melayang (floating): keyboard bisa dipindah, posisi tersimpan (`floatingModeEnabled`).
+- Tinggi keyboard: preset NORMAL (`heightPreset`, satu-satunya pilihan).
+- Bahasa: Bahasa Indonesia (`id-ID`) dan English US (`en-US`).
+
+## 9. Ctrl dan pintasan teks
+
+- Ketuk Ctrl sekali untuk satu kombinasi berikutnya.
+- Kombinasi yang dikirim sebagai aksi: Ctrl+A (pilih semua), Ctrl+C (salin), Ctrl+X (potong), Ctrl+V (tempel), Ctrl+Z (batal), Ctrl+Y (ulang).
+- Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+F diteruskan ke aplikasi.
+- Ctrl mati otomatis setelah satu huruf, hapus, spasi, atau enter.
+
+## 10. Panel simbol
+
+- **Panel 1**: angka; `@ # $ _ & * % / •`; `- + × ÷ =`; panah.
+- **Panel 2**: `✓ Rp ← → ↑ ↓ ^ § ~ |`; `< > { } [ ] \ ° ±`; `` ` `` dan emoji.
+- Pindah halaman dengan tombol `1/2`.
+
+## 11. Gaya teks
+
+- Fungsi konversi di `FontStyleConverter.kt`: `toMonospace`, `toSerifItalic`, `toArialItalic`.
+- `toSerifItalic` dan `toArialItalic` saat ini sama dengan `toMonospace`.
+- Status: **tersimpan, belum ada UI**. Fungsi `convertSelection*` di `KeyboardController.kt` belum dipanggil dari layar. Pengaturan `arialItalicEnabled` dan `serifMiringEnabled` belum punya kontrol di Setelan.
+
+## 12. Cadangan perangkat
+
+- Sinkron otomatis saat layar Cadangan dibuka dan saat kamus berubah.
+- Hanya kamus pribadi yang disinkron. Tidak ada Google Drive dan tidak ada GitHub.
+- Folder tujuan bebas dipilih. Default: `/storage/emulated/0/Documents/`.
+- Berkas:
+  - `ketikku_umum.json` (entri umum)
+  - `ketikku_pw.json` (kata sandi)
+  - `ketikku_kred.json` (kredensial)
+  - `ketikku_aut.json` (A2F)
+  - `ketikku_aut_terenkripsi.json` (A2F terenkripsi, dengan passphrase)
+- Pemulihan otomatis saat berkas ditemukan.
+- Pengaman: jika berkas kosong atau terpotong, data lokal tidak ditimpa. Pengaman juga memilih sumber dengan entri terbanyak.
+
+## 13. Pengaturan tersimpan (`KeyboardSettings`)
+
+| Pengaturan | Default | Status |
+|---|---|---|
+| `heightPreset` | NORMAL | Aktif (hanya NORMAL) |
+| `floatingModeEnabled` | false | Aktif |
+| `hapticEnabled` | true | Dipakai di keyboard (getaran). Kontrol di Setelan belum ditemukan |
+| `clipboardHistoryEnabled` | - | Aktif |
+| `arialItalicEnabled` | false | Tersimpan, belum ada UI |
+| `serifMiringEnabled` | false | Tersimpan, belum ada UI (ViewModel punya fungsi toggle, belum dipanggil dari layar) |
+| `swapPeriodCommaEnabled` | false | Tersimpan, belum ada UI |
+| `swapSymbolPanelsEnabled` | false | Tersimpan, belum ada UI |
+
+## 14. Izin
+
+- `VIBRATE`: untuk getar tombol.
+- `READ_EXTERNAL_STORAGE` dan `WRITE_EXTERNAL_STORAGE`: hanya sampai SDK 28, untuk cadangan lama.
+- Tidak ada `INTERNET`. Tidak ada `ACCESS_NETWORK_STATE`.
+- Aplikasi 100% luring. Dicek oleh `scripts/check_offline.py`.
+
+## 15. Web panduan
+
+- `docs/index.html`, dipublikasikan lewat GitHub Pages (`/docs` pada branch `main`).
+- Berkas ini di root tidak ikut dipublikasikan.
+
+---
+
+## Checklist uji perangkat (belum dites)
+
+- [ ] Ketik 1–2 huruf: tidak ada saran kata dari kamus pribadi.
+- [ ] Ketik 3 huruf: saran kata muncul.
+- [ ] Ketik `kred`: kredensial muncul (maks 3 terbaru).
+- [ ] Ketik `kredgithub.com`: pintasan kredensial muncul.
+- [ ] Bilah A2F: satu kolom per akun.
+- [ ] Dialog kredensial: menolak simpan tanpa website.
+
+## Keputusan default yang belum dikonfirmasi
+
+- `kred` menampilkan maksimal 3 entri terbaru.
+- Pemicu `kred` hanya saat kata utuh `kred`.
+- Kredensial lama tanpa website tetap ada tanpa pintasan.
+- Pintasan kredensial boleh sama untuk domain yang sama.
+- Tafsir folder Sampah untuk A2F belum dikonfirmasi.
