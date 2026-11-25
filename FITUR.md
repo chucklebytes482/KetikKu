@@ -20,8 +20,8 @@ Keterangan status:
 
   | No | Kode folder | Konstanta | Keterangan |
   |---|---|---|---|
-  | 1 | `pw` | `FOLDER_KATA_SANDI` | Kata Sandi |
-  | 2 | `aut` | `FOLDER_A2F` | A2F |
+  | 1 | `aut` | `FOLDER_A2F` | A2F |
+  | 2 | `pw` | `FOLDER_KATA_SANDI` | Kata Sandi |
   | 3 | `kred` | `FOLDER_KREDENSIAL` | Kredensial |
   | 4 | `num` | `FOLDER_NOMOR` | Nomor |
   | 5 | `prib` | `FOLDER_PRIBADI` | Pribadi |
@@ -45,8 +45,8 @@ Pintasan adalah kata pemicu yang memunculkan chip di bilah saran. Teks **tidak**
 | Pintasan | Pola | Contoh | Perilaku |
 |---|---|---|---|
 | Kata Sandi | `pw` + huruf pertama entri | `pwg` | Muncul hanya saat diawali `pw` |
-| Kredensial | `kred` + domain utama | `kredgithub.com` | Wajib website. `kred` utuh menampilkan maksimal 3 entri terbaru. Muncul hanya saat diketik |
-| A2F | `aut` + domain utama | `autgoogle.com` | Akun dengan domain sama berbagi pintasan. Menampilkan kode TOTP |
+| Kredensial | `kred` + domain utama | `kredgithub` | Wajib website. `kred` utuh menampilkan maksimal 3 entri terbaru. Muncul hanya saat diketik |
+| A2F | `aut` + domain utama | `autgoogle` | Akun dengan domain sama berbagi pintasan. Menampilkan kode TOTP |
 | Nomor | `num` + 4 digit pertama | `num0812` | Untuk entri di folder Nomor |
 
 Catatan:
@@ -70,6 +70,7 @@ Catatan:
 ## 6. Saran kata
 
 - Kamus pribadi mulai menyarankan kata dari **3 huruf**. Di bawah 3 huruf tidak ada saran kata dari kamus pribadi.
+- Email (aut) dan website (aut, kred) ikut muncul sebagai saran setelah **3 huruf** pertama diketik, misalnya `goog` -> `google.com`. Kata sandi dan pw tidak pernah muncul. Entri di Sampah tidak muncul.
 - Pintasan muncul dari huruf pertama pemicu (lihat bagian 3).
 - Idle suggestion: saran muncul saat tidak mengetik.
 - Autocorrect utama (`primaryAutoCorrect`).
@@ -163,7 +164,8 @@ Catatan:
 - [ ] Ketik 1–2 huruf: tidak ada saran kata dari kamus pribadi.
 - [ ] Ketik 3 huruf: saran kata muncul.
 - [ ] Ketik `kred`: kredensial muncul (maks 3 terbaru).
-- [ ] Ketik `kredgithub.com`: pintasan kredensial muncul.
+- [ ] Ketik `kredgithub`: pintasan kredensial muncul.
+- [ ] Ketik `goog`: saran `google.com` muncul dari folder aut.
 - [ ] Bilah A2F: satu kolom per akun.
 - [ ] Dialog kredensial: menolak simpan tanpa website.
 

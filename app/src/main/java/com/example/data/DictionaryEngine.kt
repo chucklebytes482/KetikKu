@@ -143,6 +143,23 @@ object DictionaryEngine {
             }
         }
 
+        // Email (A2F) dan website (A2F, Kredensial) ikut jadi saran setelah MIN_PREFIX_SUGGEST_LEN huruf.
+        // Hanya masuk indeks prefix; tidak masuk defaults (idle) dan tidak mengubah pintasan.
+        for (entry in snapshot) {
+            if (entry.deleted || isTrashEntry(entry)) continue
+            for (contact in contactWords(entry)) {
+                val lowerContact = contact.lowercase(Locale.ROOT)
+                if (!seenLowerWords.add(lowerContact)) continue
+                val maxLen = minOf(lowerContact.length, MAX_INDEX_PREFIX_LEN)
+                for (length in 1..maxLen) {
+                    val bucket = wordsByPrefix.getOrPut(lowerContact.substring(0, length)) { ArrayList(4) }
+                    if (bucket.size < MAX_PERSONAL_PREFIX_BUCKET) {
+                        bucket.add(lowerContact to contact)
+                    }
+                }
+            }
+        }
+
         val built = IndexedDictionary(
             sourceIdentity = personalEntries,
             isUnmodifiableSnapshot = isUnmodifiable,

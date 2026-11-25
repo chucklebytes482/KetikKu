@@ -593,7 +593,7 @@ class KeyboardController(
         val isUsedInPersonalShortcut = rawChar.length == 1 && !rawChar[0].isWhitespace() && personalEntries.any {
             !it.deleted && it.shortcut.isNotBlank() && it.shortcut.contains(rawChar[0], ignoreCase = true)
         } && (rawChar[0] != '.' || run {
-            // Titik (pintasan A2F "autgoogle.com") hanya bagian kata jika membentuk awalan pintasan.
+            // Titik hanya bagian kata jika membentuk awalan pintasan (pintasan lama berformat "autgoogle.com" sebelum migrasi V6).
             val candidate = localWordPlain.toString() + "."
             personalEntries.any {
                 !it.deleted && it.shortcut.isNotBlank() && it.shortcut.startsWith(candidate, ignoreCase = true)

@@ -43,7 +43,7 @@ class AutoShortcutTest {
         val kredNoDup = trashed("k", "BCA", SettingsRepository.FOLDER_KREDENSIAL)
         assertFalse(SettingsRepository.canPermanentlyDeleteFromTrash(kredNoDup, listOf(kredNoDup)))
         val a2fActive = PersonalDictionaryEntry(
-            id = "a2", word = "x@y.com\nsite.com", shortcut = "autsite.com", folder = SettingsRepository.FOLDER_A2F
+            id = "a2", word = "x@y.com\nsite.com", shortcut = "autsite", folder = SettingsRepository.FOLDER_A2F
         )
         assertTrue(SettingsRepository.canPermanentlyDeleteFromTrash(a2fNoDup, listOf(a2fNoDup, a2fActive)))
         val longWord = trashed("b", "kalimat panjang sekali", SettingsRepository.FOLDER_PRIBADI)
@@ -60,13 +60,19 @@ class AutoShortcutTest {
     @Test
     fun kredShortcutUsesWebsiteMainDomain() {
         assertEquals(
-            "kredgithub.com",
+            "kredgithub",
             SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "budi\ngithub.com", emptyList(), null)
         )
         assertEquals(
-            "kredgithub.com",
+            "kredgithub",
             SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "budi\nhttps://www.github.com/login", emptyList(), null)
         )
+    }
+
+    @Test
+    fun kredAndAutSharedMainDomainUsesSameShortcutPrefix() {
+        assertEquals("kredbca", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "ani\nbca.co.id", emptyList(), null))
+        assertEquals("autbbc", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "x@y.com\nwww.bbc.co.uk", emptyList(), null))
     }
 
     @Test
@@ -76,9 +82,9 @@ class AutoShortcutTest {
 
     @Test
     fun kredKeywordShowsActiveCredentialsOnly() {
-        val kred1 = PersonalDictionaryEntry(id = "k1", word = "budi\ngithub.com", shortcut = "kredgithub.com",
+        val kred1 = PersonalDictionaryEntry(id = "k1", word = "budi\ngithub.com", shortcut = "kredgithub",
             folder = SettingsRepository.FOLDER_KREDENSIAL, updatedAtMillis = 1L)
-        val kred2 = PersonalDictionaryEntry(id = "k2", word = "ani\nbca.co.id", shortcut = "kredbca.co.id",
+        val kred2 = PersonalDictionaryEntry(id = "k2", word = "ani\nbca.co.id", shortcut = "kredbca",
             folder = SettingsRepository.FOLDER_KREDENSIAL, updatedAtMillis = 2L)
         val trashedKred = PersonalDictionaryEntry(id = "k3", word = "old\nold.com", shortcut = "",
             folder = SettingsRepository.FOLDER_KREDENSIAL, deleted = true, updatedAtMillis = 3L)
@@ -104,11 +110,11 @@ class AutoShortcutTest {
     @Test
     fun autShortcutUsesWebsiteMainDomain() {
         assertEquals(
-            "autgoogle.com",
+            "autgoogle",
             SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\ngoogle.com", emptyList(), null)
         )
         assertEquals(
-            "autgoogle.com",
+            "autgoogle",
             SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\nhttps://myaccount.google.com/x", emptyList(), null)
         )
     }
@@ -123,7 +129,7 @@ class AutoShortcutTest {
             null
         )
         assertEquals(first, second)
-        assertEquals("autgoogle.com", second)
+        assertEquals("autgoogle", second)
     }
 
     @Test
@@ -137,6 +143,35 @@ class AutoShortcutTest {
         val long = SettingsRepository.shortA2fEmail("penggunapanjang2026@gmail.com")
         assertEquals(16, long.length)
         assertTrue(long.endsWith("\u2026"))
+    }
+
+    private fun suggest(word: String, vararg entries: PersonalDictionaryEntry) =
+        DictionaryEngine.getSuggestions(word, "", entries.toList()).suggestions
+
+    @Test
+    fun emailAndWebsiteFromAutAppearAsSuggestionsAfterThreeChars() {
+        val aut = PersonalDictionaryEntry(id = "a1", word = "budi@gmail.com\ngoogle.com", shortcut = "autgoogle",
+            folder = SettingsRepository.FOLDER_A2F, secretCipher = "x")
+        assertTrue(suggest("goo", aut).contains("google.com"))
+        assertTrue(suggest("bud", aut).contains("budi@gmail.com"))
+        assertTrue(suggest("go", aut).isEmpty())
+    }
+
+    @Test
+    fun websiteFromKredAppearsButPasswordDoesNot() {
+        val kred = PersonalDictionaryEntry(id = "k1", word = "rahasia123\ngithub.com", shortcut = "kredgithub",
+            folder = SettingsRepository.FOLDER_KREDENSIAL)
+        assertTrue(suggest("git", kred).contains("github.com"))
+        assertTrue(suggest("rah", kred).isEmpty())
+    }
+
+    @Test
+    fun pwAndTrashContactsNeverSuggested() {
+        val pw = PersonalDictionaryEntry(id = "p1", word = "Github", shortcut = "pwg", folder = SettingsRepository.FOLDER_KATA_SANDI)
+        val trashedAut = PersonalDictionaryEntry(id = "a2", word = "zed@x.com\nzedsite.com", shortcut = "",
+            folder = SettingsRepository.FOLDER_SAMPAH, trashedFrom = SettingsRepository.FOLDER_A2F)
+        assertTrue(suggest("git", pw).isEmpty())
+        assertTrue(suggest("zed", trashedAut).isEmpty())
     }
 
     @Test

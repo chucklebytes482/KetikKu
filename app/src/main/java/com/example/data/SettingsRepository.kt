@@ -81,6 +81,7 @@ class SettingsRepository(
         val A2F_SHORTCUT_V3_DONE = booleanPreferencesKey("a2f_shortcut_v3_done")
         val KRED_DOMAIN_V4_DONE = booleanPreferencesKey("kred_domain_v4_done")
         val GM_RETIRED_V5_DONE = booleanPreferencesKey("gm_retired_v5_done")
+        val SHORTCUT_LABEL_V6_DONE = booleanPreferencesKey("shortcut_label_v6_done")
         val PERSONALITY_JSON = stringPreferencesKey("suggestion_personality_json")
         val CLIPBOARD_REVISION = longPreferencesKey("clipboard_revision")
         val DISMISSED_CLIPBOARD_ID = stringPreferencesKey("dismissed_clipboard_id")
@@ -119,6 +120,7 @@ class SettingsRepository(
             if (prefs[Keys.A2F_SHORTCUT_V3_DONE] != true) migrateA2fShortcutsV3()
             if (prefs[Keys.KRED_DOMAIN_V4_DONE] != true) migrateKredShortcutsV4()
             if (prefs[Keys.GM_RETIRED_V5_DONE] != true) migrateGmailFolderRetiredV5()
+            if (prefs[Keys.SHORTCUT_LABEL_V6_DONE] != true) migrateShortcutLabelV6()
         }
         .map { prefs -> prefs[Keys.DICTIONARY_JSON] }
         .distinctUntilChanged()
@@ -217,7 +219,7 @@ class SettingsRepository(
     }
 
     /**
-     * Sekali jalan: pintasan A2F pindah ke format `aut` + domain utama (autgoogle.com).
+     * Sekali jalan: pintasan A2F pindah ke format `aut` + domain utama (autgoogle; dulu autgoogle.com).
      * Hanya entri A2F yang dibuat ulang; folder lain tidak disentuh.
      */
     private suspend fun migrateA2fShortcutsV3() {
@@ -234,10 +236,6 @@ class SettingsRepository(
         }
     }
 
-    /**
-     * Sekali jalan: pintasan kredensial pindah ke `kred` + domain utama website (kredgithub.com).
-     * Entri lama tanpa website tidak punya pintasan lagi, tetapi tetap ada dan tetap bisa dilihat lewat "kred".
-     */
     /**
      * Sekali jalan: folder gm dihapus. Entri aktif di gm dipindah ke Sampah (asal = gm) supaya bisa dipulihkan.
      * Folder gm dibuang dari daftar folder. Entri yang diubah dapat updatedAtMillis baru supaya ikut sync.
@@ -272,6 +270,25 @@ class SettingsRepository(
         }
     }
 
+    /** Sekali jalan: pintasan aut dan kred memakai nama domain tanpa TLD (autgoogle, kredgithub). */
+    private suspend fun migrateShortcutLabelV6() {
+        val now = System.currentTimeMillis()
+        dataStore.edit { prefs ->
+            if (prefs[Keys.SHORTCUT_LABEL_V6_DONE] == true) return@edit
+            val list = parseDictionaryList(prefs[Keys.DICTIONARY_JSON]).toMutableList()
+            val changed = regenerateAutoShortcutsIn(list, now, setOf(FOLDER_A2F, FOLDER_KREDENSIAL))
+            if (changed > 0) {
+                prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(list)
+                prefs[Keys.PENDING_CHANGES] = true
+            }
+            prefs[Keys.SHORTCUT_LABEL_V6_DONE] = true
+        }
+    }
+
+    /**
+     * Sekali jalan: pintasan kredensial pindah ke `kred` + domain utama website (dulu kredgithub.com, sekarang kredgithub).
+     * Entri lama tanpa website tidak punya pintasan lagi, tetapi tetap ada dan tetap bisa dilihat lewat "kred".
+     */
     private suspend fun migrateKredShortcutsV4() {
         val now = System.currentTimeMillis()
         dataStore.edit { prefs ->
@@ -1223,8 +1240,8 @@ class SettingsRepository(
             }
 
         val PRIMARY_FOLDERS: List<String> = listOf(
-            FOLDER_KATA_SANDI,
             FOLDER_A2F,
+            FOLDER_KATA_SANDI,
             FOLDER_KREDENSIAL,
             FOLDER_NOMOR,
             FOLDER_PRIBADI,
@@ -1236,8 +1253,8 @@ class SettingsRepository(
          * Dasar pintasan otomatis (prefix folder + huruf). Folder gm sudah dihapus.
          * pw + huruf/angka pertama kata (Github -> pwg)
          * num + 4 digit pertama nomor (081234567890 -> num0812)
-         * aut + domain utama website (word = "email\nwebsite"; github.com -> autgithub.com; myaccount.google.com -> autgoogle.com). Kosong jika website kosong.
-         * kred + domain utama website (word = "kata\nwebsite"; github.com -> kredgithub.com). Kosong jika website kosong.
+         * aut + nama domain utama tanpa TLD (word = "email\nwebsite"; github.com -> autgithub; myaccount.google.com -> autgoogle). Kosong jika website kosong.
+         * kred + nama domain utama tanpa TLD (word = "kata\nwebsite"; github.com -> kredgithub). Kosong jika website kosong.
          */
         fun autoShortcutBase(folder: String, word: String): String {
             val w = word.trim()
@@ -1246,11 +1263,11 @@ class SettingsRepository(
                     ?.lowercaseChar()?.let { "pw$it" }.orEmpty()
                 FOLDER_A2F -> {
                     val domain = normalizeWebsiteDomain(w.split('\n').getOrElse(1) { "" })
-                    if (domain.isEmpty()) "" else "aut$domain"
+                    if (domain.isEmpty()) "" else "aut${mainDomainLabel(domain)}"
                 }
                 FOLDER_KREDENSIAL -> {
                     val domain = normalizeWebsiteDomain(w.split('\n').getOrElse(1) { "" })
-                    if (domain.isEmpty()) "" else "kred$domain"
+                    if (domain.isEmpty()) "" else "kred${mainDomainLabel(domain)}"
                 }
                 else -> ""
             }
@@ -1293,6 +1310,11 @@ class SettingsRepository(
             if (norm != FOLDER_A2F && norm != FOLDER_KREDENSIAL) return ""
             val domain = normalizeWebsiteDomain(entry.word.split('\n').getOrElse(1) { "" })
             if (domain.isEmpty()) return ""
+            return mainDomainLabel(domain)
+        }
+
+        /** Nama domain utama tanpa TLD dari domain yang sudah dinormalisasi: "google.com" -> "google", "bbc.co.uk" -> "bbc". */
+        fun mainDomainLabel(domain: String): String {
             val labels = domain.split('.')
             val index = when {
                 labels.size >= 3 && labels[labels.size - 2] in SECOND_LEVEL_LABELS -> labels.size - 3
@@ -1436,7 +1458,7 @@ class SettingsRepository(
         /**
          * Preserves ordered single-level folder list (no subfolders):
          * - 7 permanent primary folders pinned at top in exact order (kode folder):
-         *   pw, aut, kred, num, prib, bc, tras. Folder gm sudah dihapus dan tidak pernah masuk daftar.
+         *   aut, pw, kred, num, prib, bc, tras. Folder gm sudah dihapus dan tidak pernah masuk daftar.
          * - All other custom folders preserve existing order (newest-first on creation).
          */
         fun normalizeOrderedFolders(
