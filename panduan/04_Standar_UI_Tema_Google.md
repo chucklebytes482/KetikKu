@@ -103,6 +103,8 @@ Judul tidak bold penuh. Pakai `Normal` atau `Medium`.
 
 Tiga berkas di `res/`: latar, depan, monokrom. Dirujuk `mipmap-anydpi-v26/ic_launcher.xml`.
 
+**Wajib: warna launcher gaya Google.** Ikon launcher harus memuat empat warna Google: merah, kuning, hijau, biru. Bentuk standar: cincin empat busur (tiap busur 80°, celah 10° di antaranya) dengan huruf di tengah. Urutan searah jarum jam dari kanan atas: merah `#EA4335`, kuning `#FBBC05`, hijau `#34A853`, biru `#4285F4`. Latar putih `#FFFFFF`. Huruf di tengah warna `#202124`, bukan putih, karena latar putih.
+
 ```xml
 <!-- res/mipmap-anydpi-v26/ic_launcher.xml -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -113,7 +115,7 @@ Tiga berkas di `res/`: latar, depan, monokrom. Dirujuk `mipmap-anydpi-v26/ic_lau
 ```
 
 Kanvas 108dp, area aman 72dp di tengah. Di luar itu terpotong pada lingkaran atau squircle.
-PNG lama (`mipmap-*dpi/`): render dari SVG dengan `rsvg-convert`, ukuran 48, 72, 96, 144, 192 px.
+PNG lama (`mipmap-*dpi/`): render ulang dari geometri yang sama dengan berkas depan (kanvas 108 unit), ukuran 48, 72, 96, 144, 192 px. Berkas `ic_launcher_round.png` sama dengan `ic_launcher.png`. Render di 4x lalu turunkan dengan LANCZOS supaya tepi busur halus.
 
 ## 8. Checklist rilis
 
@@ -122,6 +124,7 @@ PNG lama (`mipmap-*dpi/`): render dari SVG dengan `rsvg-convert`, ukuran 48, 72,
 - [ ] `res/font/` hanya Roboto dan Roboto Mono.
 - [ ] Tidak ada berkas sisa generator.
 - [ ] Ikon adaptif benar di lingkaran dan squircle.
+- [ ] Ikon launcher memuat merah, kuning, hijau, dan biru (lihat bagian 7).
 - [ ] Font scale 200% tidak memotong teks.
 - [ ] Unit test lolos (`gradle testDebugUnitTest` bila tanpa wrapper).
 
