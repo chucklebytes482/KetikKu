@@ -2072,7 +2072,7 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
 
         assertEquals(0, deletedCalls)
-        assertTrue(composeRule.onAllNodesWithText("Pindahkan ke Sampah?").fetchSemanticsNodes().isNotEmpty())
+        assertTrue(composeRule.onAllNodesWithText("Pindahkan ke tras?").fetchSemanticsNodes().isNotEmpty())
         composeRule.onNodeWithTag("confirm_delete_items_button").assertIsDisplayed()
 
         // Dismiss with Batal -> nothing deleted

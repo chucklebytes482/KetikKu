@@ -831,7 +831,7 @@ class KeyboardEngineUnitTest {
             "sk-live-secret-9988" to WordPersonalityStat("sk-live-secret-9988", usageCount = 50, lastUsedMillis = 1000L)
         )
 
-        // 1. Idle bar MUST NOT contain Kata Sandi or Kredensial entries
+        // 1. Idle bar MUST NOT contain pw or kred entries
         val idle = DictionaryEngine.getSuggestions("", "", entries, highUsage, 1000L).suggestions
         assertEquals(listOf("Halo dunia"), idle)
 

@@ -148,10 +148,10 @@ internal fun DictionaryEntryDialog(
         title = {
             Text(
                 when {
-                    inTrash -> "Entri di Sampah"
+                    inTrash -> "Entri di tras"
                     isA2f && isNew -> "Tambah Akun A2F"
                     isA2f -> "Akun A2F"
-                    isKred && isNew -> "Tambah Kredensial"
+                    isKred && isNew -> "Tambah kred"
                     isNew -> "Tambah ke Kamus Pribadi"
                     savedLockedFolder -> "Entri Terkunci"
                     else -> "Edit Pintasan"
@@ -268,7 +268,7 @@ internal fun DictionaryEntryDialog(
                         } else if (isA2f) {
                             "Akun A2F hanya bisa dihapus permanen jika duplikat. Pulihkan untuk mengedit lagi."
                         } else {
-                            "Pulihkan untuk mengedit lagi. Entri di Sampah tidak muncul di saran."
+                            "Pulihkan untuk mengedit lagi. Entri di tras tidak muncul di saran."
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -387,8 +387,8 @@ internal fun ConfirmDeleteItemsDialog(
     NoCopyProvider {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pindahkan ke Sampah?") },
-        text = { Text("Pindahkan $summary ke folder Sampah? Bisa dipulihkan lagi.") },
+        title = { Text("Pindahkan ke tras?") },
+        text = { Text("Pindahkan $summary ke folder tras? Bisa dipulihkan lagi.") },
         confirmButton = {
             Button(
                 onClick = onConfirm,

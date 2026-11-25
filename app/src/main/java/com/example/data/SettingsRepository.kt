@@ -354,7 +354,7 @@ class SettingsRepository(
             val id = existingId ?: UUID.randomUUID().toString().take(12)
             // Edit hanya boleh mengubah pintasan; folder dan kata tetap dari entri asli.
             val targetFolder = existing?.let { normalizeFolderPath(it.folder) } ?: normalizedFolder
-            require(targetFolder != FOLDER_SAMPAH) { "Entri di Sampah harus dipulihkan dulu" }
+            require(targetFolder != FOLDER_SAMPAH) { "Entri di tras harus dipulihkan dulu" }
             val isA2f = targetFolder == FOLDER_A2F
             val isKred = targetFolder == FOLDER_KREDENSIAL
             // Folder terkunci: pintasan entri tersimpan tidak bisa diubah; entri baru selalu otomatis.
@@ -383,7 +383,7 @@ class SettingsRepository(
                 }
             } else if (isKred && existing == null) {
                 require(trimmedWord.isNotEmpty()) { "Kata wajib diisi" }
-                require(cleanSite.isNotBlank()) { "Website kredensial wajib diisi" }
+                require(cleanSite.isNotBlank()) { "Website kred wajib diisi" }
                 // Kata dan domain utama disimpan bersama: "kata\ndomain".
                 wordStored = "$trimmedWord\n$cleanSite"
             } else if (existing != null) {
