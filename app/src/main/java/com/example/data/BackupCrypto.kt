@@ -41,6 +41,21 @@ object BackupCrypto {
         }
     }
 
+    /**
+     * Jenis lama yang tersimpan di amplop cadangan lama -> jenis baru. Hanya untuk membaca;
+     * penulisan selalu memakai jenis baru.
+     */
+    val LEGACY_KIND_ALIASES: Map<String, String> = mapOf(
+        "kata_sandi" to "pw",
+        "kredensial" to "kred",
+        "a2f" to "aut",
+        "a2f_auto" to "aut_terenkripsi"
+    )
+
+    /** Jenis yang dipakai untuk membuka amplop: jenis yang tersimpan jika itu alias lama dari [kind]. */
+    fun readKindFor(stored: String, kind: String): String =
+        if (LEGACY_KIND_ALIASES[stored] == kind) stored else kind
+
     fun isEnvelope(raw: String): Boolean = formatOf(raw) != null
 
     fun isLegacy(raw: String): Boolean = formatOf(raw) == LEGACY_FORMAT
@@ -188,12 +203,13 @@ class BackupCipher(context: Context) {
     }
 
     fun decrypt(kind: String, raw: String): String {
+        val readKind = BackupCrypto.kindOf(raw)?.let { BackupCrypto.readKindFor(it, kind) } ?: kind
         if (BackupCrypto.isLegacy(raw)) {
             val passphrase = storedPassphrase() ?: error("Buka cadangan terenkripsi dengan passphrase dulu")
-            return BackupCrypto.openLegacy(passphrase, raw, kind)
+            return BackupCrypto.openLegacy(passphrase, raw, readKind)
         }
         val key = keyOrNull() ?: error("Buka cadangan terenkripsi dengan passphrase dulu")
-        return BackupCrypto.open(key, raw, kind)
+        return BackupCrypto.open(key, raw, readKind)
     }
 
     private fun store(passphrase: CharArray) {

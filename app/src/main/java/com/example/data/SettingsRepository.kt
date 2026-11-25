@@ -1192,9 +1192,9 @@ class SettingsRepository(
         /** Jenis berkas cadangan untuk entri pada folder ini (satu berkas per jenis). */
         fun backupKindFor(folder: String): String =
             when (normalizeFolderPath(folder).substringBefore('/')) {
-                FOLDER_KATA_SANDI -> "kata_sandi"
-                FOLDER_KREDENSIAL -> "kredensial"
-                FOLDER_A2F -> "a2f"
+                FOLDER_KATA_SANDI -> "pw"
+                FOLDER_KREDENSIAL -> "kred"
+                FOLDER_A2F -> "aut"
                 else -> "umum"
             }
 

@@ -1002,7 +1002,7 @@ class DeviceDictionaryBackupManager(
         var foundAny = false
         for (kind in DeviceDictionaryBackupManager.BACKUP_KINDS) {
             // A2F is restored only via the explicit password import, never by auto-sync.
-            if (kind == "a2f") continue
+            if (kind == "aut") continue
             val fileName = DeviceDictionaryBackupManager.backupFileNameFor(kind)
             when (val result = storage.readBackup(fileName, treeUri)) {
                 is BackupReadResult.NeedsFolderAccess -> return result
@@ -1070,7 +1070,7 @@ class DeviceDictionaryBackupManager(
         var latest = 0L
         for (kind in DeviceDictionaryBackupManager.BACKUP_KINDS) {
             // Never write device-bound seeds or overwrite an existing portable A2F backup.
-            if (kind == "a2f") continue
+            if (kind == "aut") continue
             val kindEntries = decoded.entries.filter { SettingsRepository.backupKindFor(it.folder) == kind }
             val kindFolders = decoded.folders.filter { SettingsRepository.backupKindFor(it) == kind }
             val content = if (kindEntries.isEmpty() && kindFolders.isEmpty()) {
@@ -1237,7 +1237,7 @@ class DeviceDictionaryBackupManager(
         const val BACKUP_FILE_A2F = "ketikku_aut.json"
         /** Cadangan otomatis A2F (terenkripsi passphrase). Berkas `ketikku_aut.json` tetap hanya untuk impor manual. */
         const val BACKUP_FILE_A2F_AUTO = "ketikku_aut_terenkripsi.json"
-        const val KIND_A2F_AUTO = "a2f_auto"
+        const val KIND_A2F_AUTO = "aut_terenkripsi"
         const val LOCKED_MESSAGE = "Cadangan terenkripsi terkunci: masukkan passphrase cadangan"
         /** Berkas yang ikut dienkripsi saat passphrase aktif. */
         val ENCRYPTABLE_FILE_NAMES = listOf(
@@ -1245,12 +1245,12 @@ class DeviceDictionaryBackupManager(
         )
         const val BACKUP_SHORT_PATH = "Documents/ketikku_*.json"
         const val BACKUP_DISPLAY_PATH = "/storage/emulated/0/Documents/ketikku_*.json"
-        val BACKUP_KINDS = listOf("umum", "kata_sandi", "kredensial", "a2f")
+        val BACKUP_KINDS = listOf("umum", "pw", "kred", "aut")
 
         fun backupFileNameFor(kind: String): String = when (kind) {
-            "kata_sandi" -> BACKUP_FILE_KATA_SANDI
-            "kredensial" -> BACKUP_FILE_KREDENSIAL
-            "a2f" -> BACKUP_FILE_A2F
+            "pw" -> BACKUP_FILE_KATA_SANDI
+            "kred" -> BACKUP_FILE_KREDENSIAL
+            "aut" -> BACKUP_FILE_A2F
             else -> BACKUP_FILE_UMUM
         }
         private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
