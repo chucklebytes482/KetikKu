@@ -16,7 +16,7 @@ object A2fBackup {
             val seed = SecretVault.decryptOrNull(entry.secretCipher)
                 ?: error("Seed akun tidak bisa dibaca; cadangan dibatalkan tanpa mengubah data")
             payload.put(JSONObject().put("id", entry.id).put("shortcut", entry.shortcut)
-                .put("seed", seed).put("updatedAtMillis", entry.updatedAtMillis))
+                .put("word", entry.word).put("seed", seed).put("updatedAtMillis", entry.updatedAtMillis))
         }
         return payload.toString()
     }
@@ -36,7 +36,7 @@ object A2fBackup {
             require(TotpGenerator.isValidBase32Secret(row.getString("seed"))) { "Seed A2F tidak valid" }
         }
         return rows.map { row -> PersonalDictionaryEntry(
-            id = row.getString("id"), word = "••••••••", shortcut = row.getString("shortcut").trim(),
+            id = row.getString("id"), word = row.optString("word", "").ifBlank { "••••••••" }, shortcut = row.getString("shortcut").trim(),
             folder = SettingsRepository.FOLDER_A2F,
             updatedAtMillis = row.optLong("updatedAtMillis", 0L),
             secretCipher = SecretVault.encrypt(row.getString("seed"))

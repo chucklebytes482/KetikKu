@@ -897,7 +897,7 @@ private fun DictionaryItemCard(
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = if (SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_A2F) A2F_MASK else entry.word,
+                    text = entry.word,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface

@@ -291,8 +291,6 @@ internal fun DictionaryEntryDialog(
     }
 }
 
-/** Teks tampilan untuk entri A2F; seed asli tidak pernah ditampilkan. */
-internal const val A2F_MASK = "••••••••"
 
 @Composable
 internal fun FolderNameDialog(

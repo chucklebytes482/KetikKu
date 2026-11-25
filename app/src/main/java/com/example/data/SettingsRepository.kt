@@ -614,7 +614,7 @@ class SettingsRepository(
                 if (!DictionaryEngine.isA2fEntry(entry)) entry else {
                     val seed = SecretVault.decryptOrNull(entry.secretCipher)
                         ?: error("Cadangan A2F terkunci untuk perangkat lain; seed tidak dapat dipulihkan di sini")
-                    entry.copy(word = "••••••••", secretCipher = if (SecretVault.isDeviceCipher(entry.secretCipher)) entry.secretCipher else SecretVault.encrypt(seed))
+                    entry.copy(secretCipher = if (SecretVault.isDeviceCipher(entry.secretCipher)) entry.secretCipher else SecretVault.encrypt(seed))
                 }
             }
             require(safeRemote.map { it.id }.distinct().size == safeRemote.size) { "ID cadangan duplikat" }
@@ -661,7 +661,7 @@ class SettingsRepository(
                 if (entry.id in localIds || entry.id.isBlank()) continue
                 val shortcut = entry.shortcut.lowercase(Locale.ROOT)
                 if (!activeShortcuts.add(shortcut)) continue
-                toAdd += entry.copy(word = "••••••••", folder = FOLDER_A2F)
+                toAdd += entry.copy(folder = FOLDER_A2F)
             }
             if (toAdd.isNotEmpty()) {
                 val merged = local + toAdd
