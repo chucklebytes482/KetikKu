@@ -226,10 +226,10 @@ internal fun DictionaryEntryDialog(
                 }
                 if (inTrash) {
                     Text(
-                        text = if (isA2f) {
-                            "Akun A2F tidak bisa dihapus permanen. Pulihkan untuk mengedit lagi."
-                        } else if (onPermanentDelete != null) {
-                            "Bisa dihapus permanen (duplikat atau kurang dari 10 karakter), atau pulihkan untuk mengedit lagi."
+                        text = if (onPermanentDelete != null) {
+                            "Bisa dihapus permanen, atau pulihkan untuk mengedit lagi."
+                        } else if (isA2f) {
+                            "Akun A2F hanya bisa dihapus permanen jika duplikat. Pulihkan untuk mengedit lagi."
                         } else {
                             "Pulihkan untuk mengedit lagi. Entri di Sampah tidak muncul di saran."
                         },

@@ -478,7 +478,7 @@ class SettingsRepository(
     }
 
     /**
-     * Hapus permanen entri di Sampah yang punya duplikat aktif. Entri lain di id yang dipilih dilewati.
+     * Hapus permanen entri di Sampah yang boleh dihapus (lihat [canPermanentlyDeleteFromTrash]). Entri lain di id yang dipilih dilewati.
      * Ditulis sebagai penanda hapus (tombstone) supaya "Gabungkan" dari cadangan tidak mengembalikannya.
      * Mengembalikan jumlah entri yang benar-benar dihapus.
      */
@@ -1309,19 +1309,19 @@ class SettingsRepository(
             }
         }
 
-        /** Kata di Sampah yang kurang dari 10 karakter (kolom kata, dipangkas). */
-        const val SHORT_TRASH_MAX_EXCLUSIVE = 10
+        /** Folder asal yang entri Sampahnya hanya boleh dihapus permanen jika duplikat. */
+        private val TRASH_DUPLICATE_ONLY_ORIGINS = setOf(FOLDER_A2F, FOLDER_KATA_SANDI, FOLDER_KREDENSIAL)
 
-        fun isShortInTrash(entry: PersonalDictionaryEntry): Boolean {
-            if (entry.deleted || normalizeFolderPath(entry.folder) != FOLDER_SAMPAH) return false
-            return entry.word.trim().length < SHORT_TRASH_MAX_EXCLUSIVE
-        }
-
-        /** Entri Sampah yang boleh dihapus permanen: duplikat aktif, atau kata pendek. */
+        /**
+         * Entri Sampah yang boleh dihapus permanen. Semua entri boleh, kecuali yang asalnya
+         * A2F, Kata Sandi, atau Kredensial: itu hanya boleh jika duplikat aktif.
+         */
         fun canPermanentlyDeleteFromTrash(entry: PersonalDictionaryEntry, all: List<PersonalDictionaryEntry>): Boolean {
-            // Akun A2F tidak pernah bisa dihapus permanen, baik di Sampah maupun asalnya.
-            if (normalizeFolderPath(entry.folder) == FOLDER_A2F || normalizeFolderPath(entry.trashedFrom) == FOLDER_A2F) return false
-            return isDuplicateInTrash(entry, all) || isShortInTrash(entry)
+            if (entry.deleted || normalizeFolderPath(entry.folder) != FOLDER_SAMPAH) return false
+            if (normalizeFolderPath(entry.trashedFrom) in TRASH_DUPLICATE_ONLY_ORIGINS) {
+                return isDuplicateInTrash(entry, all)
+            }
+            return true
         }
 
         fun normalizeFolderPath(raw: String?): String {

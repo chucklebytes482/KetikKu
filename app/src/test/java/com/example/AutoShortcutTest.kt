@@ -32,16 +32,23 @@ class AutoShortcutTest {
     }
 
     @Test
-    fun trashedA2fIsNeverPermanentlyDeletable() {
-        val a2fTrashed = PersonalDictionaryEntry(
-            id = "a", word = "x@y.com\nsite.com", shortcut = "", folder = SettingsRepository.FOLDER_SAMPAH,
-            trashedFrom = SettingsRepository.FOLDER_A2F
+    fun trashRuleAllowsAllExceptLockedOriginsWithoutDuplicate() {
+        fun trashed(id: String, word: String, from: String) = PersonalDictionaryEntry(
+            id = id, word = word, shortcut = "", folder = SettingsRepository.FOLDER_SAMPAH, trashedFrom = from
         )
-        assertFalse(SettingsRepository.canPermanentlyDeleteFromTrash(a2fTrashed, listOf(a2fTrashed)))
-        val shortWord = PersonalDictionaryEntry(
-            id = "b", word = "abc", shortcut = "", folder = SettingsRepository.FOLDER_SAMPAH,
-            trashedFrom = SettingsRepository.FOLDER_PRIBADI
+        val a2fNoDup = trashed("a", "x@y.com\nsite.com", SettingsRepository.FOLDER_A2F)
+        assertFalse(SettingsRepository.canPermanentlyDeleteFromTrash(a2fNoDup, listOf(a2fNoDup)))
+        val pwNoDup = trashed("p", "Github", SettingsRepository.FOLDER_KATA_SANDI)
+        assertFalse(SettingsRepository.canPermanentlyDeleteFromTrash(pwNoDup, listOf(pwNoDup)))
+        val kredNoDup = trashed("k", "BCA", SettingsRepository.FOLDER_KREDENSIAL)
+        assertFalse(SettingsRepository.canPermanentlyDeleteFromTrash(kredNoDup, listOf(kredNoDup)))
+        val a2fActive = PersonalDictionaryEntry(
+            id = "a2", word = "x@y.com\nsite.com", shortcut = "autsite.com", folder = SettingsRepository.FOLDER_A2F
         )
+        assertTrue(SettingsRepository.canPermanentlyDeleteFromTrash(a2fNoDup, listOf(a2fNoDup, a2fActive)))
+        val longWord = trashed("b", "kalimat panjang sekali", SettingsRepository.FOLDER_PRIBADI)
+        assertTrue(SettingsRepository.canPermanentlyDeleteFromTrash(longWord, listOf(longWord)))
+        val shortWord = trashed("c", "abc", SettingsRepository.FOLDER_PRIBADI)
         assertTrue(SettingsRepository.canPermanentlyDeleteFromTrash(shortWord, listOf(shortWord)))
     }
 

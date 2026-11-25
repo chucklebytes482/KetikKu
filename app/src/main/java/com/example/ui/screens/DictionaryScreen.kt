@@ -264,7 +264,7 @@ fun DictionaryScreen(
                             if (eligible.isEmpty()) {
                                 Toast.makeText(
                                     context,
-                                    "Hanya entri Sampah yang duplikat atau kurang dari 10 karakter bisa dihapus permanen",
+                                    "Entri ini tidak bisa dihapus permanen. Akun A2F, Kata Sandi, dan Kredensial hanya jika duplikat",
                                     Toast.LENGTH_LONG
                                 ).show()
                             } else {
@@ -272,7 +272,7 @@ fun DictionaryScreen(
                                 if (skipped > 0) {
                                     Toast.makeText(
                                         context,
-                                        "$skipped entri dilewati karena tidak punya duplikat",
+                                        "$skipped entri dilewati (A2F, Kata Sandi, atau Kredensial tanpa duplikat)",
                                         Toast.LENGTH_LONG
                                     ).show()
                                 }
