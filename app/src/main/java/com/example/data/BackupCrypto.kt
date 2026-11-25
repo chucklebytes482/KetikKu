@@ -31,6 +31,8 @@ object BackupCrypto {
      * True jika isi berkas adalah amplop JSON lama (`ketikku-enc-v1/v2`, PBKDF2 atau SHA-256).
      * Format itu tidak dimigrasi; berkas hanya dikenali agar tidak dianggap data kamus.
      */
+    private val LEGACY_FORMAT_RE = Regex("\"format\"\\s*:\\s*\"ketikku-enc-")
+
     fun isLegacyJsonEnvelope(raw: String): Boolean {
         val trimmed = raw.trimStart()
         if (!trimmed.startsWith("{")) return false
@@ -136,6 +138,5 @@ class BackupCipher(context: Context) {
     private companion object {
         const val PREFS_NAME = "ketikku_backup_cipher"
         const val KEY_PASSPHRASE = "passphrase_wrapped"
-        val LEGACY_FORMAT_RE = Regex("\"format\"\\s*:\\s*\"ketikku-enc-")
     }
 }
