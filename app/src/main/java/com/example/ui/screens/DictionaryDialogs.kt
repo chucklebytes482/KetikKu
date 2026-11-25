@@ -159,6 +159,29 @@ internal fun DictionaryEntryDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Website selalu paling atas untuk A2F dan kred (termasuk pratinjau baca).
+                if (isA2f || isKred) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = website,
+                        onValueChange = { website = it },
+                        enabled = !(fieldsLocked),
+                        colors = dictFieldColors(),
+                        label = { Text("Website") },
+                        singleLine = true,
+                        supportingText = {
+                            Text(
+                                when {
+                                    fieldsLocked -> "Dikunci"
+                                    isA2f -> "Dipakai juga untuk saran email dan website"
+                                    else -> "Pintasan dibuat dari domain utama, misalnya github.com"
+                                }
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().testTag(if (isA2f) "a2f_website_input" else "kred_website_input")
+                    )
+                    }
+                }
                 if (isA2f) {
                     Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
@@ -168,46 +191,26 @@ internal fun DictionaryEntryDialog(
                         colors = dictFieldColors(),
                         label = { Text("Email") },
                         singleLine = true,
-                        supportingText = { Text(if (fieldsLocked) "Dikunci" else "Juga masuk ke folder gm") },
+                        supportingText = { if (fieldsLocked) Text("Dikunci") },
                         modifier = Modifier.fillMaxWidth().testTag("a2f_email_input")
                     )
                     }
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = website,
-                        onValueChange = { website = it },
-                        enabled = !(fieldsLocked),
-                        colors = dictFieldColors(),
-                        label = { Text("Website") },
-                        singleLine = true,
-                        supportingText = { if (fieldsLocked) Text("Dikunci") },
-                        modifier = Modifier.fillMaxWidth().testTag("a2f_website_input")
-                    )
+                    // Seed hanya ditampilkan saat membuat akun baru. Seed tidak pernah ditampilkan dalam mode baca.
+                    if (seedEditable) {
+                        // Seed A2F tidak bisa disalin: tidak ada overlay salin.
+                        OutlinedTextField(
+                            value = seed,
+                            onValueChange = { seed = it },
+                            colors = dictFieldColors(),
+                            label = { Text("Seed (secret base32)") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            supportingText = {
+                                Text("TOTP SHA-1, 6 digit, 30 detik. Disimpan di Android Keystore.")
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("a2f_secret_input")
+                        )
                     }
-                    // Seed A2F tidak bisa disalin: tidak ada overlay salin.
-                    OutlinedTextField(
-                        value = seed,
-                        onValueChange = { seed = it },
-                        enabled = !(!seedEditable),
-                        colors = dictFieldColors(),
-                        label = {
-                            Text(
-                                when {
-                                    isNew -> "Seed (secret base32)"
-                                    else -> "Seed (terkunci)"
-                                }
-                            )
-                        },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        supportingText = {
-                            Text(
-                                if (!seedEditable) "Seed tersimpan terkunci"
-                                else "TOTP SHA-1, 6 digit, 30 detik. Disimpan di Android Keystore."
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth().testTag("a2f_secret_input")
-                    )
                 } else {
                     Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
@@ -220,45 +223,25 @@ internal fun DictionaryEntryDialog(
                         modifier = Modifier.fillMaxWidth().testTag("dictionary_word_input")
                     )
                     }
-                    if (isKred) {
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = website,
-                            onValueChange = { website = it },
-                            enabled = !(fieldsLocked),
-                            colors = dictFieldColors(),
-                            label = { Text("Website") },
-                            singleLine = true,
-                            supportingText = {
-                                Text(if (fieldsLocked) "Dikunci" else "Pintasan dibuat dari domain utama, misalnya github.com")
-                            },
-                            modifier = Modifier.fillMaxWidth().testTag("kred_website_input")
-                        )
-                        }
-                    }
                 }
-                Box(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = shortcut,
-                    onValueChange = { shortcut = it },
-                    enabled = !(inTrash || shortcutLockedFolder),
-                    colors = dictFieldColors(),
-                    label = {
-                        Text(
-                            when {
-                                shortcutLockedFolder -> "Pintasan (dibuat otomatis)"
-                                folder == SettingsRepository.FOLDER_NOMOR -> "Pintasan (kosong = tanpa pintasan)"
-                                else -> "Pintasan (kosong = otomatis)"
-                            }
-                        )
-                    },
-                    supportingText = {
-                        if (isA2f) Text("Dibuat otomatis: aut + domain utama website")
-                        else if (isKred) Text("Dibuat otomatis: kred + domain utama website")
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("dictionary_shortcut_input")
-                )
+                // Pintasan otomatis (pw, aut, kred) tidak ditampilkan. Hanya folder lain yang punya kolom pintasan.
+                if (!shortcutLockedFolder) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = shortcut,
+                        onValueChange = { shortcut = it },
+                        enabled = !inTrash,
+                        colors = dictFieldColors(),
+                        label = {
+                            Text(
+                                if (folder == SettingsRepository.FOLDER_NOMOR) "Pintasan (kosong = tanpa pintasan)"
+                                else "Pintasan (kosong = otomatis)"
+                            )
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("dictionary_shortcut_input")
+                    )
+                    }
                 }
                 if (inTrash) {
                     Text(

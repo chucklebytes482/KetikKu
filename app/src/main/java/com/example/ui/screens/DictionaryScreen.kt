@@ -899,19 +899,50 @@ private fun DictionaryItemCard(
                 )
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // Aut: "email\nwebsite". Kred: "kata\nwebsite". Website selalu jadi baris utama.
+                val folderNorm = SettingsRepository.normalizeFolderPath(entry.folder)
+                val parts = entry.word.split('\n')
+                val isA2fCard = folderNorm == SettingsRepository.FOLDER_A2F
+                val isKredCard = folderNorm == SettingsRepository.FOLDER_KREDENSIAL
+                val primaryText: String
+                val secondaryText: String?
+                when {
+                    isA2fCard -> {
+                        val email = parts.getOrElse(0) { "" }.trim()
+                        val site = parts.getOrElse(1) { "" }.trim()
+                        primaryText = site.ifBlank { email }
+                        secondaryText = email.takeIf { site.isNotBlank() && it.isNotBlank() }
+                    }
+                    isKredCard -> {
+                        val site = parts.getOrElse(1) { "" }.trim()
+                        val kata = DictionaryEngine.displayWord(entry)
+                        primaryText = site.ifBlank { kata }
+                        secondaryText = kata.takeIf { site.isNotBlank() && it.isNotBlank() }
+                    }
+                    else -> {
+                        primaryText = entry.word
+                        secondaryText = null
+                    }
+                }
                 Text(
-                    text = if (SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_KREDENSIAL) {
-                        DictionaryEngine.displayWord(entry)
-                    } else entry.word,
+                    text = primaryText,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                if (secondaryText != null) {
+                    Text(
+                        text = secondaryText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (entry.shortcut.isNotBlank()) {
+                    // Pintasan otomatis (pw, aut, kred) tidak ditampilkan di kartu.
+                    if (entry.shortcut.isNotBlank() && !SettingsRepository.isShortcutLockedFolder(entry.folder)) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = MaterialTheme.colorScheme.primaryContainer
