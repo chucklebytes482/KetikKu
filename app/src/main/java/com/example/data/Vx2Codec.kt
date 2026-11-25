@@ -135,7 +135,8 @@ object Vx2Codec {
         val cipher = GCMSIVBlockCipher()
         cipher.init(encrypt, AEADParameters(KeyParameter(key), TAG_BITS, nonce, aad))
         val out = ByteArray(cipher.getOutputSize(input.size))
-        val written = cipher.doFinal(input, 0, input.size, out, 0)
+        val processed = cipher.processBytes(input, 0, input.size, out, 0)
+        val written = processed + cipher.doFinal(out, processed)
         return out.copyOf(written)
     }
 }
