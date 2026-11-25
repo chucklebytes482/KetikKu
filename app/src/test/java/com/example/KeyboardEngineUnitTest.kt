@@ -54,7 +54,7 @@ class KeyboardEngineUnitTest {
             previousWord = "",
             personalEntries = multiEntries
         )
-        assertEquals(3, defaultEmptyResult.suggestions.size)
+        assertTrue(defaultEmptyResult.suggestions.isEmpty())
 
         // Saran kata dari kamus pribadi baru muncul dari 3 huruf.
         val twoLetterResult = DictionaryEngine.getSuggestions(
@@ -748,8 +748,8 @@ class KeyboardEngineUnitTest {
             personality = emptyMap(),
             nowMillis = 1_000L
         ).suggestions
-        assertEquals("Kantor pusat", idleSuggestions[0])
-        assertEquals("Katalog promo", idleSuggestions[1])
+        // Tidak sedang mengetik: saran kosong.
+        assertTrue(idleSuggestions.isEmpty())
 
         // Dua huruf belum memunculkan saran kata dari kamus pribadi.
         val twoLetterSuggestions = DictionaryEngine.getSuggestions(
@@ -828,7 +828,7 @@ class KeyboardEngineUnitTest {
 
         // 1. Idle bar MUST NOT contain pw or kred entries
         val idle = DictionaryEngine.getSuggestions("", "", entries, highUsage, 1000L).suggestions
-        assertEquals(listOf("Halo dunia"), idle)
+        assertTrue(idle.isEmpty())
 
         // 2. Typing prefix or exact text of password/credential MUST NOT surface them
         assertTrue(DictionaryEngine.getSuggestions("Rah", "", entries, highUsage, 1000L).suggestions.isEmpty())

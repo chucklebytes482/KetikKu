@@ -1156,8 +1156,8 @@ class ExampleRobolectricTest {
         // Copied text must NEVER appear inside the suggestion bar; personal dictionary suggestions stay undisturbed
         assertTrue(composeRule.onAllNodesWithTag("recent_clipboard_suggestion_chip").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("dismiss_recent_clipboard_button").fetchSemanticsNodes().isEmpty())
-        assertEquals(1, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
-        assertTrue(composeRule.onAllNodesWithText("Halo pagi").fetchSemanticsNodes().isNotEmpty())
+        // Tidak sedang mengetik: bilah saran kosong.
+        assertEquals(0, composeRule.onAllNodesWithTag("suggestion_chip").fetchSemanticsNodes().size)
 
         // Copied items remain accessible and pasteable inside the Papan Klip panel (without X close button)
         composeRule.onNodeWithTag("ime_clipboard_button").performClick()
