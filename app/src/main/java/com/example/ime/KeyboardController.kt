@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.example.data.DictionaryEngine
+import com.example.data.SettingsRepository
 import com.example.data.SecretVault
 import com.example.data.TotpGenerator
 import com.example.data.FontStyleConverter
@@ -18,6 +19,16 @@ import com.example.model.PersonalDictionaryEntry
 import com.example.model.WordPersonalityStat
 import kotlinx.coroutines.delay
 import java.util.Locale
+
+/** Satu sel bilah saran A2F: kode 6 digit atau email, milik satu akun ([entryId]). */
+data class A2fChip(
+    val kind: Kind,
+    val label: String,
+    val value: String,
+    val entryId: String
+) {
+    enum class Kind { CODE, EMAIL }
+}
 
 enum class KeyboardPage {
     QWERTY,
@@ -284,7 +295,10 @@ class KeyboardController(
         private set
     var primaryAutoCorrect by mutableStateOf<String?>(null)
         private set
-    /** True saat pintasan A2F cocok; kode 6 digit tampil sebagai saran pertama. */
+    /** Sel A2F berurutan per akun: kode, lalu email. Hanya terisi saat [isA2fActive]. */
+    var a2fChips by mutableStateOf<List<A2fChip>>(emptyList())
+        private set
+    /** True saat pintasan A2F cocok; bilah menampilkan kode dan email akun, bukan kata saran. */
     var isA2fActive by mutableStateOf(false)
         private set
     var isSelectionMode by mutableStateOf(false)
@@ -574,7 +588,13 @@ class KeyboardController(
 
         val isUsedInPersonalShortcut = rawChar.length == 1 && !rawChar[0].isWhitespace() && personalEntries.any {
             !it.deleted && it.shortcut.isNotBlank() && it.shortcut.contains(rawChar[0], ignoreCase = true)
-        }
+        } && (rawChar[0] != '.' || run {
+            // Titik (pintasan A2F "autgoogle.com") hanya bagian kata jika membentuk awalan pintasan.
+            val candidate = localWordPlain.toString() + "."
+            personalEntries.any {
+                !it.deleted && it.shortcut.isNotBlank() && it.shortcut.startsWith(candidate, ignoreCase = true)
+            }
+        })
         val isWordChar = (rawChar.length == 1 && (
             rawChar[0].isLetterOrDigit() ||
                 rawChar[0] == '\'' ||
@@ -711,12 +731,38 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        val isA2fTap = isA2fActive && word.length == TotpGenerator.DIGITS && word.all { it in '0'..'9' }
-        val freshCode = if (isA2fTap) {
-            DictionaryEngine.findA2fEntry(localWordPlain.toString(), personalEntries)?.let { entry ->
-                SecretVault.decryptOrNull(entry.secretCipher)?.let { TotpGenerator.currentCodeFromBase32(it) }
-            } ?: return
-        } else null
+        val styled = formatOutput(word, settings)
+        replaceCurrentWordForSuggestion(if (isPasswordField) styled else "$styled ")
+        recordWordUsageInternal(word, personalEntries, forceRecord = true)
+        clearSelectedPreview()
+        localContextValid = true
+        clearLocalWordBuffer()
+        clearLivePreviewBuffer()
+        applySuggestionResult(personalEntries)
+    }
+
+    /** Tap sel A2F. Kode dihitung ulang dari seed saat ini; kode tidak masuk statistik kebiasaan. */
+    fun onA2fChipTap(
+        chip: A2fChip,
+        personalEntries: List<PersonalDictionaryEntry>
+    ) {
+        val commitValue = when (chip.kind) {
+            A2fChip.Kind.CODE -> {
+                val seed = personalEntries.firstOrNull { it.id == chip.entryId && !it.deleted }
+                    ?.let { SecretVault.decryptOrNull(it.secretCipher) } ?: return
+                TotpGenerator.currentCodeFromBase32(seed)
+            }
+            A2fChip.Kind.EMAIL -> if (isPasswordField) chip.value else "${chip.value} "
+        }
+        replaceCurrentWordForSuggestion(commitValue)
+        clearSelectedPreview()
+        localContextValid = true
+        clearLocalWordBuffer()
+        clearLivePreviewBuffer()
+        applySuggestionResult(personalEntries)
+    }
+
+    private fun replaceCurrentWordForSuggestion(commitValue: String) {
         val rawLen: Int
         val plainWord: String
         if (localContextValid) {
@@ -727,22 +773,11 @@ class KeyboardController(
             rawLen = pair.first
             plainWord = pair.second
         }
-        val styled = freshCode ?: formatOutput(word, settings)
-        val commitValue = if (isA2fTap || isPasswordField) styled else "$styled "
         if (plainWord.isNotEmpty() && rawLen > 0) {
             target.replaceWordBeforeCursor(rawLen, commitValue)
         } else {
             target.commitText(commitValue)
         }
-        // Kode 2FA tidak boleh masuk statistik kebiasaan (personalityStats).
-        if (!isA2fTap) {
-            recordWordUsageInternal(word, personalEntries, forceRecord = true)
-        }
-        clearSelectedPreview()
-        localContextValid = true
-        clearLocalWordBuffer()
-        clearLivePreviewBuffer()
-        applySuggestionResult(personalEntries)
     }
 
     fun onSpacebarTrackpadStep(steps: Int) {
@@ -994,48 +1029,64 @@ class KeyboardController(
     }
 
     private var lastPersonalEntries: List<PersonalDictionaryEntry> = emptyList()
-    private var a2fCodeShown: String? = null
-
     private fun applySuggestionResult(personalEntries: List<PersonalDictionaryEntry>) {
         lastPersonalEntries = personalEntries
         val currentWord = localWordPlain.toString()
         if (isPasswordField && currentWord.isEmpty()) {
             if (suggestions.isNotEmpty()) suggestions = emptyList()
             if (primaryAutoCorrect != null) primaryAutoCorrect = null
-            setA2f(null)
+            clearA2f()
             return
         }
+        val a2f = buildA2fChips(currentWord, personalEntries)
+        if (a2f.isNotEmpty()) {
+            if (suggestions.isNotEmpty()) suggestions = emptyList()
+            if (primaryAutoCorrect != null) primaryAutoCorrect = null
+            if (a2fChips != a2f) a2fChips = a2f
+            if (!isA2fActive) isA2fActive = true
+            return
+        }
+        clearA2f()
         val result = DictionaryEngine.getSuggestions(
             currentWord = currentWord,
             previousWord = "",
             personalEntries = personalEntries,
             personality = personalityStats
         )
-        var nextSuggestions = result.suggestions
-        var nextAutoCorrect = result.primaryAutoCorrect
-        val a2fEntry = DictionaryEngine.findA2fEntry(currentWord, personalEntries)
-        val code = a2fEntry?.let {
-            SecretVault.decryptOrNull(it.secretCipher)?.let { seed ->
-                TotpGenerator.currentCodeFromBase32(seed)
-            }
+        if (suggestions != result.suggestions) {
+            suggestions = result.suggestions
         }
-        setA2f(code)
-        if (code != null) {
-            nextSuggestions = listOf(code) + nextSuggestions.filter { it != code }
-            nextAutoCorrect = null
-        }
-        if (suggestions != nextSuggestions) {
-            suggestions = nextSuggestions
-        }
-        if (primaryAutoCorrect != nextAutoCorrect) {
-            primaryAutoCorrect = nextAutoCorrect
+        if (primaryAutoCorrect != result.primaryAutoCorrect) {
+            primaryAutoCorrect = result.primaryAutoCorrect
         }
     }
 
-    private fun setA2f(code: String?) {
-        a2fCodeShown = code
-        val active = code != null
-        if (isA2fActive != active) isA2fActive = active
+    /** Sel A2F per akun yang berbagi pintasan: kode 6 digit lalu email (dipotong di bilah). */
+    private fun buildA2fChips(
+        currentWord: String,
+        personalEntries: List<PersonalDictionaryEntry>
+    ): List<A2fChip> {
+        val chips = ArrayList<A2fChip>()
+        DictionaryEngine.findA2fEntries(currentWord, personalEntries).forEach { entry ->
+            val seed = SecretVault.decryptOrNull(entry.secretCipher) ?: return@forEach
+            val code = TotpGenerator.currentCodeFromBase32(seed)
+            chips += A2fChip(A2fChip.Kind.CODE, code, code, entry.id)
+            val email = entry.word.substringBefore('\n').trim()
+            if (email.isNotEmpty()) {
+                chips += A2fChip(
+                    A2fChip.Kind.EMAIL,
+                    SettingsRepository.shortA2fEmail(email),
+                    email,
+                    entry.id
+                )
+            }
+        }
+        return chips
+    }
+
+    private fun clearA2f() {
+        if (a2fChips.isNotEmpty()) a2fChips = emptyList()
+        if (isA2fActive) isA2fActive = false
     }
 
     /** Dipanggil ticker tiap 30 detik saat [isA2fActive]. Hitung ulang kode dari waktu sekarang. */

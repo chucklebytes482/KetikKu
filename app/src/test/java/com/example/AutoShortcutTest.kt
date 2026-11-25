@@ -56,20 +56,41 @@ class AutoShortcutTest {
     }
 
     @Test
-    fun autShortcutUsesEmailAndWebsiteParts() {
+    fun autShortcutUsesWebsiteMainDomain() {
         assertEquals(
-            "autbugi",
-            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\ngithub.com", emptyList(), null)
+            "autgoogle.com",
+            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\ngoogle.com", emptyList(), null)
         )
         assertEquals(
-            "autbugi",
-            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\nhttps://www.github.com/x", emptyList(), null)
+            "autgoogle.com",
+            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\nhttps://myaccount.google.com/x", emptyList(), null)
         )
+    }
+
+    @Test
+    fun autAccountsWithSameDomainShareShortcut() {
+        val first = SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\ngoogle.com", emptyList(), null)
+        val second = SettingsRepository.autoShortcut(
+            SettingsRepository.FOLDER_A2F,
+            "ani@y.com\naccounts.google.com",
+            listOf(e("x", first, SettingsRepository.FOLDER_A2F)),
+            null
+        )
+        assertEquals(first, second)
+        assertEquals("autgoogle.com", second)
     }
 
     @Test
     fun autWithoutWebsiteGetsNoShortcut() {
         assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\n", emptyList(), null))
+    }
+
+    @Test
+    fun shortA2fEmailTruncatesWithEllipsis() {
+        assertEquals("budi@x.com", SettingsRepository.shortA2fEmail("budi@x.com"))
+        val long = SettingsRepository.shortA2fEmail("penggunapanjang2026@gmail.com")
+        assertEquals(16, long.length)
+        assertTrue(long.endsWith("\u2026"))
     }
 
     @Test

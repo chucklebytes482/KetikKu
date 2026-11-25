@@ -35,6 +35,10 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -1195,14 +1199,23 @@ private fun TopUtilityAndSuggestionBar(
                             .testTag("clipboard_status_banner")
                     )
                 }
+                controller.utilityPanel == UtilityPanel.NONE && controller.isA2fActive -> {
+                    A2fChipsRow(
+                        chips = controller.a2fChips,
+                        dividerColor = dividerColor,
+                        palette = palette,
+                        isFloating = isFloating,
+                        onTap = { chip ->
+                            onFeedback()
+                            controller.onA2fChipTap(chip, personalEntries)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 controller.utilityPanel == UtilityPanel.NONE -> {
                     SuggestionChipsRow(
                         suggestions = controller.suggestions,
-                        primaryAutoCorrect = if (controller.isA2fActive) {
-                            controller.suggestions.firstOrNull()
-                        } else {
-                            controller.primaryAutoCorrect
-                        },
+                        primaryAutoCorrect = controller.primaryAutoCorrect,
                         dividerColor = dividerColor,
                         palette = palette,
                         fontFamily = chipFontFamily,
@@ -1401,6 +1414,67 @@ private fun SuggestionChipsRow(
                     fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Medium,
                     fontFamily = fontFamily,
                     fontStyle = fontStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Bilah A2F: kode dan email per akun, 3 kolom terlihat, digeser ke kiri dan berhenti per kolom.
+ * Akun dengan pintasan sama berurutan: kode, email, kode, email, ...
+ */
+@Composable
+private fun A2fChipsRow(
+    chips: List<A2fChip>,
+    dividerColor: Color,
+    palette: KeyboardPalette,
+    isFloating: Boolean,
+    onTap: (A2fChip) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val chipHeight = if (isFloating) 30.dp else 32.dp
+    val listState = rememberLazyListState()
+    LazyRow(
+        state = listState,
+        modifier = modifier.fillMaxHeight(),
+        flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        itemsIndexed(chips, key = { index, chip -> "${chip.entryId}-${chip.kind}-$index" }) { index, chip ->
+            val isCode = chip.kind == A2fChip.Kind.CODE
+            Box(
+                modifier = Modifier
+                    .fillParentMaxWidth(1f / 3f)
+                    .height(chipHeight)
+                    .drawBehind {
+                        if (index > 0) {
+                            drawLine(
+                                color = dividerColor,
+                                start = Offset(0f, 0f),
+                                end = Offset(0f, size.height),
+                                strokeWidth = 1.dp.toPx()
+                            )
+                        }
+                    }
+                    .testTag("a2f_chip")
+                    .clickable { onTap(chip) }
+                    .padding(horizontal = if (isFloating) 4.dp else 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = chip.label,
+                    color = if (isCode) palette.accentBg else palette.keyText,
+                    fontSize = when {
+                        isCode && isFloating -> 12.sp
+                        isCode -> 14.sp
+                        isFloating -> 10.sp
+                        else -> 11.sp
+                    },
+                    fontWeight = if (isCode) FontWeight.Bold else FontWeight.Normal,
+                    fontFamily = FontFamily.Monospace,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

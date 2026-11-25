@@ -45,7 +45,7 @@ object DictionaryEngine {
 
     /**
      * Entri A2F (kode 2FA) dipisah total dari indeks: tidak pernah jadi kata saran,
-     * dan pintasannya hanya dibaca lewat [findA2fEntry].
+     * dan pintasannya hanya dibaca lewat [findA2fEntries].
      */
     fun isA2fEntry(entry: PersonalDictionaryEntry): Boolean =
         SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_A2F
@@ -54,18 +54,25 @@ object DictionaryEngine {
     fun isTrashEntry(entry: PersonalDictionaryEntry): Boolean =
         SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_SAMPAH
 
-    fun findA2fEntry(
+    /**
+     * Semua akun A2F aktif yang berbagi pintasan [currentWord] (akun dengan domain sama).
+     * Urutan: yang paling baru diubah dulu.
+     */
+    fun findA2fEntries(
         currentWord: String,
         personalEntries: List<PersonalDictionaryEntry>
-    ): PersonalDictionaryEntry? {
+    ): List<PersonalDictionaryEntry> {
         val key = currentWord.trim()
-        if (key.isEmpty()) return null
-        return personalEntries.firstOrNull { entry ->
-            !entry.deleted &&
-                isA2fEntry(entry) &&
-                entry.secretCipher.isNotBlank() &&
-                entry.shortcut.trim().equals(key, ignoreCase = true)
-        }
+        if (key.isEmpty()) return emptyList()
+        return personalEntries.asSequence()
+            .filter { entry ->
+                !entry.deleted &&
+                    isA2fEntry(entry) &&
+                    entry.secretCipher.isNotBlank() &&
+                    entry.shortcut.trim().equals(key, ignoreCase = true)
+            }
+            .sortedByDescending { it.updatedAtMillis }
+            .toList()
     }
 
     private fun getOrBuildIndex(personalEntries: List<PersonalDictionaryEntry>): IndexedDictionary {

@@ -78,6 +78,7 @@ class SettingsRepository(
         val FOLDERS_JSON = stringPreferencesKey("dictionary_folders_json")
         val FOLDER_RENAME_V2_DONE = booleanPreferencesKey("folder_rename_v2_done")
         val NUM_SHORTCUT_CLEARED_V1 = booleanPreferencesKey("num_shortcut_cleared_v1")
+        val A2F_SHORTCUT_V3_DONE = booleanPreferencesKey("a2f_shortcut_v3_done")
         val PERSONALITY_JSON = stringPreferencesKey("suggestion_personality_json")
         val CLIPBOARD_REVISION = longPreferencesKey("clipboard_revision")
         val DISMISSED_CLIPBOARD_ID = stringPreferencesKey("dismissed_clipboard_id")
@@ -113,6 +114,7 @@ class SettingsRepository(
         .onEach { prefs ->
             if (prefs[Keys.FOLDER_RENAME_V2_DONE] != true) migrateFolderNamesV2()
             if (prefs[Keys.NUM_SHORTCUT_CLEARED_V1] != true) clearNumShortcutsV1()
+            if (prefs[Keys.A2F_SHORTCUT_V3_DONE] != true) migrateA2fShortcutsV3()
         }
         .map { prefs -> prefs[Keys.DICTIONARY_JSON] }
         .distinctUntilChanged()
@@ -207,6 +209,24 @@ class SettingsRepository(
                 }
             }
             prefs[Keys.NUM_SHORTCUT_CLEARED_V1] = true
+        }
+    }
+
+    /**
+     * Sekali jalan: pintasan A2F pindah ke format `aut` + domain utama (autgoogle.com).
+     * Hanya entri A2F yang dibuat ulang; folder lain tidak disentuh.
+     */
+    private suspend fun migrateA2fShortcutsV3() {
+        val now = System.currentTimeMillis()
+        dataStore.edit { prefs ->
+            if (prefs[Keys.A2F_SHORTCUT_V3_DONE] == true) return@edit
+            val list = parseDictionaryList(prefs[Keys.DICTIONARY_JSON]).toMutableList()
+            val changed = regenerateAutoShortcutsIn(list, now, setOf(FOLDER_A2F))
+            if (changed > 0) {
+                prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(list)
+                prefs[Keys.PENDING_CHANGES] = true
+            }
+            prefs[Keys.A2F_SHORTCUT_V3_DONE] = true
         }
     }
 
@@ -352,7 +372,7 @@ class SettingsRepository(
             val requestedShortcut = if (isA2f) autoShortcut(FOLDER_A2F, wordStored, current, id) else inputShortcut
             if (isA2f) require(requestedShortcut.isNotEmpty()) { "Pintasan A2F tidak dapat dibuat dari email dan website" }
             val shortcutChanged = existing == null || existing.shortcut.trim().lowercase(Locale.ROOT) != requestedShortcut.lowercase(Locale.ROOT)
-            if (requestedShortcut.isNotEmpty() && shortcutChanged) {
+            if (requestedShortcut.isNotEmpty() && shortcutChanged && !isA2f) {
                 require(current.none { other ->
                     other.id != id && !other.deleted && normalizeFolderPath(other.folder) != FOLDER_SAMPAH &&
                         other.shortcut.trim().equals(requestedShortcut, ignoreCase = true)
@@ -537,10 +557,14 @@ class SettingsRepository(
      * Pintasan ulang untuk entri aktif di folder auto. Urutan: entri terlama dulu (deterministik).
      * Mengubah [list] di tempat; entri yang pintasannya berubah dapat updatedAtMillis = [now]. Mengembalikan jumlahnya.
      */
-    private fun regenerateAutoShortcutsIn(list: MutableList<PersonalDictionaryEntry>, now: Long): Int {
+    private fun regenerateAutoShortcutsIn(
+        list: MutableList<PersonalDictionaryEntry>,
+        now: Long,
+        folders: Set<String> = AUTO_SHORTCUT_FOLDERS
+    ): Int {
         var changed = 0
         val targets = list
-            .filter { !it.deleted && normalizeFolderPath(it.folder) in AUTO_SHORTCUT_FOLDERS }
+            .filter { !it.deleted && normalizeFolderPath(it.folder) in folders }
             .sortedWith(compareBy({ it.updatedAtMillis }, { it.id }))
         if (targets.isEmpty()) return 0
         val originalShortcut = targets.associate { it.id to it.shortcut }
@@ -629,8 +653,7 @@ class SettingsRepository(
             }
             mergedResult = mergeDictionaryLists(local, safeRemote)
             val activeA2f = mergedResult.filter { DictionaryEngine.isA2fEntry(it) && !it.deleted }
-            require(activeA2f.all { it.shortcut.isNotBlank() && it.shortcut.length <= 30 && it.shortcut.all { c -> c.isLetterOrDigit() } }) { "Pintasan A2F tidak valid" }
-            require(activeA2f.map { it.shortcut.lowercase(Locale.ROOT) }.distinct().size == activeA2f.size) { "Pintasan A2F duplikat; data tidak diubah" }
+            require(activeA2f.all { it.shortcut.isNotBlank() && it.shortcut.length <= 30 && it.shortcut.all { c -> c.isLetterOrDigit() || c == '.' } }) { "Pintasan A2F tidak valid" }
             val localFolders = parseFolderList(prefs[Keys.FOLDERS_JSON])
             val mergedFolders = prependFoldersToStorage(
                 existingFolders = localFolders,
@@ -1163,7 +1186,7 @@ class SettingsRepository(
          * gm + 2 huruf/angka pertama local part email (abdul@gmail.com -> gmab)
          * pw + huruf/angka pertama kata (Github -> pwg)
          * num + 4 digit pertama nomor (081234567890 -> num0812)
-         * aut + 2 karakter local part email + 2 karakter domain utama website (word = "email\nwebsite"; budi@x.com + github.com -> autbugi)
+         * aut + domain utama website (word = "email\nwebsite"; github.com -> autgithub.com; myaccount.google.com -> autgoogle.com). Kosong jika website kosong.
          * kred + 2 huruf/angka pertama kata (BCA -> kredbc)
          */
         fun autoShortcutBase(folder: String, word: String): String {
@@ -1174,11 +1197,8 @@ class SettingsRepository(
                 FOLDER_KATA_SANDI -> w.firstOrNull { it.isLetterOrDigit() }
                     ?.lowercaseChar()?.let { "pw$it" }.orEmpty()
                 FOLDER_A2F -> {
-                    val parts = w.split('\n')
-                    val local = parts.getOrElse(0) { "" }.trim().substringBefore('@')
-                        .filter { it.isLetterOrDigit() }.lowercase(Locale.ROOT).take(2)
-                    val domain = websiteMainLabel(parts.getOrElse(1) { "" })
-                    if (local.isEmpty() || domain.isEmpty()) "" else "aut$local$domain"
+                    val domain = normalizeWebsiteDomain(w.split('\n').getOrElse(1) { "" })
+                    if (domain.isEmpty()) "" else "aut$domain"
                 }
                 FOLDER_KREDENSIAL -> w.filter { it.isLetterOrDigit() }.lowercase(Locale.ROOT).take(2)
                     .takeIf { it.isNotEmpty() }?.let { "kred$it" }.orEmpty()
@@ -1186,7 +1206,10 @@ class SettingsRepository(
             }
         }
 
-        /** Pintasan otomatis unik: bentrok diberi angka (agm2, agm3, ...). Kosong jika folder tidak mendukung. */
+        /**
+         * Pintasan otomatis unik: bentrok diberi angka (agm2, agm3, ...). Kosong jika folder tidak mendukung.
+         * A2F tidak diberi angka: akun dengan domain sama berbagi pintasan dan dipilih lewat bilah saran.
+         */
         fun autoShortcut(
             folder: String,
             word: String,
@@ -1194,12 +1217,14 @@ class SettingsRepository(
             selfId: String?
         ): String {
             val base = autoShortcutBase(folder, word)
-            return if (base.isEmpty()) "" else nextFreeShortcut(base, others, selfId)
+            if (base.isEmpty() || normalizeFolderPath(folder) == FOLDER_A2F) return base
+            return nextFreeShortcut(base, others, selfId)
         }
 
-        /** Domain utama website: scheme dan www. dibuang, lalu 2 karakter pertama label pertama. "https://www.github.com/x" -> "gi". */
-        private fun websiteMainLabel(site: String): String {
-            return normalizeWebsiteDomain(site).substringBefore('.').filter { it.isLetterOrDigit() }.take(2)
+        /** Alamat email yang ditampilkan di bilah saran A2F: dipotong supaya tetap satu baris. */
+        fun shortA2fEmail(email: String, maxChars: Int = 16): String {
+            val clean = email.trim()
+            return if (clean.length <= maxChars) clean else clean.take(maxChars - 1) + "\u2026"
         }
 
         /** Label kedua-tingkat yang diikuti TLD 2 huruf negara (bbc.co.uk, example.com.au). */

@@ -26,13 +26,12 @@ object A2fBackup {
 
     private fun entriesFromPayload(payload: JSONArray): List<PersonalDictionaryEntry> {
         val ids = mutableSetOf<String>()
-        val shortcuts = mutableSetOf<String>()
         // Validate entire payload before creating any local ciphertext.
         val rows = (0 until payload.length()).map { payload.getJSONObject(it) }
         rows.forEach { row ->
             require(row.getString("id").isNotBlank() && ids.add(row.getString("id")))
             val shortcut = row.getString("shortcut").trim().lowercase(java.util.Locale.ROOT)
-            require(shortcut.isNotBlank() && shortcut.length <= 30 && shortcut.all { it.isLetterOrDigit() } && shortcuts.add(shortcut)) { "Pintasan A2F duplikat" }
+            require(shortcut.isNotBlank() && shortcut.length <= 30 && shortcut.all { it.isLetterOrDigit() || it == '.' }) { "Pintasan A2F tidak valid" }
             require(TotpGenerator.isValidBase32Secret(row.getString("seed"))) { "Seed A2F tidak valid" }
         }
         return rows.map { row -> PersonalDictionaryEntry(
