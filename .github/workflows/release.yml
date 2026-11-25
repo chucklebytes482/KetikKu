@@ -225,16 +225,30 @@ jobs:
           path: dist/*
           retention-days: 7
 
+      # Dibuat lewat gh CLI dengan percobaan ulang: API GitHub kadang membalas 500 sementara.
       - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.VERSION_TAG }}
-          name: ${{ env.APP_DISPLAY_NAME }} ${{ env.VERSION_TAG }}
-          files: |
-            dist/*.apk
-            dist/CHECKSUMS.txt
-            dist/CERT_FINGERPRINT.txt
-          generate_release_notes: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          FILES=(dist/*.apk dist/CHECKSUMS.txt dist/CERT_FINGERPRINT.txt)
+          for attempt in 1 2 3 4 5; do
+            if gh release view "$VERSION_TAG" >/dev/null 2>&1; then
+              if gh release upload "$VERSION_TAG" "${FILES[@]}" --clobber; then
+                exit 0
+              fi
+            elif gh release create "$VERSION_TAG" "${FILES[@]}" \
+                --title "$APP_DISPLAY_NAME $VERSION_TAG" \
+                --generate-notes \
+                --target "$GITHUB_SHA"; then
+              exit 0
+            fi
+            echo "Percobaan $attempt gagal, coba lagi." >&2
+            sleep $((attempt * 15))
+          done
+          echo "::error::Gagal membuat release $VERSION_TAG setelah 5 percobaan." >&2
+          exit 1
 
       - name: Clean Private Key & Temp Sync
         if: always()
