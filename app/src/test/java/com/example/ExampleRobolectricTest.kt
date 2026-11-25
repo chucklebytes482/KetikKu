@@ -1755,12 +1755,12 @@ class ExampleRobolectricTest {
         val kerjaBounds = composeRule.onNodeWithTag("folder_item_Kerja").fetchSemanticsNode().boundsInRoot
         val rootEntryBounds = composeRule.onNodeWithTag("dictionary_item_e_root").fetchSemanticsNode().boundsInRoot
 
-        assertTrue("Kata Sandi must be above Kredensial", sandiBounds.bottom <= kredBounds.top + 1f)
-        assertTrue("Kredensial must be above Gmail", kredBounds.bottom <= gmailBounds.top + 1f)
-        assertTrue("Gmail must be above Nomor", gmailBounds.bottom <= nomorBounds.top + 1f)
-        assertTrue("Nomor must be above Pribadi", nomorBounds.bottom <= pribadiBounds.top + 1f)
-        assertTrue("Pribadi must be above Balasan Cepat", pribadiBounds.bottom <= balasanBounds.top + 1f)
-        assertTrue("Balasan Cepat must be above custom folders", balasanBounds.bottom <= kerjaBounds.top + 1f)
+        assertTrue("pw must be above kred", sandiBounds.bottom <= kredBounds.top + 1f)
+        assertTrue("kred must be above gm", kredBounds.bottom <= gmailBounds.top + 1f)
+        assertTrue("gm must be above num", gmailBounds.bottom <= nomorBounds.top + 1f)
+        assertTrue("num must be above prib", nomorBounds.bottom <= pribadiBounds.top + 1f)
+        assertTrue("prib must be above bc", pribadiBounds.bottom <= balasanBounds.top + 1f)
+        assertTrue("bc must be above custom folders", balasanBounds.bottom <= kerjaBounds.top + 1f)
         assertTrue("Custom folders must be above unfoldered entries", kerjaBounds.bottom <= rootEntryBounds.top + 1f)
 
         // None of the 6 primary folders show a 3-dot menu

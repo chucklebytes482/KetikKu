@@ -564,7 +564,7 @@ class SettingsRepository(
     }
 
     /**
-     * Generate ulang pintasan otomatis untuk semua entri aktif di folder Gmail, Kata Sandi, dan Nomor.
+     * Generate ulang pintasan otomatis untuk semua entri aktif di folder gm, pw, dan num.
      * Urutan: entri terlama dulu, supaya hasilnya deterministik. Mengembalikan jumlah entri yang berubah.
      */
     suspend fun regenerateAutoShortcuts(): Int {
@@ -1367,7 +1367,7 @@ class SettingsRepository(
 
         /**
          * Entri Sampah yang boleh dihapus permanen. Semua entri boleh, kecuali yang asalnya
-         * A2F, Kata Sandi, atau Kredensial: itu hanya boleh jika duplikat aktif.
+         * aut, pw, atau kred: itu hanya boleh jika duplikat aktif.
          */
         fun canPermanentlyDeleteFromTrash(entry: PersonalDictionaryEntry, all: List<PersonalDictionaryEntry>): Boolean {
             if (entry.deleted || normalizeFolderPath(entry.folder) != FOLDER_SAMPAH) return false
@@ -1414,8 +1414,8 @@ class SettingsRepository(
 
         /**
          * Preserves ordered single-level folder list (no subfolders):
-         * - 6 permanent primary folders pinned at top in exact order:
-         *   Gmail, Nomor, Pribadi, Kata Sandi, Kredensial, Balasan Cepat.
+         * - 8 permanent primary folders pinned at top in exact order (kode folder):
+         *   pw, aut, kred, gm, num, prib, bc, tras.
          * - All other custom folders preserve existing order (newest-first on creation).
          */
         fun normalizeOrderedFolders(

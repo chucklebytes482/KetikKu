@@ -126,7 +126,7 @@ object DictionaryEngine {
                 }
             }
 
-            // Sensitive folders (Kata Sandi & Kredensial) must NEVER leak into idle, exact, or prefix suggestions.
+            // Sensitive folders (pw & kred) must NEVER leak into idle, exact, or prefix suggestions.
             if (shortcutOnly) continue
 
             if (defaults.size < 24 && !defaults.contains(trimmedWord)) {
@@ -262,7 +262,7 @@ object DictionaryEngine {
             return true
         }
 
-        // Priority 1: Personal dictionary shortcut matches (including Kata Sandi & Kredensial).
+        // Priority 1: Personal dictionary shortcut matches (including pw & kred).
         for (match in shortcutMatches) {
             if (!addCandidate(match)) break
         }
