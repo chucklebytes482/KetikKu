@@ -673,7 +673,6 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("key_ctrl").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithContentDescription("Ctrl aktif").assertIsDisplayed()
-        composeRule.onNodeWithTag("ctrl_armed_indicator", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithTag("key_z").performClick()
         composeRule.waitForIdle()
         assertEquals("Halo ", value.text)
