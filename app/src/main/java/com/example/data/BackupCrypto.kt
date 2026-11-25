@@ -2,7 +2,6 @@ package com.example.data
 
 import android.content.Context
 import java.nio.charset.StandardCharsets
-import org.json.JSONObject
 
 /**
  * Pembungkus cadangan terenkripsi di atas [Vx2Codec] (format VAULTX04, `.vx2`).
@@ -35,11 +34,8 @@ object BackupCrypto {
     fun isLegacyJsonEnvelope(raw: String): Boolean {
         val trimmed = raw.trimStart()
         if (!trimmed.startsWith("{")) return false
-        return try {
-            JSONObject(trimmed).optString("format").startsWith("ketikku-enc-")
-        } catch (_: Exception) {
-            false
-        }
+        // Regex, bukan JSONObject: org.json di unit test JVM hanya stub android.jar.
+        return LEGACY_FORMAT_RE.containsMatchIn(trimmed)
     }
 
     fun seal(passphrase: ByteArray, plain: String): String {
@@ -140,5 +136,6 @@ class BackupCipher(context: Context) {
     private companion object {
         const val PREFS_NAME = "ketikku_backup_cipher"
         const val KEY_PASSPHRASE = "passphrase_wrapped"
+        val LEGACY_FORMAT_RE = Regex("\"format\"\\s*:\\s*\"ketikku-enc-")
     }
 }
