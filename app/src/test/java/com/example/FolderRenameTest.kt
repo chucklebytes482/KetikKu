@@ -19,8 +19,8 @@ class FolderRenameTest {
 
     @Test
     fun customFolderClashingWithNewNameIsReported() {
-        val clashes = SettingsRepository.customFoldersClashingWithPrimary(listOf("GM", "bc", "Kerja"))
-        assertEquals(setOf("GM", "bc"), clashes)
+        val clashes = SettingsRepository.customFoldersClashingWithPrimary(listOf("PW", "bc", "Kerja", "GM"))
+        assertEquals(setOf("PW", "bc"), clashes)
     }
 
     @Test
