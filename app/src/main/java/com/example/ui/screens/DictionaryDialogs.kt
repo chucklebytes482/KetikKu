@@ -1,13 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import android.content.ClipData
-import android.content.Context
-import android.os.Build
-import android.os.PersistableBundle
-import android.widget.Toast
-import android.content.ClipboardManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,7 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,6 +45,11 @@ import com.example.data.SettingsRepository
 import com.example.data.TotpGenerator
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import com.example.model.PersonalDictionaryEntry
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.LocalTextToolbar
+import androidx.compose.ui.platform.TextToolbar
+import androidx.compose.ui.platform.TextToolbarStatus
 
 @Composable
 internal fun DictionaryEntryDialog(
@@ -86,7 +83,6 @@ internal fun DictionaryEntryDialog(
     // Folder gm/pw/aut/kred: pintasan otomatis. Entri yang sudah tersimpan terkunci penuh.
     val shortcutLockedFolder = SettingsRepository.isShortcutLockedFolder(folder)
     val savedLockedFolder = !isNew && shortcutLockedFolder
-    val context = LocalContext.current
 
     val emailRegex = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     // Field wajib kosong: menonaktifkan Simpan, tanpa pesan dan tanpa warna merah.
@@ -126,6 +122,7 @@ internal fun DictionaryEntryDialog(
         seedError == null && wordError == null &&
         !emailMissing && !siteMissing && !seedMissing && !shortcutMissing && !wordMissing
 
+    NoCopyProvider {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -143,7 +140,7 @@ internal fun DictionaryEntryDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (isA2f) {
-                    CopyOverlayBox(enabled = fieldsLocked, onCopy = { copyDictionaryField(context, email, false) }) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
@@ -154,7 +151,7 @@ internal fun DictionaryEntryDialog(
                         modifier = Modifier.fillMaxWidth().testTag("a2f_email_input")
                     )
                     }
-                    CopyOverlayBox(enabled = fieldsLocked, onCopy = { copyDictionaryField(context, website, false) }) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = website,
                         onValueChange = { website = it },
@@ -189,9 +186,7 @@ internal fun DictionaryEntryDialog(
                         modifier = Modifier.fillMaxWidth().testTag("a2f_secret_input")
                     )
                 } else {
-                    CopyOverlayBox(enabled = fieldsLocked, onCopy = {
-                        copyDictionaryField(context, word, sensitive = folder == SettingsRepository.FOLDER_KATA_SANDI)
-                    }) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = word,
                         onValueChange = { word = it },
@@ -202,7 +197,7 @@ internal fun DictionaryEntryDialog(
                     )
                     }
                 }
-                CopyOverlayBox(enabled = inTrash || shortcutLockedFolder, onCopy = { copyDictionaryField(context, shortcut, false) }) {
+                Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = shortcut,
                     onValueChange = { shortcut = it },
@@ -298,6 +293,7 @@ internal fun DictionaryEntryDialog(
             }
         }
     )
+    }
 }
 
 /** Teks tampilan untuk entri A2F; seed asli tidak pernah ditampilkan. */
@@ -313,6 +309,7 @@ internal fun FolderNameDialog(
     onConfirm: (String) -> Unit
 ) {
     var name by remember(initialValue) { mutableStateOf(initialValue) }
+    NoCopyProvider {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -342,6 +339,7 @@ internal fun FolderNameDialog(
             }
         }
     )
+    }
 }
 
 @Composable
@@ -356,6 +354,7 @@ internal fun ConfirmDeleteItemsDialog(
         if (entryCount > 0) add("$entryCount kata kamus")
     }.joinToString(" dan ")
 
+    NoCopyProvider {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Pindahkan ke Sampah?") },
@@ -378,36 +377,24 @@ internal fun ConfirmDeleteItemsDialog(
             }
         }
     )
+    }
 }
 
-/** Overlay transparan di atas field readOnly: ketuk untuk menyalin. Field yang bisa diedit tidak diberi overlay. */
+
+/** Menu salin/potong/tempel dimatikan: isi field di dialog Kamus Pribadi tidak bisa disalin. */
+private object NoCopyTextToolbar : TextToolbar {
+    override val status: TextToolbarStatus get() = TextToolbarStatus.Hidden
+    override fun showMenu(
+        rect: Rect,
+        onCopyRequested: (() -> Unit)?,
+        onPasteRequested: (() -> Unit)?,
+        onCutRequested: (() -> Unit)?,
+        onSelectAllRequested: (() -> Unit)?
+    ) {}
+    override fun hide() {}
+}
+
 @Composable
-private fun CopyOverlayBox(enabled: Boolean, onCopy: () -> Unit, content: @Composable () -> Unit) {
-    Box(modifier = Modifier.fillMaxWidth()) {
-        content()
-        if (enabled) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clickable(onClick = onCopy)
-            )
-        }
-    }
-}
-
-/** Salin isi field ke clipboard dan tampilkan "Disalin". Field kosong tidak disalin. */
-private fun copyDictionaryField(context: Context, value: String, sensitive: Boolean) {
-    if (value.isBlank()) {
-        Toast.makeText(context, "Kosong", Toast.LENGTH_SHORT).show()
-        return
-    }
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    val clip = ClipData.newPlainText("KetikKu", value)
-    if (sensitive && Build.VERSION.SDK_INT >= 33) {
-        clip.description.extras = PersistableBundle().apply {
-            putBoolean("android.content.extra.IS_SENSITIVE", true)
-        }
-    }
-    clipboard.setPrimaryClip(clip)
-    Toast.makeText(context, "Disalin", Toast.LENGTH_SHORT).show()
+private fun NoCopyProvider(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalTextToolbar provides NoCopyTextToolbar, content = content)
 }
