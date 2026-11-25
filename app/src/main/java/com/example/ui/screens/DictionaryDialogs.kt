@@ -25,6 +25,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -143,7 +145,8 @@ internal fun DictionaryEntryDialog(
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
-                        readOnly = fieldsLocked,
+                        enabled = !(fieldsLocked),
+                        colors = dictFieldColors(),
                         label = { Text("Email") },
                         singleLine = true,
                         supportingText = { Text(if (fieldsLocked) "Dikunci" else "Juga masuk ke folder gm") },
@@ -154,7 +157,8 @@ internal fun DictionaryEntryDialog(
                     OutlinedTextField(
                         value = website,
                         onValueChange = { website = it },
-                        readOnly = fieldsLocked,
+                        enabled = !(fieldsLocked),
+                        colors = dictFieldColors(),
                         label = { Text("Website") },
                         singleLine = true,
                         supportingText = { if (fieldsLocked) Text("Dikunci") },
@@ -165,7 +169,8 @@ internal fun DictionaryEntryDialog(
                     OutlinedTextField(
                         value = seed,
                         onValueChange = { seed = it },
-                        readOnly = !seedEditable,
+                        enabled = !(!seedEditable),
+                        colors = dictFieldColors(),
                         label = {
                             Text(
                                 when {
@@ -189,7 +194,8 @@ internal fun DictionaryEntryDialog(
                     OutlinedTextField(
                         value = word,
                         onValueChange = { word = it },
-                        readOnly = fieldsLocked,
+                        enabled = !(fieldsLocked),
+                        colors = dictFieldColors(),
                         label = { Text("Kata atau Frasa") },
                         singleLine = false,
                         modifier = Modifier.fillMaxWidth().testTag("dictionary_word_input")
@@ -200,7 +206,8 @@ internal fun DictionaryEntryDialog(
                 OutlinedTextField(
                     value = shortcut,
                     onValueChange = { shortcut = it },
-                    readOnly = inTrash || shortcutLockedFolder,
+                    enabled = !(inTrash || shortcutLockedFolder),
+                    colors = dictFieldColors(),
                     label = {
                         Text(
                             when {
@@ -386,3 +393,16 @@ private object NoCopyTextToolbar : TextToolbar {
 private fun NoCopyProvider(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalTextToolbar provides NoCopyTextToolbar, content = content)
 }
+
+/**
+ * Field mode baca (disabled): tidak bisa diketuk, tidak bisa ditekan lama, dan tidak bisa disalin.
+ * Warna disamakan dengan mode aktif supaya tampilannya tidak berubah jadi abu-abu.
+ */
+@Composable
+private fun dictFieldColors() = OutlinedTextFieldDefaults.colors(
+    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+    disabledBorderColor = MaterialTheme.colorScheme.outline,
+    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    disabledSupportingTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    disabledContainerColor = Color.Transparent,
+)
