@@ -189,7 +189,7 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("ime_fixed_toolbar").assertIsDisplayed()
         val clipToolbarBounds = composeRule.onNodeWithTag("ime_clipboard_button").fetchSemanticsNode().boundsInRoot
         val floatToolbarBounds = composeRule.onNodeWithTag("ime_floating_mode_toggle").fetchSemanticsNode().boundsInRoot
-        val settingsToolbarBounds = composeRule.onNodeWithTag("ime_dictionary_button").fetchSemanticsNode().boundsInRoot
+        val settingsToolbarBounds = composeRule.onNodeWithTag("ime_settings_button").fetchSemanticsNode().boundsInRoot
         assertTrue(clipToolbarBounds.right <= floatToolbarBounds.left + 1f)
         assertTrue(floatToolbarBounds.right <= settingsToolbarBounds.left + 1f)
 

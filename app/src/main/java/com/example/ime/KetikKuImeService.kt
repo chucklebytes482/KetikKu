@@ -26,9 +26,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.example.EXTRA_START_ROUTE
 import com.example.MainActivity
-import com.example.ROUTE_DICTIONARY
 import com.example.data.SettingsRepository
 import com.example.data.TextChunker
 import com.example.model.ClipboardItem
@@ -97,7 +95,6 @@ class KetikKuImeService : InputMethodService() {
         onOpenSettings = {
             val intent = Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                putExtra(EXTRA_START_ROUTE, ROUTE_DICTIONARY)
             }
             startActivity(intent)
         }

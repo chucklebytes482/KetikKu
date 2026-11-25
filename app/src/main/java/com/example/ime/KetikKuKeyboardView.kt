@@ -50,7 +50,7 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardCapslock
 import androidx.compose.material.icons.filled.PictureInPictureAlt
-import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -1289,16 +1289,16 @@ private fun FixedToolbarIconRow(
             }
         )
         UtilityIconButton(
-            icon = Icons.Default.Book,
-            contentDesc = "Buka Kamus Pribadi",
+            icon = Icons.Default.Settings,
+            contentDesc = "Buka Pengaturan",
             active = false,
             palette = palette,
             buttonSize = btnSize,
             iconSize = iconSize,
-            modifier = Modifier.testTag("ime_dictionary_button"),
+            modifier = Modifier.testTag("ime_settings_button"),
             onClick = {
                 onFeedback()
-                controller.onOpenDictionary()
+                controller.onOpenSettings()
             }
         )
     }
