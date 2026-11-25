@@ -1265,6 +1265,24 @@ class SettingsRepository(
         private val SECOND_LEVEL_LABELS = setOf("co", "com", "net", "org", "gov", "ac", "edu", "or", "ne", "go")
 
         /**
+         * Kunci urut untuk entri A2F dan Kredensial yang punya website: nama domain utama tanpa TLD.
+         * "google.com" -> "google"; "bbc.co.uk" -> "bbc". Entri lain, atau tanpa website, -> "".
+         */
+        fun mainDomainSortKey(entry: PersonalDictionaryEntry): String {
+            val norm = normalizeFolderPath(entry.folder)
+            if (norm != FOLDER_A2F && norm != FOLDER_KREDENSIAL) return ""
+            val domain = normalizeWebsiteDomain(entry.word.split('\n').getOrElse(1) { "" })
+            if (domain.isEmpty()) return ""
+            val labels = domain.split('.')
+            val index = when {
+                labels.size >= 3 && labels[labels.size - 2] in SECOND_LEVEL_LABELS -> labels.size - 3
+                labels.size >= 2 -> labels.size - 2
+                else -> 0
+            }
+            return labels[index]
+        }
+
+        /**
          * Simpan website hanya sebagai domain utama. Scheme, user info, path, port, dan subdomain dibuang.
          * "https://myaccount.google.com/" -> "google.com"; "www.bbc.co.uk/news" -> "bbc.co.uk".
          */

@@ -158,4 +158,16 @@ class AutoShortcutTest {
         assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_BALASAN_CEPAT, "Halo", emptyList(), null))
         assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_SAMPAH, "Halo", emptyList(), null))
     }
+
+    private fun site(folder: String, website: String) =
+        PersonalDictionaryEntry(id = website, word = "kata\n$website", folder = folder)
+
+    @Test
+    fun mainDomainSortKeyUsesLabelWithoutTld() {
+        assertEquals("google", SettingsRepository.mainDomainSortKey(site(SettingsRepository.FOLDER_KREDENSIAL, "google.com")))
+        assertEquals("google", SettingsRepository.mainDomainSortKey(site(SettingsRepository.FOLDER_A2F, "https://myaccount.google.com/")))
+        assertEquals("bbc", SettingsRepository.mainDomainSortKey(site(SettingsRepository.FOLDER_KREDENSIAL, "www.bbc.co.uk/news")))
+        assertEquals("", SettingsRepository.mainDomainSortKey(site(SettingsRepository.FOLDER_PRIBADI, "google.com")))
+        assertEquals("", SettingsRepository.mainDomainSortKey(site(SettingsRepository.FOLDER_KREDENSIAL, "")))
+    }
 }

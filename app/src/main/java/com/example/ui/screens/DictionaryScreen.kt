@@ -146,9 +146,12 @@ fun DictionaryScreen(
         }
     }
 
-    // Entries visible in current folder (or global search across all folders), shortcut-bearing entries first
+    // Entries visible in current folder (or global search across all folders), shortcut-bearing entries first.
+    // Entri A2F/Kredensial dengan website diurutkan menurut domain utama (google.com -> "google"), lalu kata.
     val visibleEntries = remember(activeEntriesAll, currentFolderPath, q, isSearching) {
         val comparator = compareByDescending<PersonalDictionaryEntry> { it.shortcut.isNotBlank() }
+            .thenBy { if (SettingsRepository.mainDomainSortKey(it).isEmpty()) 1 else 0 }
+            .thenBy { SettingsRepository.mainDomainSortKey(it) }
             .thenBy { it.word.lowercase() }
         if (isSearching) {
             activeEntriesAll
