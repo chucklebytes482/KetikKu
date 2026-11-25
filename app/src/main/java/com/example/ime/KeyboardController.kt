@@ -750,7 +750,7 @@ class KeyboardController(
             A2fChip.Kind.CODE -> {
                 val seed = personalEntries.firstOrNull { it.id == chip.entryId && !it.deleted }
                     ?.let { SecretVault.decryptOrNull(it.secretCipher) } ?: return
-                TotpGenerator.currentCodeFromBase32(seed)
+                TotpGenerator.currentCodeFromBase32(seed) ?: return
             }
             A2fChip.Kind.EMAIL -> if (isPasswordField) chip.value else "${chip.value} "
         }
@@ -1069,7 +1069,7 @@ class KeyboardController(
         val chips = ArrayList<A2fChip>()
         DictionaryEngine.findA2fEntries(currentWord, personalEntries).forEach { entry ->
             val seed = SecretVault.decryptOrNull(entry.secretCipher) ?: return@forEach
-            val code = TotpGenerator.currentCodeFromBase32(seed)
+            val code = TotpGenerator.currentCodeFromBase32(seed) ?: return@forEach
             chips += A2fChip(A2fChip.Kind.CODE, code, code, entry.id)
             val email = entry.word.substringBefore('\n').trim()
             if (email.isNotEmpty()) {
