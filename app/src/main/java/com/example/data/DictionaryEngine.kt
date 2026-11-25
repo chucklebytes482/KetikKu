@@ -116,7 +116,7 @@ object DictionaryEngine {
         val snapshot = personalEntries.toList()
         val active = ArrayList<PersonalDictionaryEntry>(snapshot.size)
         for (entry in snapshot) {
-            if (!entry.deleted && !isA2fEntry(entry)) active.add(entry)
+            if (!entry.deleted && !isA2fEntry(entry) && !isTrashEntry(entry)) active.add(entry)
         }
         // Place shortcut-bearing entries first so they take priority in defaults and prefix buckets.
         active.sortByDescending { it.shortcut.isNotBlank() }
