@@ -6,6 +6,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -1435,6 +1437,64 @@ private fun SuggestionChipsRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Bilah kata folder num: semua entri folder num, tiga kolom terlihat, digeser horizontal.
+ */
+@Composable
+private fun FolderWordsRow(
+    words: List<String>,
+    dividerColor: Color,
+    palette: KeyboardPalette,
+    fontFamily: FontFamily,
+    fontStyle: FontStyle,
+    isFloating: Boolean,
+    onTap: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val chipHeight = if (isFloating) 30.dp else 32.dp
+    val stripFontSize = if (isFloating) 11.sp else 13.sp
+
+    BoxWithConstraints(modifier = modifier.fillMaxHeight()) {
+        val columnWidth = maxWidth / 3
+        val scrollState = rememberScrollState()
+        Row(
+            modifier = Modifier
+                .fillMaxHeight()
+                .horizontalScroll(scrollState),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            words.forEachIndexed { index, word ->
+                if (index > 0) {
+                    SuggestionColumnDivider(
+                        color = dividerColor,
+                        tag = "folder_word_divider_$index"
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .width(columnWidth)
+                        .height(chipHeight)
+                        .testTag("folder_word_chip")
+                        .clickable { onTap(word) }
+                        .padding(horizontal = if (isFloating) 4.dp else 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = word,
+                        color = palette.keyText,
+                        fontSize = stripFontSize,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = fontFamily,
+                        fontStyle = fontStyle,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }

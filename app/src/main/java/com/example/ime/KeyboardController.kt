@@ -305,6 +305,9 @@ class KeyboardController(
     /** True saat pintasan A2F cocok; bilah menampilkan kode dan email akun, bukan kata saran. */
     var isA2fActive by mutableStateOf(false)
         private set
+    /** Kata isi folder num saat mengetik `num`. Kosong di luar kondisi itu. */
+    var folderSuggestions by mutableStateOf<List<String>>(emptyList())
+        private set
     var isSelectionMode by mutableStateOf(false)
         private set
     var enterActionType by mutableStateOf(EnterActionType.ENTER)
