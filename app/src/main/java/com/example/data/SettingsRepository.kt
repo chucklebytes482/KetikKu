@@ -307,7 +307,7 @@ class SettingsRepository(
         val trimmedShortcut = shortcut.trim().lowercase(Locale.ROOT)
         val normalizedFolder = normalizeFolderPath(folder)
         val cleanEmail = email.trim()
-        val cleanSite = website.trim()
+        val cleanSite = normalizeWebsiteDomain(website)
         dataStore.edit { prefs ->
             val current = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
             val existing = existingId?.let { id -> current.firstOrNull { it.id == id && !it.deleted } }
@@ -1199,12 +1199,34 @@ class SettingsRepository(
 
         /** Domain utama website: scheme dan www. dibuang, lalu 2 karakter pertama label pertama. "https://www.github.com/x" -> "gi". */
         private fun websiteMainLabel(site: String): String {
+            return normalizeWebsiteDomain(site).substringBefore('.').filter { it.isLetterOrDigit() }.take(2)
+        }
+
+        /** Label kedua-tingkat yang diikuti TLD 2 huruf negara (bbc.co.uk, example.com.au). */
+        private val SECOND_LEVEL_LABELS = setOf("co", "com", "net", "org", "gov", "ac", "edu", "or", "ne", "go")
+
+        /**
+         * Simpan website hanya sebagai domain utama. Scheme, user info, path, port, dan subdomain dibuang.
+         * "https://myaccount.google.com/" -> "google.com"; "www.bbc.co.uk/news" -> "bbc.co.uk".
+         */
+        fun normalizeWebsiteDomain(site: String): String {
             val host = site.trim().lowercase(Locale.ROOT)
-                .substringAfter("://")
+                .substringAfter("://", site.trim().lowercase(Locale.ROOT))
                 .substringBefore('/')
                 .substringBefore('?')
-                .removePrefix("www.")
-            return host.substringBefore('.').filter { it.isLetterOrDigit() }.take(2)
+                .substringBefore('#')
+                .substringAfterLast('@')
+                .substringBefore(':')
+                .trim('.')
+            val labels = host.split('.').filter { it.isNotEmpty() }
+            if (labels.size <= 2) return labels.joinToString(".")
+            val sld = labels[labels.size - 2]
+            val tld = labels.last()
+            return if (sld in SECOND_LEVEL_LABELS && tld.length == 2 && labels.size >= 3) {
+                labels.takeLast(3).joinToString(".")
+            } else {
+                labels.takeLast(2).joinToString(".")
+            }
         }
 
         /** Pintasan pertama yang belum dipakai entri aktif lain (entri Sampah tidak dihitung). */

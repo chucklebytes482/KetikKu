@@ -790,6 +790,16 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
+    fun settingsRepository_normalizeWebsiteDomainKeepsOnlyMainDomain() {
+        assertEquals("google.com", SettingsRepository.normalizeWebsiteDomain("https://myaccount.google.com/"))
+        assertEquals("github.com", SettingsRepository.normalizeWebsiteDomain("https://www.github.com/x?y=1"))
+        assertEquals("github.com", SettingsRepository.normalizeWebsiteDomain("github.com"))
+        assertEquals("bbc.co.uk", SettingsRepository.normalizeWebsiteDomain("www.bbc.co.uk/news"))
+        assertEquals("example.com", SettingsRepository.normalizeWebsiteDomain("user:pw@sub.example.com:8080/a"))
+        assertEquals("", SettingsRepository.normalizeWebsiteDomain("   "))
+    }
+
+    @Test
     fun dictionaryEngine_kataSandiAndKredensialNeverLeakIdleOrByPrefixOnlyByShortcut() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "pub", word = "Halo dunia", shortcut = "hd", folder = "prib", updatedAtMillis = 1L),
