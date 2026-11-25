@@ -662,6 +662,24 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
+    fun typingFolderNameNum_listsAllActiveNumEntriesNewestFirst() {
+        val entries = listOf(
+            PersonalDictionaryEntry(id = "n1", word = "081111111111", folder = "num", updatedAtMillis = 10L),
+            PersonalDictionaryEntry(id = "n2", word = "085222222222", folder = "num", updatedAtMillis = 30L),
+            PersonalDictionaryEntry(id = "n3", word = "089333333333", folder = "num", updatedAtMillis = 20L, deleted = true),
+            PersonalDictionaryEntry(id = "k1", word = "081444444444", folder = "Kerja", updatedAtMillis = 40L),
+            PersonalDictionaryEntry(
+                id = "n4", word = "087555555555", folder = SettingsRepository.FOLDER_SAMPAH,
+                updatedAtMillis = 5L, trashedFrom = "num"
+            )
+        )
+        assertEquals(listOf("085222222222", "081111111111"), DictionaryEngine.findFolderEntryWords("num", entries))
+        assertEquals(listOf("085222222222", "081111111111"), DictionaryEngine.findFolderEntryWords("NUM", entries))
+        assertTrue(DictionaryEngine.findFolderEntryWords("nu", entries).isEmpty())
+        assertTrue(DictionaryEngine.findFolderEntryWords("", entries).isEmpty())
+    }
+
+    @Test
     fun folderedPersonalDictionaryEntries_remainActiveForShortcutsAndPrefixSuggestions() {
         val folderedEntries = listOf(
             PersonalDictionaryEntry(id = "f1", word = "CS siap membantu kakak!", shortcut = "csok", folder = "Kerja", updatedAtMillis = 10L),

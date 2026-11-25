@@ -101,6 +101,27 @@ object DictionaryEngine {
             .toList()
     }
 
+    /**
+     * Mengetik persis nama folder [SettingsRepository.FOLDER_NOMOR] ("num") menampilkan semua kata di folder itu.
+     * Kosong untuk kata lain. Entri terbaru tampil lebih dulu.
+     */
+    fun findFolderEntryWords(
+        currentWord: String,
+        personalEntries: List<PersonalDictionaryEntry>
+    ): List<String> {
+        if (!currentWord.trim().equals(SettingsRepository.FOLDER_NOMOR, ignoreCase = true)) return emptyList()
+        return personalEntries.asSequence()
+            .filter { entry ->
+                !entry.deleted &&
+                    entry.word.isNotBlank() &&
+                    SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_NOMOR
+            }
+            .sortedByDescending { it.updatedAtMillis }
+            .map { it.word.trim() }
+            .distinct()
+            .toList()
+    }
+
     private fun getOrBuildIndex(personalEntries: List<PersonalDictionaryEntry>): IndexedDictionary {
         val current = cachedIndex
         val isUnmodifiable = UNMODIFIABLE_LIST_MARKER.isInstance(personalEntries)

@@ -723,7 +723,7 @@ class ExampleRobolectricTest {
         // Tapping Ctrl again immediately cancels Ctrl (no lock mode), and Backspace also resets armed Ctrl
         composeRule.onNodeWithTag("key_ctrl").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("ctrl_armed_indicator", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Ctrl aktif").assertIsDisplayed()
         composeRule.onNodeWithTag("key_ctrl").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithContentDescription("Ctrl nonaktif").assertIsDisplayed()

@@ -1050,11 +1050,20 @@ class KeyboardController(
         if (a2f.isNotEmpty()) {
             if (suggestions.isNotEmpty()) suggestions = emptyList()
             if (primaryAutoCorrect != null) primaryAutoCorrect = null
+            if (folderSuggestions.isNotEmpty()) folderSuggestions = emptyList()
             if (a2fChips != a2f) a2fChips = a2f
             if (!isA2fActive) isA2fActive = true
             return
         }
         clearA2f()
+        val folderWords = if (isPasswordField) emptyList() else DictionaryEngine.findFolderEntryWords(currentWord, personalEntries)
+        if (folderWords.isNotEmpty()) {
+            if (suggestions.isNotEmpty()) suggestions = emptyList()
+            if (primaryAutoCorrect != null) primaryAutoCorrect = null
+            if (folderSuggestions != folderWords) folderSuggestions = folderWords
+            return
+        }
+        if (folderSuggestions.isNotEmpty()) folderSuggestions = emptyList()
         val result = DictionaryEngine.getSuggestions(
             currentWord = currentWord,
             previousWord = "",

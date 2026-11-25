@@ -35,14 +35,16 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerSnapDistance
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -1213,6 +1215,21 @@ private fun TopUtilityAndSuggestionBar(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+                controller.utilityPanel == UtilityPanel.NONE && controller.folderSuggestions.isNotEmpty() -> {
+                    FolderWordsRow(
+                        words = controller.folderSuggestions,
+                        dividerColor = dividerColor,
+                        palette = palette,
+                        fontFamily = chipFontFamily,
+                        fontStyle = keyFontStyle,
+                        isFloating = isFloating,
+                        onTap = { word ->
+                            onFeedback()
+                            controller.onSuggestionTap(word, settings, personalEntries)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 controller.utilityPanel == UtilityPanel.NONE -> {
                     SuggestionChipsRow(
                         suggestions = controller.suggestions,
@@ -1427,6 +1444,7 @@ private fun SuggestionChipsRow(
  * Bilah A2F: satu kolom per akun (kode di atas, email kecil di bawah), 3 kolom terlihat, digeser dan berhenti per kolom.
  * Kode dan email masing-masing bisa disentuh.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun A2fChipsRow(
     chips: List<A2fChip>,
@@ -1436,19 +1454,29 @@ private fun A2fChipsRow(
     onTap: (A2fChip, A2fChip.Part) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val chipHeight = if (isFloating) 30.dp else 32.dp
-    val listState = rememberLazyListState()
-    LazyRow(
-        state = listState,
-        modifier = modifier.fillMaxHeight(),
-        flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        itemsIndexed(chips, key = { index, chip -> "${chip.entryId}-$index" }) { index, chip ->
+    // Kunci daftar berdasarkan id akun saja: kode yang berganti tiap 30 detik tidak mereset posisi geser.
+    val chipIdsKey = chips.joinToString("|") { it.entryId }
+    val pagerState = rememberPagerState(pageCount = { chips.size })
+    LaunchedEffect(chipIdsKey) {
+        pagerState.scrollToPage(0)
+    }
+    BoxWithConstraints(modifier = modifier.fillMaxHeight()) {
+        val columnWidth = maxWidth / 3
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            // Tiga kolom terlihat. Satu geseran selalu pindah satu kolom, sekencang apa pun geserannya.
+            pageSize = PageSize.Fixed(columnWidth),
+            flingBehavior = PagerDefaults.flingBehavior(
+                state = pagerState,
+                pagerSnapDistance = PagerSnapDistance.atMost(1)
+            ),
+            key = { page -> chips[page].entryId }
+        ) { index ->
+            val chip = chips[index]
             Column(
                 modifier = Modifier
-                    .fillParentMaxWidth(1f / 3f)
-                    .height(chipHeight)
+                    .fillMaxHeight()
                     .drawBehind {
                         if (index > 0) {
                             drawLine(
@@ -2282,27 +2310,13 @@ private fun CtrlKey(
             .testTag("key_ctrl"),
         contentAlignment = Alignment.Center
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(
-                text = "Ctrl",
-                color = contentColor,
-                fontSize = if (isFloating) 11.sp else 13.sp,
-                fontWeight = if (ctrlState == CtrlState.OFF) FontWeight.SemiBold else FontWeight.Bold,
-                maxLines = 1
-            )
-            if (ctrlState == CtrlState.ARMED) {
-                Box(
-                    modifier = Modifier
-                        .size(5.dp)
-                        .clip(CircleShape)
-                        .background(palette.accentBg)
-                        .testTag("ctrl_armed_indicator")
-                )
-            }
-        }
+        Text(
+            text = "Ctrl",
+            color = contentColor,
+            fontSize = if (isFloating) 11.sp else 13.sp,
+            fontWeight = if (ctrlState == CtrlState.OFF) FontWeight.SemiBold else FontWeight.Bold,
+            maxLines = 1
+        )
     }
 }
 
