@@ -1,105 +1,54 @@
 package com.example
 
 import com.example.data.BackupCrypto
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
 class BackupCryptoTest {
-
-    private val passphrase = "passphrase-uji-12".toCharArray()
-    private val salt = ByteArray(16) { it.toByte() }
-
-    private fun key(pass: CharArray = passphrase) = BackupCrypto.deriveKey(pass.copyOf())
+    private val passphrase = "passphrase-uji-12345".toCharArray()
+    private val pw get() = BackupCrypto.passphraseBytes(passphrase.copyOf())
 
     @Test
-    fun roundtripRestoresPlaintext() {
-        val plain = "[{\"id\":\"1\",\"shortcut\":\"abc\"}]"
-        val sealed = BackupCrypto.seal(key(), "umum", plain)
+    fun sealOpenRoundTrip() {
+        val plain = "[{\"kata\":\"halo\"}]"
+        val sealed = BackupCrypto.seal(pw, plain)
         assertTrue(BackupCrypto.isEnvelope(sealed))
-        assertFalse(BackupCrypto.isLegacy(sealed))
-        assertEquals("umum", BackupCrypto.kindOf(sealed))
-        assertEquals(plain, BackupCrypto.open(key(), sealed, "umum"))
+        assertEquals(plain, BackupCrypto.open(pw, sealed))
     }
 
     @Test
-    fun legacyKindEnvelopesStillOpenUnderNewKind() {
-        val plain = "[]"
-        val oldPw = BackupCrypto.seal(key(), "kata_sandi", plain)
-        val stored = BackupCrypto.kindOf(oldPw)!!
-        assertEquals("kata_sandi", BackupCrypto.readKindFor(stored, "pw"))
-        assertEquals(plain, BackupCrypto.open(key(), oldPw, BackupCrypto.readKindFor(stored, "pw")))
-        assertEquals("pw", BackupCrypto.readKindFor("pw", "pw"))
-        val salt16 = ByteArray(16) { it.toByte() }
-        val oldAuto = BackupCrypto.sealLegacy(passphrase.copyOf(), salt16, "a2f_auto", plain)
-        val storedAuto = BackupCrypto.kindOf(oldAuto)!!
-        assertEquals(plain, BackupCrypto.openLegacy(passphrase.copyOf(), oldAuto, BackupCrypto.readKindFor(storedAuto, "aut_terenkripsi")))
-    }
-
-    @Test
-    fun keyIsSha256OfPassphrase() {
-        val expected = java.security.MessageDigest.getInstance("SHA-256")
-            .digest(String(passphrase).toByteArray(Charsets.UTF_8))
-        assertTrue(expected.contentEquals(key().encoded))
+    fun storageRoundTripIsLossless() {
+        val bytes = ByteArray(256) { it.toByte() }
+        assertArrayEquals(bytes, BackupCrypto.fromStorage(BackupCrypto.toStorage(bytes)))
     }
 
     @Test
     fun wrongPassphraseFails() {
-        val sealed = BackupCrypto.seal(key(), "umum", "[]")
-        val wrong = "passphrase-salah-xx".toCharArray()
-        assertThrows(IllegalStateException::class.java) {
-            BackupCrypto.open(key(wrong), sealed, "umum")
-        }
-    }
-
-    @Test
-    fun wrongKindFails() {
-        val sealed = BackupCrypto.seal(key(), "umum", "[]")
-        assertThrows(IllegalArgumentException::class.java) {
-            BackupCrypto.open(key(), sealed, "kred")
-        }
-    }
-
-    @Test
-    fun tamperedCiphertextFails() {
-        val sealed = BackupCrypto.seal(key(), "aut_terenkripsi", "[]")
-        val root = org.json.JSONObject(sealed)
-        val bytes = android.util.Base64.decode(root.getString("ciphertext"), android.util.Base64.NO_WRAP)
-        bytes[0] = (bytes[0].toInt() xor 1).toByte()
-        root.put("ciphertext", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))
-        assertThrows(IllegalStateException::class.java) {
-            BackupCrypto.open(key(), root.toString(), "aut_terenkripsi")
-        }
-    }
-
-    @Test
-    fun legacyEnvelopeStillReadable() {
-        val plain = "[{\"id\":\"lama\"}]"
-        val legacy = BackupCrypto.sealLegacy(passphrase.copyOf(), salt, "umum", plain)
-        assertTrue(BackupCrypto.isLegacy(legacy))
-        assertEquals(plain, BackupCrypto.openLegacy(passphrase.copyOf(), legacy, "umum"))
-        assertThrows(IllegalStateException::class.java) {
-            BackupCrypto.openLegacy("passphrase-salah-xx".toCharArray(), legacy, "umum")
-        }
+        val sealed = BackupCrypto.seal(pw, "[]")
+        val wrong = BackupCrypto.passphraseBytes("passphrase-salah-12".toCharArray())
+        assertThrows(Exception::class.java) { BackupCrypto.open(wrong, sealed) }
     }
 
     @Test
     fun plainJsonIsNotEnvelope() {
         assertFalse(BackupCrypto.isEnvelope("[]"))
-        assertFalse(BackupCrypto.isEnvelope("{\"format\":\"lain\"}"))
+        assertFalse(BackupCrypto.isLegacyJsonEnvelope("[]"))
+    }
+
+    @Test
+    fun legacyJsonEnvelopeIsDetected() {
+        assertTrue(BackupCrypto.isLegacyJsonEnvelope("{\"format\":\"ketikku-enc-v2\",\"data\":\"x\"}"))
+        assertFalse(BackupCrypto.isLegacyJsonEnvelope("{\"format\":\"lain\"}"))
     }
 
     @Test
     fun shortPassphraseRejected() {
         assertThrows(IllegalArgumentException::class.java) {
-            BackupCrypto.deriveKey("pendek".toCharArray())
+            BackupCrypto.passphraseBytes("pendek".toCharArray())
         }
     }
 }

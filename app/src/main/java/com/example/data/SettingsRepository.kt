@@ -1397,7 +1397,7 @@ class SettingsRepository(
                 return "$norm:" + parts.getOrElse(0) { "" }.trim().lowercase(Locale.ROOT) + "\n" +
                     parts.getOrElse(1) { "" }.trim().lowercase(Locale.ROOT)
             }
-            return word.trim().lowercase(Locale.ROOT)
+            return "$norm:" + word.trim().lowercase(Locale.ROOT)
         }
 
         /**
@@ -1405,18 +1405,20 @@ class SettingsRepository(
          * Kunci aut dan kata dipisah awalannya, jadi seed tidak pernah cocok dengan kata.
          */
         private fun trashMatchKey(entry: PersonalDictionaryEntry, folder: String): String? {
-            return when (normalizeFolderPath(folder)) {
+            // Awalan folder: kata yang sama di folder berbeda bukan duplikat (cek per folder).
+            val norm = normalizeFolderPath(folder)
+            return when (norm) {
                 FOLDER_A2F -> SecretVault.decryptOrNull(entry.secretCipher)
                     ?.let { TotpGenerator.normalizeBase32(it) }
                     ?.takeIf { it.isNotEmpty() }
-                    ?.let { "seed:$it" }
+                    ?.let { "$norm:seed:$it" }
                 FOLDER_KATA_SANDI, FOLDER_KREDENSIAL -> entry.word.split('\n').firstOrNull()
                     ?.trim()?.lowercase(Locale.ROOT)
                     ?.takeIf { it.isNotEmpty() }
-                    ?.let { "kata:$it" }
+                    ?.let { "$norm:kata:$it" }
                 else -> entry.word.trim().lowercase(Locale.ROOT)
                     .takeIf { it.isNotEmpty() }
-                    ?.let { "kata:$it" }
+                    ?.let { "$norm:kata:$it" }
             }
         }
 

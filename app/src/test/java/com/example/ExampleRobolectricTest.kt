@@ -1586,7 +1586,7 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
         composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
         composeRule.onNodeWithText(
-            "/storage/emulated/0/Documents/ketikku_*.json",
+            "/storage/emulated/0/Documents/ketikku_*",
             substring = true
         ).assertIsDisplayed()
 
@@ -2258,11 +2258,11 @@ class ExampleRobolectricTest {
             com.example.data.DeviceDictionaryBackupManager.BACKUP_RELATIVE_PATH
         )
         assertEquals(
-            "/storage/emulated/0/Documents/ketikku_*.json",
+            "/storage/emulated/0/Documents/ketikku_*",
             com.example.data.DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH
         )
         assertEquals(
-            "/storage/emulated/0/Documents/ketikku_*.json",
+            "/storage/emulated/0/Documents/ketikku_*",
             com.example.data.DeviceDictionaryBackupManager.formatBackupDisplayPath(null)
         )
 
@@ -2283,7 +2283,7 @@ class ExampleRobolectricTest {
             com.example.data.DeviceDictionaryBackupManager.formatBackupShortFolder(customSubUri)
         )
         assertEquals(
-            "/storage/emulated/0/Documents/Catatan/Kamus/ketikku_*.json",
+            "/storage/emulated/0/Documents/Catatan/Kamus/ketikku_*",
             com.example.data.DeviceDictionaryBackupManager.formatBackupDisplayPath(customSubUri)
         )
     }

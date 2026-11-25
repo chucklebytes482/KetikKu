@@ -57,6 +57,19 @@ class AutoShortcutTest {
     }
 
     @Test
+    fun plainWordDuplicateIsCheckedPerFolder() {
+        fun trashed(id: String, word: String, from: String) = PersonalDictionaryEntry(
+            id = id, word = word, shortcut = "", folder = SettingsRepository.FOLDER_SAMPAH, trashedFrom = from
+        )
+        val pwTrash = trashed("p", "Github", SettingsRepository.FOLDER_KATA_SANDI)
+        val otherFolder = PersonalDictionaryEntry(id = "x", word = "Github", shortcut = "", folder = SettingsRepository.FOLDER_PRIBADI)
+        // Kata sama di folder lain bukan duplikat untuk folder pw.
+        assertFalse(SettingsRepository.canPermanentlyDeleteFromTrash(pwTrash, listOf(pwTrash, otherFolder)))
+        val sameFolder = PersonalDictionaryEntry(id = "y", word = "Github", shortcut = "pwg", folder = SettingsRepository.FOLDER_KATA_SANDI)
+        assertTrue(SettingsRepository.canPermanentlyDeleteFromTrash(pwTrash, listOf(pwTrash, sameFolder)))
+    }
+
+    @Test
     fun pwShortcutUsesPwPlusFirstChar() {
         assertEquals("pwg", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KATA_SANDI, "Github", emptyList(), null))
     }

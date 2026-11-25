@@ -36,7 +36,16 @@ sealed interface BackupWriteResult {
 interface DeviceBackupStorage {
     fun readBackup(fileName: String, persistedTreeUri: String?): BackupReadResult
     fun writeBackup(fileName: String, json: String, persistedTreeUri: String?): BackupWriteResult
+    /** Menghapus berkas dari semua jalur penyimpanan. Berkas yang tidak ada dianggap sudah terhapus. */
+    fun deleteBackup(fileName: String, persistedTreeUri: String?): BackupWriteResult
 }
+
+/** Berkas `.vx2` berisi biner: dibawa sebagai Latin-1 agar setiap byte utuh. Berkas lain UTF-8. */
+internal fun charsetFor(fileName: String): java.nio.charset.Charset =
+    if (fileName.endsWith(".vx2", ignoreCase = true)) Charsets.ISO_8859_1 else Charsets.UTF_8
+
+internal fun mimeTypeFor(fileName: String): String =
+    if (fileName.endsWith(".vx2", ignoreCase = true)) "application/octet-stream" else "application/json"
 
 sealed interface DeviceSyncResult {
     data class Synced(
@@ -68,12 +77,24 @@ class DirectoryDeviceBackupStorage(
             }
             BackupReadResult.Found(
                 StoredBackupFile(
-                    content = file.readText(Charsets.UTF_8),
+                    content = file.readText(charsetFor(fileName)),
                     lastModifiedMillis = file.lastModified().coerceAtLeast(0L)
                 )
             )
         }.getOrElse { err ->
             BackupReadResult.Error("Gagal membaca file cadangan: ${err.message.orEmpty()}")
+        }
+    }
+
+    override fun deleteBackup(fileName: String, persistedTreeUri: String?): BackupWriteResult {
+        return runCatching {
+            val file = fileFor(fileName)
+            if (file.exists() && !file.delete()) {
+                return BackupWriteResult.Error("Gagal menghapus $fileName")
+            }
+            BackupWriteResult.Success(System.currentTimeMillis())
+        }.getOrElse { err ->
+            BackupWriteResult.Error("Gagal menghapus $fileName: ${err.message.orEmpty()}")
         }
     }
 
@@ -84,7 +105,7 @@ class DirectoryDeviceBackupStorage(
             }
             val file = fileFor(fileName)
             // Overwrite the exact same file in-place so strictly 1 backup file exists.
-            file.writeText(json, Charsets.UTF_8)
+            file.writeText(json, charsetFor(fileName))
             BackupWriteResult.Success(file.lastModified().coerceAtLeast(System.currentTimeMillis()))
         }.getOrElse { err ->
             BackupWriteResult.Error("Gagal menulis file cadangan: ${err.message.orEmpty()}")
@@ -135,11 +156,37 @@ class AndroidDeviceBackupStorage(
         return writeViaLegacyFile(fileName, json)
     }
 
+    override fun deleteBackup(fileName: String, persistedTreeUri: String?): BackupWriteResult {
+        val errors = mutableListOf<String>()
+        // Semua jalur dicoba: berkas yang sama bisa ada di lebih dari satu tempat setelah pindah izin folder.
+        if (!persistedTreeUri.isNullOrBlank()) {
+            runCatching {
+                querySafMatchingFiles(Uri.parse(persistedTreeUri), fileName).forEach { match ->
+                    DocumentsContract.deleteDocument(resolver, match.uri)
+                }
+            }.onFailure { err -> if (err !is SecurityException) errors += err.message.orEmpty() }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            runCatching {
+                queryMediaStoreMatches(fileName).forEach { match -> resolver.delete(match.uri, null, null) }
+            }.onFailure { err -> if (err !is SecurityException) errors += err.message.orEmpty() }
+        }
+        runCatching {
+            val legacy = legacyPublicBackupFile(fileName)
+            if (legacy.exists() && !legacy.delete()) errors += "tidak bisa menghapus ${legacy.name}"
+        }.onFailure { err -> if (err !is SecurityException) errors += err.message.orEmpty() }
+        return if (errors.isEmpty()) {
+            BackupWriteResult.Success(System.currentTimeMillis())
+        } else {
+            BackupWriteResult.Error("Gagal menghapus $fileName: ${errors.joinToString("; ")}")
+        }
+    }
+
     private fun readViaSafTree(treeUri: Uri, fileName: String): BackupReadResult? {
         return runCatching {
             val matches = querySafMatchingFiles(treeUri, fileName)
             val target = matches.maxByOrNull { it.lastModifiedMillis } ?: return BackupReadResult.NotFound
-            val text = resolver.openInputStream(target.uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+            val text = resolver.openInputStream(target.uri)?.bufferedReader(charsetFor(fileName))?.use { it.readText() }
                 ?: return BackupReadResult.Error("Gagal membuka file cadangan dari folder terpilih.")
             BackupReadResult.Found(StoredBackupFile(text, target.lastModifiedMillis))
         }.getOrElse { err ->
@@ -172,12 +219,12 @@ class AndroidDeviceBackupStorage(
                 DocumentsContract.createDocument(
                     resolver,
                     parentDocUri,
-                    "application/json",
+                    mimeTypeFor(fileName),
                     fileName
                 ) ?: return BackupWriteResult.Error("Gagal membuat file $fileName di folder terpilih.")
             }
 
-            writeTextTruncating(targetUri, json)
+            writeTextTruncating(targetUri, json, charsetFor(fileName))
             BackupWriteResult.Success(System.currentTimeMillis())
         }.getOrElse { err ->
             if (err is SecurityException) {
@@ -260,7 +307,7 @@ class AndroidDeviceBackupStorage(
             val matches = queryMediaStoreMatches(fileName)
             if (matches.isNotEmpty()) {
                 val latest = matches.first()
-                val text = resolver.openInputStream(latest.uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                val text = resolver.openInputStream(latest.uri)?.bufferedReader(charsetFor(fileName))?.use { it.readText() }
                     ?: return BackupReadResult.NeedsFolderAccess(
                         "File cadangan lama ditemukan. Pilih folder di dalam Documents sekali untuk sinkronisasi penuh."
                     )
@@ -273,7 +320,7 @@ class AndroidDeviceBackupStorage(
                 return if (diskFile.canRead()) {
                     BackupReadResult.Found(
                         StoredBackupFile(
-                            content = diskFile.readText(Charsets.UTF_8),
+                            content = diskFile.readText(charsetFor(fileName)),
                             lastModifiedMillis = diskFile.lastModified().coerceAtLeast(0L)
                         )
                     )
@@ -307,7 +354,7 @@ class AndroidDeviceBackupStorage(
                 matches.drop(1).forEach { extra ->
                     runCatching { resolver.delete(extra.uri, null, null) }
                 }
-                writeTextTruncating(primary, json)
+                writeTextTruncating(primary, json, charsetFor(fileName))
                 return BackupWriteResult.Success(System.currentTimeMillis())
             }
 
@@ -315,7 +362,7 @@ class AndroidDeviceBackupStorage(
             val diskFile = legacyPublicBackupFile(fileName)
             if (diskFile.exists()) {
                 return if (diskFile.canWrite()) {
-                    diskFile.writeText(json, Charsets.UTF_8)
+                    diskFile.writeText(json, charsetFor(fileName))
                     BackupWriteResult.Success(diskFile.lastModified().coerceAtLeast(System.currentTimeMillis()))
                 } else {
                     BackupWriteResult.NeedsFolderAccess(
@@ -327,14 +374,14 @@ class AndroidDeviceBackupStorage(
             val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
+                put(MediaStore.MediaColumns.MIME_TYPE, mimeTypeFor(fileName))
                 put(MediaStore.MediaColumns.RELATIVE_PATH, DeviceDictionaryBackupManager.BACKUP_RELATIVE_PATH)
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
             val insertedUri = resolver.insert(collection, values)
                 ?: return BackupWriteResult.Error("Gagal membuat file di Documents.")
             try {
-                writeTextTruncating(insertedUri, json)
+                writeTextTruncating(insertedUri, json, charsetFor(fileName))
                 val ready = ContentValues().apply {
                     put(MediaStore.MediaColumns.IS_PENDING, 0)
                 }
@@ -366,7 +413,7 @@ class AndroidDeviceBackupStorage(
             }
             BackupReadResult.Found(
                 StoredBackupFile(
-                    content = file.readText(Charsets.UTF_8),
+                    content = file.readText(charsetFor(fileName)),
                     lastModifiedMillis = file.lastModified().coerceAtLeast(0L)
                 )
             )
@@ -387,7 +434,7 @@ class AndroidDeviceBackupStorage(
             file.parentFile?.let { parent ->
                 if (!parent.exists()) parent.mkdirs()
             }
-            file.writeText(json, Charsets.UTF_8)
+            file.writeText(json, charsetFor(fileName))
             BackupWriteResult.Success(file.lastModified().coerceAtLeast(System.currentTimeMillis()))
         }.getOrElse { err ->
             if (err is SecurityException) {
@@ -400,8 +447,8 @@ class AndroidDeviceBackupStorage(
         }
     }
 
-    private fun writeTextTruncating(uri: Uri, content: String) {
-        val bytes = content.toByteArray(Charsets.UTF_8)
+    private fun writeTextTruncating(uri: Uri, content: String, charset: java.nio.charset.Charset) {
+        val bytes = content.toByteArray(charset)
         val out = runCatching { resolver.openOutputStream(uri, "wt") }.getOrNull()
             ?: runCatching { resolver.openOutputStream(uri, "rwt") }.getOrNull()
             ?: resolver.openOutputStream(uri)
@@ -425,37 +472,105 @@ class DeviceDictionaryBackupManager(
     /**
      * Mengaktifkan enkripsi cadangan otomatis. Jika di perangkat sudah ada cadangan terenkripsi,
      * passphrase dicocokkan dengannya (pemulihan di HP baru); jika belum, passphrase baru dibuat.
+     * Jika enkripsi sudah aktif, passphrase diganti: semua berkas `.vx2` ditulis ulang dengan passphrase baru.
      * Setelah itu sinkronisasi penuh dijalankan. Tidak boleh dipanggil dari dalam syncMutex.
      */
     suspend fun enableEncryption(passphrase: CharArray): DeviceSyncResult {
         val backupCipher = cipher ?: return DeviceSyncResult.Error("Enkripsi cadangan tidak tersedia")
         try {
-            if (backupCipher.isConfigured()) return DeviceSyncResult.Error("Cadangan terenkripsi sudah aktif")
-            val treeUri = settingsRepository.getCurrentSyncLocalState().deviceBackupTreeUri.takeIf { it.isNotBlank() }
-            withContext(Dispatchers.IO) {
-                var remoteEnvelope: String? = null
-                for (fileName in ENCRYPTABLE_FILE_NAMES) {
-                    when (val read = storage.readBackup(fileName, treeUri)) {
-                        is BackupReadResult.Found -> {
-                            if (remoteEnvelope == null && BackupCrypto.isEnvelope(read.file.content)) {
-                                remoteEnvelope = read.file.content
+            if (backupCipher.isConfigured()) {
+                changePassphrase(backupCipher, passphrase)?.let { return DeviceSyncResult.Error(it) }
+            } else {
+                val treeUri = settingsRepository.getCurrentSyncLocalState().deviceBackupTreeUri.takeIf { it.isNotBlank() }
+                withContext(Dispatchers.IO) {
+                    var remoteEnvelope: String? = null
+                    for (fileName in ENCRYPTABLE_FILE_NAMES) {
+                        when (val read = storage.readBackup(fileName, treeUri)) {
+                            is BackupReadResult.Found -> {
+                                if (remoteEnvelope == null && BackupCrypto.isEnvelope(read.file.content)) {
+                                    remoteEnvelope = read.file.content
+                                }
                             }
+                            is BackupReadResult.NeedsFolderAccess -> throw IllegalStateException(read.reason)
+                            is BackupReadResult.Error -> throw IllegalStateException(read.message)
+                            is BackupReadResult.NotFound -> Unit
                         }
-                        is BackupReadResult.NeedsFolderAccess -> throw IllegalStateException(read.reason)
-                        is BackupReadResult.Error -> throw IllegalStateException(read.message)
-                        is BackupReadResult.NotFound -> Unit
                     }
+                    val envelope = remoteEnvelope
+                    if (envelope != null) backupCipher.unlock(passphrase, envelope)
+                    else backupCipher.setup(passphrase)
                 }
-                val envelope = remoteEnvelope
-                if (envelope != null) backupCipher.unlock(passphrase, envelope)
-                else backupCipher.setup(passphrase)
             }
         } catch (e: Exception) {
             return DeviceSyncResult.Error(e.message ?: "Gagal mengaktifkan enkripsi cadangan")
         } finally {
             passphrase.fill('\u0000')
         }
-        return syncNow()
+        val result = syncNow()
+        if (result is DeviceSyncResult.Synced) {
+            val treeUri = settingsRepository.getCurrentSyncLocalState().deviceBackupTreeUri.takeIf { it.isNotBlank() }
+            withContext(Dispatchers.IO) {
+                purgePlainCounterpart(KIND_UMUM, treeUri)
+                purgePlainCounterpart(KIND_PW, treeUri)
+                purgePlainCounterpart(KIND_KRED, treeUri)
+            }
+        }
+        return result
+    }
+
+    private class PendingReencrypt(val fileName: String, val oldRaw: String, val newRaw: String)
+
+    /**
+     * Ganti passphrase: baca semua `.vx2` dengan passphrase lama, tulis ulang dengan passphrase baru,
+     * lalu baru simpan passphrase baru. Jika penulisan gagal, berkas yang sudah ditulis dikembalikan (best-effort).
+     * Mengembalikan pesan error, atau null jika berhasil.
+     */
+    private suspend fun changePassphrase(backupCipher: BackupCipher, passphrase: CharArray): String? = syncMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val treeUri = settingsRepository.getCurrentSyncLocalState().deviceBackupTreeUri.takeIf { it.isNotBlank() }
+            val pending = mutableListOf<PendingReencrypt>()
+            for (fileName in ENCRYPTABLE_FILE_NAMES) {
+                when (val read = storage.readBackup(fileName, treeUri)) {
+                    is BackupReadResult.NotFound -> Unit
+                    is BackupReadResult.NeedsFolderAccess -> return@withContext read.reason
+                    is BackupReadResult.Error -> return@withContext read.message
+                    is BackupReadResult.Found -> {
+                        val plain = try {
+                            backupCipher.decrypt(read.file.content)
+                        } catch (_: Exception) {
+                            return@withContext "Passphrase lama tidak cocok dengan $fileName. Passphrase tidak diubah."
+                        }
+                        pending += PendingReencrypt(fileName, read.file.content, backupCipher.encryptWith(passphrase, plain))
+                    }
+                }
+            }
+
+            val written = mutableListOf<PendingReencrypt>()
+            fun rollback() {
+                written.asReversed().forEach { storage.writeBackup(it.fileName, it.oldRaw, treeUri) }
+            }
+            for (item in pending) {
+                when (val write = storage.writeBackup(item.fileName, item.newRaw, treeUri)) {
+                    is BackupWriteResult.Success -> written += item
+                    is BackupWriteResult.NeedsFolderAccess -> {
+                        rollback()
+                        return@withContext write.reason
+                    }
+                    is BackupWriteResult.Error -> {
+                        rollback()
+                        return@withContext write.message
+                    }
+                }
+            }
+            try {
+                // Passphrase baru disimpan hanya setelah semua berkas berhasil ditulis ulang.
+                backupCipher.commit(passphrase)
+            } catch (e: Exception) {
+                rollback()
+                return@withContext "Gagal menyimpan passphrase baru: ${e.message.orEmpty()}"
+            }
+            null
+        }
     }
 
     /** Setelah sinkron kamus berhasil, perbarui berkas A2F terenkripsi (selalu digabung dulu dengan isi berkas). */
@@ -491,14 +606,14 @@ class DeviceDictionaryBackupManager(
                 is BackupReadResult.Error -> return@withContext read.message
                 is BackupReadResult.NotFound -> Unit
                 is BackupReadResult.Found -> {
-                    val payload = backupCipher.decrypt(KIND_A2F_AUTO, read.file.content)
+                    val payload = backupCipher.decrypt(read.file.content)
                     settingsRepository.addMissingA2fAccounts(A2fBackup.entriesFromPayloadJson(payload))
                 }
             }
         }
         val localA2f = settingsRepository.getCurrentDictionary()
         if (localA2f.none { DictionaryEngine.isA2fEntry(it) && !it.deleted }) return@withContext null
-        val sealed = backupCipher.encrypt(KIND_A2F_AUTO, A2fBackup.payloadJson(localA2f))
+        val sealed = backupCipher.encrypt(A2fBackup.payloadJson(localA2f))
         when (val write = storage.writeBackup(BACKUP_FILE_A2F_AUTO, sealed, treeUri)) {
             is BackupWriteResult.Success -> null
             is BackupWriteResult.NeedsFolderAccess -> write.reason
@@ -993,7 +1108,10 @@ class DeviceDictionaryBackupManager(
         afterDictionaryWrite(result)
     }
 
-    /** Membaca keempat berkas jenis dan menggabungkannya menjadi satu envelope JSON. */
+    /**
+     * Membaca berkas tiap jenis dan menggabungkannya menjadi satu envelope JSON.
+     * Berkas terenkripsi `.vx2` diutamakan; berkas `.json` biasa dibaca jika belum ada yang terenkripsi.
+     */
     private fun readAll(treeUri: String?): BackupReadResult {
         val entries = mutableListOf<PersonalDictionaryEntry>()
         val folders = mutableListOf<String>()
@@ -1003,26 +1121,37 @@ class DeviceDictionaryBackupManager(
         for (kind in DeviceDictionaryBackupManager.BACKUP_KINDS) {
             // A2F is restored only via the explicit password import, never by auto-sync.
             if (kind == "aut") continue
-            val fileName = DeviceDictionaryBackupManager.backupFileNameFor(kind)
-            when (val result = storage.readBackup(fileName, treeUri)) {
-                is BackupReadResult.NeedsFolderAccess -> return result
-                is BackupReadResult.Error -> return result
+            val encName = DeviceDictionaryBackupManager.backupFileNameFor(kind, encrypted = true)
+            val plainName = DeviceDictionaryBackupManager.backupFileNameFor(kind, encrypted = false)
+            val encRead = storage.readBackup(encName, treeUri)
+            val (fileName, read) = if (encRead is BackupReadResult.NotFound) {
+                plainName to storage.readBackup(plainName, treeUri)
+            } else {
+                encName to encRead
+            }
+            when (read) {
+                is BackupReadResult.NeedsFolderAccess -> return read
+                is BackupReadResult.Error -> return read
                 is BackupReadResult.NotFound -> Unit
                 is BackupReadResult.Found -> {
                     foundAny = true
-                    lastModified = maxOf(lastModified, result.file.lastModifiedMillis)
-                    val plain = if (!BackupCrypto.isEnvelope(result.file.content)) {
-                        result.file.content
-                    } else {
+                    lastModified = maxOf(lastModified, read.file.lastModifiedMillis)
+                    val plain = if (fileName == encName) {
                         val c = cipher
                         if (c == null || !c.isConfigured()) return BackupReadResult.Error(LOCKED_MESSAGE)
                         try {
-                            c.decrypt(kind, result.file.content)
+                            c.decrypt(read.file.content)
+                        } catch (e: IllegalStateException) {
+                            return BackupReadResult.Error(e.message ?: corruptFileMessage(fileName))
                         } catch (_: Exception) {
-                            // Isi berkas rusak (mis. base64 teredit): sebutkan nama berkasnya agar bisa dihapus satu per satu.
+                            // Isi berkas rusak: sebutkan nama berkasnya agar bisa dihapus satu per satu.
                             return BackupReadResult.Error(corruptFileMessage(fileName))
                         }
+                    } else {
+                        read.file.content
                     }
+                    // Amplop JSON lama tidak dimigrasi: dilewati, bukan dianggap kamus.
+                    if (BackupCrypto.isLegacyJsonEnvelope(plain)) continue
                     val decoded = settingsRepository.decodeDictionaryBackupJson(plain) ?: continue
                     entries += decoded.entries.filterNot { DictionaryEngine.isA2fEntry(it) }
                     folders += decoded.folders
@@ -1049,7 +1178,10 @@ class DeviceDictionaryBackupManager(
         "Berkas $fileName tidak valid (isinya rusak). Hapus berkas $fileName saja dari folder cadangan. " +
             "Aplikasi akan membuatnya ulang otomatis dari data di aplikasi, dan tidak ada entri yang terhapus."
 
-    /** Menulis keempat berkas jenis dari satu envelope JSON. Jenis tanpa isi ditulis sebagai `[]`. */
+    /**
+     * Menulis berkas tiap jenis dari satu envelope JSON. Jika enkripsi aktif, berkas ditulis sebagai `.vx2`
+     * dan salinan `.json` biasanya dihapus. Jenis tanpa isi ditulis sebagai `[]`.
+     */
     private fun writeAll(json: String, treeUri: String?): BackupWriteResult {
         val incoming = settingsRepository.decodeDictionaryBackupJson(json)
             ?: return BackupWriteResult.Error("Gagal menyiapkan data cadangan.")
@@ -1067,6 +1199,7 @@ class DeviceDictionaryBackupManager(
             entries = unionByIdNewestWins(incoming.entries, existing.entries),
             updatedAtMillis = maxOf(incoming.updatedAtMillis, existing.updatedAtMillis)
         )
+        val encrypted = cipher?.isConfigured() == true
         var latest = 0L
         for (kind in DeviceDictionaryBackupManager.BACKUP_KINDS) {
             // Never write device-bound seeds or overwrite an existing portable A2F backup.
@@ -1082,13 +1215,15 @@ class DeviceDictionaryBackupManager(
                     folders = kindFolders
                 )
             }
-            val fileName = DeviceDictionaryBackupManager.backupFileNameFor(kind)
+            val fileName = DeviceDictionaryBackupManager.backupFileNameFor(kind, encrypted)
             // Aturan standar 06 §2: isi sama dengan berkas di perangkat -> dilewati (tidak ditulis ulang).
-            if (isKindUnchanged(fileName, kind, kindEntries, kindFolders, treeUri)) continue
-            val c = cipher
-            val payload = if (c != null && c.isConfigured()) {
+            if (isKindUnchanged(fileName, kind, kindEntries, kindFolders, treeUri)) {
+                if (encrypted) purgePlainCounterpart(kind, treeUri)
+                continue
+            }
+            val payload = if (encrypted) {
                 try {
-                    c.encrypt(kind, content)
+                    cipher!!.encrypt(content)
                 } catch (e: Exception) {
                     return BackupWriteResult.Error(e.message ?: "Gagal mengenkripsi cadangan")
                 }
@@ -1096,7 +1231,10 @@ class DeviceDictionaryBackupManager(
                 content
             }
             when (val result = storage.writeBackup(fileName, payload, treeUri)) {
-                is BackupWriteResult.Success -> latest = maxOf(latest, result.writtenAtMillis)
+                is BackupWriteResult.Success -> {
+                    latest = maxOf(latest, result.writtenAtMillis)
+                    if (encrypted) purgePlainCounterpart(kind, treeUri)
+                }
                 is BackupWriteResult.NeedsFolderAccess -> return result
                 is BackupWriteResult.Error -> return result
             }
@@ -1104,15 +1242,28 @@ class DeviceDictionaryBackupManager(
         return BackupWriteResult.Success(maxOf(latest, System.currentTimeMillis()))
     }
 
-    /** Isi plaintext satu berkas jenis: null jika tidak bisa dibaca (mis. terkunci). */
-    private fun plainKindContent(kind: String, raw: String): String? {
-        if (!BackupCrypto.isEnvelope(raw)) return raw
-        val c = cipher ?: return null
-        if (!c.isConfigured()) return null
-        return try { c.decrypt(kind, raw) } catch (_: Exception) { null }
+    /**
+     * Menghapus salinan `.json` biasa jenis ini, hanya jika `.vx2`-nya sudah ada. Amplop JSON lama tidak dihapus
+     * karena belum dimigrasi.
+     */
+    private fun purgePlainCounterpart(kind: String, treeUri: String?) {
+        val encName = DeviceDictionaryBackupManager.backupFileNameFor(kind, encrypted = true)
+        if (storage.readBackup(encName, treeUri) !is BackupReadResult.Found) return
+        val plainName = DeviceDictionaryBackupManager.backupFileNameFor(kind, encrypted = false)
+        val plain = storage.readBackup(plainName, treeUri) as? BackupReadResult.Found ?: return
+        if (BackupCrypto.isLegacyJsonEnvelope(plain.file.content)) return
+        storage.deleteBackup(plainName, treeUri)
     }
 
-    /** True jika berkas jenis ini sudah berisi data yang sama persis (entri dan folder). */
+    /** Isi plaintext satu berkas: null jika tidak bisa dibaca (mis. terkunci). */
+    private fun plainKindContent(fileName: String, raw: String): String? {
+        if (!fileName.endsWith(".vx2")) return raw
+        val c = cipher ?: return null
+        if (!c.isConfigured()) return null
+        return try { c.decrypt(raw) } catch (_: Exception) { null }
+    }
+
+    /** True jika berkas ini sudah berisi data yang sama persis (entri dan folder). */
     private fun isKindUnchanged(
         fileName: String,
         kind: String,
@@ -1121,7 +1272,7 @@ class DeviceDictionaryBackupManager(
         treeUri: String?
     ): Boolean {
         val read = storage.readBackup(fileName, treeUri) as? BackupReadResult.Found ?: return false
-        val plain = plainKindContent(kind, read.file.content) ?: return false
+        val plain = plainKindContent(fileName, read.file.content) ?: return false
         val current = settingsRepository.decodeDictionaryBackupJson(plain)
         return isDictionaryContentEquivalent(
             leftEntries = current?.entries.orEmpty(),
@@ -1231,27 +1382,38 @@ class DeviceDictionaryBackupManager(
 
     companion object {
         const val BACKUP_RELATIVE_PATH = "Documents"
+        const val KIND_UMUM = "umum"
+        const val KIND_PW = "pw"
+        const val KIND_KRED = "kred"
+        /** Nama berkas biasa (tanpa enkripsi). Berkas terenkripsi memakai ekstensi `.vx2`, lihat [backupFileNameFor]. */
         const val BACKUP_FILE_UMUM = "ketikku_umum.json"
         const val BACKUP_FILE_KATA_SANDI = "ketikku_pw.json"
         const val BACKUP_FILE_KREDENSIAL = "ketikku_kred.json"
         const val BACKUP_FILE_A2F = "ketikku_aut.json"
         /** Cadangan otomatis A2F (terenkripsi passphrase). Berkas `ketikku_aut.json` tetap hanya untuk impor manual. */
-        const val BACKUP_FILE_A2F_AUTO = "ketikku_aut_terenkripsi.json"
+        const val BACKUP_FILE_A2F_AUTO = "ketikku_aut_terenkripsi.vx2"
         const val KIND_A2F_AUTO = "aut_terenkripsi"
         const val LOCKED_MESSAGE = "Cadangan terenkripsi terkunci: masukkan passphrase cadangan"
-        /** Berkas yang ikut dienkripsi saat passphrase aktif. */
+        /** Berkas terenkripsi (`.vx2`) yang ikut diganti passphrasenya. */
         val ENCRYPTABLE_FILE_NAMES = listOf(
-            BACKUP_FILE_UMUM, BACKUP_FILE_KATA_SANDI, BACKUP_FILE_KREDENSIAL, BACKUP_FILE_A2F_AUTO
+            backupFileNameFor(KIND_UMUM, encrypted = true),
+            backupFileNameFor(KIND_PW, encrypted = true),
+            backupFileNameFor(KIND_KRED, encrypted = true),
+            BACKUP_FILE_A2F_AUTO
         )
-        const val BACKUP_SHORT_PATH = "Documents/ketikku_*.json"
-        const val BACKUP_DISPLAY_PATH = "/storage/emulated/0/Documents/ketikku_*.json"
+        const val BACKUP_SHORT_PATH = "Documents/ketikku_*"
+        const val BACKUP_DISPLAY_PATH = "/storage/emulated/0/Documents/ketikku_*"
         val BACKUP_KINDS = listOf("umum", "pw", "kred", "aut")
 
-        fun backupFileNameFor(kind: String): String = when (kind) {
-            "pw" -> BACKUP_FILE_KATA_SANDI
-            "kred" -> BACKUP_FILE_KREDENSIAL
-            "aut" -> BACKUP_FILE_A2F
-            else -> BACKUP_FILE_UMUM
+        /** Nama berkas satu jenis: `.json` biasa, atau `.vx2` jika [encrypted]. */
+        fun backupFileNameFor(kind: String, encrypted: Boolean = false): String {
+            val plain = when (kind) {
+                KIND_PW -> BACKUP_FILE_KATA_SANDI
+                KIND_KRED -> BACKUP_FILE_KREDENSIAL
+                "aut" -> BACKUP_FILE_A2F
+                else -> BACKUP_FILE_UMUM
+            }
+            return if (encrypted) plain.removeSuffix(".json") + ".vx2" else plain
         }
         private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
         private const val PRIMARY_DOCUMENTS_PREFIX = "primary:Documents"
@@ -1311,7 +1473,7 @@ class DeviceDictionaryBackupManager(
             extractDocumentsRelativeFolder(treeUriString) ?: BACKUP_RELATIVE_PATH
 
         fun formatBackupShortFilePath(treeUriString: String?): String =
-            "${formatBackupShortFolder(treeUriString)}/ketikku_*.json"
+            "${formatBackupShortFolder(treeUriString)}/ketikku_*"
 
         fun formatBackupDisplayPath(treeUriString: String?): String =
             "/storage/emulated/0/${formatBackupShortFilePath(treeUriString)}"
