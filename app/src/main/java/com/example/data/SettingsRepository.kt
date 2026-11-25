@@ -79,6 +79,7 @@ class SettingsRepository(
         val FOLDER_RENAME_V2_DONE = booleanPreferencesKey("folder_rename_v2_done")
         val NUM_SHORTCUT_CLEARED_V1 = booleanPreferencesKey("num_shortcut_cleared_v1")
         val A2F_SHORTCUT_V3_DONE = booleanPreferencesKey("a2f_shortcut_v3_done")
+        val KRED_DOMAIN_V4_DONE = booleanPreferencesKey("kred_domain_v4_done")
         val PERSONALITY_JSON = stringPreferencesKey("suggestion_personality_json")
         val CLIPBOARD_REVISION = longPreferencesKey("clipboard_revision")
         val DISMISSED_CLIPBOARD_ID = stringPreferencesKey("dismissed_clipboard_id")
@@ -115,6 +116,7 @@ class SettingsRepository(
             if (prefs[Keys.FOLDER_RENAME_V2_DONE] != true) migrateFolderNamesV2()
             if (prefs[Keys.NUM_SHORTCUT_CLEARED_V1] != true) clearNumShortcutsV1()
             if (prefs[Keys.A2F_SHORTCUT_V3_DONE] != true) migrateA2fShortcutsV3()
+            if (prefs[Keys.KRED_DOMAIN_V4_DONE] != true) migrateKredShortcutsV4()
         }
         .map { prefs -> prefs[Keys.DICTIONARY_JSON] }
         .distinctUntilChanged()
@@ -231,6 +233,24 @@ class SettingsRepository(
     }
 
     /**
+     * Sekali jalan: pintasan kredensial pindah ke `kred` + domain utama website (kredgithub.com).
+     * Entri lama tanpa website tidak punya pintasan lagi, tetapi tetap ada dan tetap bisa dilihat lewat "kred".
+     */
+    private suspend fun migrateKredShortcutsV4() {
+        val now = System.currentTimeMillis()
+        dataStore.edit { prefs ->
+            if (prefs[Keys.KRED_DOMAIN_V4_DONE] == true) return@edit
+            val list = parseDictionaryList(prefs[Keys.DICTIONARY_JSON]).toMutableList()
+            val changed = regenerateAutoShortcutsIn(list, now, setOf(FOLDER_KREDENSIAL))
+            if (changed > 0) {
+                prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(list)
+                prefs[Keys.PENDING_CHANGES] = true
+            }
+            prefs[Keys.KRED_DOMAIN_V4_DONE] = true
+        }
+    }
+
+    /**
      * Sekali jalan: ganti nama folder tersimpan ke kode pendek, buat ulang pintasan otomatis,
      * dan tandai entri yang berubah (updatedAtMillis baru) supaya ikut sync.
      * Folder kustom yang bentrok dengan nama baru tidak digabung otomatis; hanya dicatat di log.
@@ -336,6 +356,7 @@ class SettingsRepository(
             val targetFolder = existing?.let { normalizeFolderPath(it.folder) } ?: normalizedFolder
             require(targetFolder != FOLDER_SAMPAH) { "Entri di Sampah harus dipulihkan dulu" }
             val isA2f = targetFolder == FOLDER_A2F
+            val isKred = targetFolder == FOLDER_KREDENSIAL
             // Folder terkunci: pintasan entri tersimpan tidak bisa diubah; entri baru selalu otomatis.
             val inputShortcut = when {
                 isShortcutLockedFolder(targetFolder) -> existing?.shortcut?.trim()?.lowercase(Locale.ROOT).orEmpty()
@@ -360,7 +381,13 @@ class SettingsRepository(
                     wordStored = existing.word
                     cipher = existing.secretCipher
                 }
+            } else if (isKred && existing == null) {
+                require(trimmedWord.isNotEmpty()) { "Kata wajib diisi" }
+                require(cleanSite.isNotBlank()) { "Website kredensial wajib diisi" }
+                // Kata dan domain utama disimpan bersama: "kata\ndomain".
+                wordStored = "$trimmedWord\n$cleanSite"
             } else if (existing != null) {
+                // Entri tersimpan terkunci (termasuk kred lama tanpa website).
                 wordStored = existing.word
             } else {
                 require(trimmedWord.isNotEmpty()) { "Kata wajib diisi" }
@@ -368,18 +395,19 @@ class SettingsRepository(
                 wordStored = trimmedWord
             }
 
-            // Pintasan A2F selalu otomatis (aut + email + website), tidak bisa diisi manual.
-            val requestedShortcut = if (isA2f) autoShortcut(FOLDER_A2F, wordStored, current, id) else inputShortcut
+            // Pintasan A2F dan kred selalu otomatis dari domain utama website, tidak bisa diisi manual.
+            val domainFolder = isA2f || isKred
+            val requestedShortcut = if (domainFolder) autoShortcut(targetFolder, wordStored, current, id) else inputShortcut
             if (isA2f) require(requestedShortcut.isNotEmpty()) { "Pintasan A2F tidak dapat dibuat dari email dan website" }
             val shortcutChanged = existing == null || existing.shortcut.trim().lowercase(Locale.ROOT) != requestedShortcut.lowercase(Locale.ROOT)
-            if (requestedShortcut.isNotEmpty() && shortcutChanged && !isA2f) {
+            if (requestedShortcut.isNotEmpty() && shortcutChanged && !domainFolder) {
                 require(current.none { other ->
                     other.id != id && !other.deleted && normalizeFolderPath(other.folder) != FOLDER_SAMPAH &&
                         other.shortcut.trim().equals(requestedShortcut, ignoreCase = true)
                 }) { "Pintasan sudah dipakai" }
             }
             val finalShortcut = when {
-                isA2f -> requestedShortcut
+                domainFolder -> requestedShortcut
                 inputShortcut.isNotEmpty() -> inputShortcut
                 else -> autoShortcut(targetFolder, wordStored, current, id)
             }
@@ -1187,7 +1215,7 @@ class SettingsRepository(
          * pw + huruf/angka pertama kata (Github -> pwg)
          * num + 4 digit pertama nomor (081234567890 -> num0812)
          * aut + domain utama website (word = "email\nwebsite"; github.com -> autgithub.com; myaccount.google.com -> autgoogle.com). Kosong jika website kosong.
-         * kred + 2 huruf/angka pertama kata (BCA -> kredbc)
+         * kred + domain utama website (word = "kata\nwebsite"; github.com -> kredgithub.com). Kosong jika website kosong.
          */
         fun autoShortcutBase(folder: String, word: String): String {
             val w = word.trim()
@@ -1200,8 +1228,10 @@ class SettingsRepository(
                     val domain = normalizeWebsiteDomain(w.split('\n').getOrElse(1) { "" })
                     if (domain.isEmpty()) "" else "aut$domain"
                 }
-                FOLDER_KREDENSIAL -> w.filter { it.isLetterOrDigit() }.lowercase(Locale.ROOT).take(2)
-                    .takeIf { it.isNotEmpty() }?.let { "kred$it" }.orEmpty()
+                FOLDER_KREDENSIAL -> {
+                    val domain = normalizeWebsiteDomain(w.split('\n').getOrElse(1) { "" })
+                    if (domain.isEmpty()) "" else "kred$domain"
+                }
                 else -> ""
             }
         }
@@ -1217,9 +1247,13 @@ class SettingsRepository(
             selfId: String?
         ): String {
             val base = autoShortcutBase(folder, word)
-            if (base.isEmpty() || normalizeFolderPath(folder) == FOLDER_A2F) return base
+            if (base.isEmpty() || isSharedDomainShortcutFolder(folder)) return base
             return nextFreeShortcut(base, others, selfId)
         }
+
+        /** Folder pintasan domain: akun dengan domain sama berbagi pintasan (tanpa angka). */
+        fun isSharedDomainShortcutFolder(folder: String): Boolean =
+            normalizeFolderPath(folder).let { it == FOLDER_A2F || it == FOLDER_KREDENSIAL }
 
         /** Alamat email yang ditampilkan di bilah saran A2F: dipotong supaya tetap satu baris. */
         fun shortA2fEmail(email: String, maxChars: Int = 16): String {
@@ -1285,9 +1319,10 @@ class SettingsRepository(
 
         /** Kunci pembanding duplikat. A2F pakai email + website; entri lain pakai kata. */
         private fun duplicateKey(word: String, folder: String): String {
-            if (normalizeFolderPath(folder) == FOLDER_A2F) {
+            val norm = normalizeFolderPath(folder)
+            if (norm == FOLDER_A2F || norm == FOLDER_KREDENSIAL) {
                 val parts = word.split('\n')
-                return "a2f:" + parts.getOrElse(0) { "" }.trim().lowercase(Locale.ROOT) + "\n" +
+                return "$norm:" + parts.getOrElse(0) { "" }.trim().lowercase(Locale.ROOT) + "\n" +
                     parts.getOrElse(1) { "" }.trim().lowercase(Locale.ROOT)
             }
             return word.trim().lowercase(Locale.ROOT)
@@ -1301,7 +1336,7 @@ class SettingsRepository(
             if (entry.deleted || normalizeFolderPath(entry.folder) != FOLDER_SAMPAH) return false
             val origin = normalizeFolderPath(entry.trashedFrom)
             val key = duplicateKey(entry.word, origin)
-            if (key.isBlank() || key == "a2f:\n") return false
+            if (key.isBlank() || key == "a2f:\n" || key == "kred:\n") return false
             return all.any { other ->
                 other.id != entry.id && !other.deleted &&
                     normalizeFolderPath(other.folder) != FOLDER_SAMPAH &&

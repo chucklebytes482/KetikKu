@@ -15,6 +15,10 @@ object DictionaryEngine {
         java.util.Collections.unmodifiableList(emptyList<PersonalDictionaryEntry>()).javaClass
 
     private const val MAX_INDEX_PREFIX_LEN = 16
+    /** Saran kata dari kamus pribadi baru muncul setelah sekian huruf diketik. */
+    const val MIN_PREFIX_SUGGEST_LEN = 3
+    /** Mengetik ini (utuh) menampilkan semua entri kredensial di bilah saran. */
+    const val KRED_TRIGGER = "kred"
     private const val MAX_PERSONAL_PREFIX_BUCKET = 32
     private const val SHORTCUT_PERSONALIZATION_BONUS = 25.0
 
@@ -35,6 +39,9 @@ object DictionaryEngine {
     fun prewarmIndex(personalEntries: List<PersonalDictionaryEntry>) {
         getOrBuildIndex(personalEntries)
     }
+
+    /** Kata yang ditampilkan untuk entri: kolom pertama. Kredensial menyimpan "kata\ndomain". */
+    fun displayWord(entry: PersonalDictionaryEntry): String = entry.word.substringBefore('\n').trim()
 
     private fun isShortcutOnlyFolder(folder: String): Boolean {
         val norm = SettingsRepository.normalizeFolderPath(folder)
@@ -103,7 +110,7 @@ object DictionaryEngine {
         val defaults = ArrayList<String>(24)
 
         for (entry in active) {
-            val trimmedWord = entry.word.trim()
+            val trimmedWord = displayWord(entry)
             if (trimmedWord.isBlank()) continue
             val lowerWord = trimmedWord.lowercase(Locale.ROOT)
             val shortcutOnly = isShortcutOnlyFolder(entry.folder)
@@ -170,6 +177,16 @@ object DictionaryEngine {
         nowMillis: Long = System.currentTimeMillis()
     ): List<String> {
         if (currentWord.isEmpty() || personalEntries.isEmpty()) return emptyList()
+        if (currentWord.trim().lowercase(Locale.ROOT) == KRED_TRIGGER) {
+            // Semua kredensial aktif, yang paling baru diubah dulu. Bilah saran hanya menampilkan 3 pertama.
+            return personalEntries.asSequence()
+                .filter { !it.deleted && SettingsRepository.normalizeFolderPath(it.folder) == SettingsRepository.FOLDER_KREDENSIAL }
+                .sortedByDescending { it.updatedAtMillis }
+                .map { displayWord(it) }
+                .filter { it.isNotEmpty() }
+                .distinct()
+                .toList()
+        }
         val index = getOrBuildIndex(personalEntries)
         val rawMatches = index.shortcutMap[currentWord.trim().lowercase(Locale.ROOT)] ?: return emptyList()
         if (rawMatches.size <= 1) return rawMatches.map { it.word }
@@ -226,7 +243,9 @@ object DictionaryEngine {
         val lowerWord = boundedWord.lowercase(Locale.ROOT)
         val shortcutMatches = findShortcutMatches(boundedWord, personalEntries, personality, nowMillis)
         val primaryShortcut = if (shortcutMatches.size == 1) shortcutMatches.first() else null
-        val exactPersonalExists = index.wordLowerSet.contains(lowerWord)
+        // Kamus pribadi baru menyarankan kata setelah MIN_PREFIX_SUGGEST_LEN huruf (pintasan tetap berlaku dari huruf pertama).
+        val prefixSuggestAllowed = boundedWord.length >= MIN_PREFIX_SUGGEST_LEN
+        val exactPersonalExists = prefixSuggestAllowed && index.wordLowerSet.contains(lowerWord)
 
         val preserveCaps = boundedWord[0].isUpperCase()
         fun applyCase(w: String): String =
@@ -275,7 +294,7 @@ object DictionaryEngine {
             rankedPool.add(boundedWord to (baseScore + shortcutBonus + 5.0))
         }
 
-        val personalBucket = index.wordsByPrefix[lookupPrefix]
+        val personalBucket = if (prefixSuggestAllowed) index.wordsByPrefix[lookupPrefix] else null
         if (personalBucket != null) {
             for ((lowerDict, rawDict) in personalBucket) {
                 if (lowerDict != lowerWord && lowerDict.startsWith(lowerWord) && seenPoolLower.add(lowerDict)) {

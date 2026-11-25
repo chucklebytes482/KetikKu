@@ -1,5 +1,6 @@
 package com.example
 
+import com.example.data.DictionaryEngine
 import com.example.data.SettingsRepository
 import com.example.model.PersonalDictionaryEntry
 import org.junit.Assert.assertEquals
@@ -58,8 +59,47 @@ class AutoShortcutTest {
     }
 
     @Test
-    fun kredShortcutUsesFirstTwoChars() {
-        assertEquals("kredbc", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "BCA", emptyList(), null))
+    fun kredShortcutUsesWebsiteMainDomain() {
+        assertEquals(
+            "kredgithub.com",
+            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "budi\ngithub.com", emptyList(), null)
+        )
+        assertEquals(
+            "kredgithub.com",
+            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "budi\nhttps://www.github.com/login", emptyList(), null)
+        )
+    }
+
+    @Test
+    fun kredWithoutWebsiteGetsNoShortcut() {
+        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "BCA", emptyList(), null))
+    }
+
+    @Test
+    fun kredKeywordShowsActiveCredentialsOnly() {
+        val kred1 = PersonalDictionaryEntry(id = "k1", word = "budi\ngithub.com", shortcut = "kredgithub.com",
+            folder = SettingsRepository.FOLDER_KREDENSIAL, updatedAtMillis = 1L)
+        val kred2 = PersonalDictionaryEntry(id = "k2", word = "ani\nbca.co.id", shortcut = "kredbca.co.id",
+            folder = SettingsRepository.FOLDER_KREDENSIAL, updatedAtMillis = 2L)
+        val trashedKred = PersonalDictionaryEntry(id = "k3", word = "old\nold.com", shortcut = "",
+            folder = SettingsRepository.FOLDER_KREDENSIAL, deleted = true, updatedAtMillis = 3L)
+        val result = DictionaryEngine.findShortcutMatches("kred", listOf(kred1, kred2, trashedKred))
+        assertEquals(listOf("ani", "budi"), result)
+    }
+
+    @Test
+    fun threeLettersOfPersonalWordDoNotShowKredential() {
+        val pribadi = PersonalDictionaryEntry(id = "p1", word = "kredit", shortcut = "",
+            folder = SettingsRepository.FOLDER_PRIBADI)
+        assertEquals(emptyList<String>(), DictionaryEngine.findShortcutMatches("kre", listOf(pribadi)))
+    }
+
+    @Test
+    fun suggestionsNeedThreeCharsBeforePrefixMatch() {
+        val pribadi = PersonalDictionaryEntry(id = "w1", word = "selamat", shortcut = "",
+            folder = SettingsRepository.FOLDER_PRIBADI)
+        assertTrue(DictionaryEngine.getSuggestions("se", "", listOf(pribadi)).suggestions.isEmpty())
+        assertTrue(DictionaryEngine.getSuggestions("sel", "", listOf(pribadi)).suggestions.contains("selamat"))
     }
 
     @Test

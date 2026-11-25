@@ -75,6 +75,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.SettingsRepository
+import com.example.data.DictionaryEngine
 import com.example.data.SecretVault
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
@@ -468,6 +469,7 @@ fun DictionaryScreen(
             initialEntry = current,
             defaultFolderPath = currentFolderPath,
             isA2f = dialogFolder == SettingsRepository.FOLDER_A2F,
+            isKred = dialogFolder == SettingsRepository.FOLDER_KREDENSIAL,
             usedShortcuts = dictionary.filter {
                 !it.deleted && it.id != current?.id && SettingsRepository.normalizeFolderPath(it.folder) != SettingsRepository.FOLDER_SAMPAH
             }.map { it.shortcut },
@@ -897,7 +899,9 @@ private fun DictionaryItemCard(
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = entry.word,
+                    text = if (SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_KREDENSIAL) {
+                        DictionaryEngine.displayWord(entry)
+                    } else entry.word,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface

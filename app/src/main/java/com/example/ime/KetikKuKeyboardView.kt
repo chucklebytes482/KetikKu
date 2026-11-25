@@ -102,6 +102,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -1205,9 +1206,9 @@ private fun TopUtilityAndSuggestionBar(
                         dividerColor = dividerColor,
                         palette = palette,
                         isFloating = isFloating,
-                        onTap = { chip ->
+                        onTap = { chip, part ->
                             onFeedback()
-                            controller.onA2fChipTap(chip, personalEntries)
+                            controller.onA2fChipTap(chip, part, personalEntries)
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1423,8 +1424,8 @@ private fun SuggestionChipsRow(
 }
 
 /**
- * Bilah A2F: kode dan email per akun, 3 kolom terlihat, digeser ke kiri dan berhenti per kolom.
- * Akun dengan pintasan sama berurutan: kode, email, kode, email, ...
+ * Bilah A2F: satu kolom per akun (kode di atas, email kecil di bawah), 3 kolom terlihat, digeser dan berhenti per kolom.
+ * Kode dan email masing-masing bisa disentuh.
  */
 @Composable
 private fun A2fChipsRow(
@@ -1432,7 +1433,7 @@ private fun A2fChipsRow(
     dividerColor: Color,
     palette: KeyboardPalette,
     isFloating: Boolean,
-    onTap: (A2fChip) -> Unit,
+    onTap: (A2fChip, A2fChip.Part) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val chipHeight = if (isFloating) 30.dp else 32.dp
@@ -1443,9 +1444,8 @@ private fun A2fChipsRow(
         flingBehavior = rememberSnapFlingBehavior(lazyListState = listState),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        itemsIndexed(chips, key = { index, chip -> "${chip.entryId}-${chip.kind}-$index" }) { index, chip ->
-            val isCode = chip.kind == A2fChip.Kind.CODE
-            Box(
+        itemsIndexed(chips, key = { index, chip -> "${chip.entryId}-$index" }) { index, chip ->
+            Column(
                 modifier = Modifier
                     .fillParentMaxWidth(1f / 3f)
                     .height(chipHeight)
@@ -1460,24 +1460,38 @@ private fun A2fChipsRow(
                         }
                     }
                     .testTag("a2f_chip")
-                    .clickable { onTap(chip) }
-                    .padding(horizontal = if (isFloating) 4.dp else 6.dp),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = if (isFloating) 2.dp else 4.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = chip.label,
-                    color = if (isCode) palette.accentBg else palette.keyText,
-                    fontSize = when {
-                        isCode && isFloating -> 12.sp
-                        isCode -> 14.sp
-                        isFloating -> 10.sp
-                        else -> 11.sp
-                    },
-                    fontWeight = if (isCode) FontWeight.Bold else FontWeight.Normal,
+                    text = chip.code,
+                    color = palette.accentBg,
+                    fontSize = if (isFloating) 12.sp else 13.sp,
+                    lineHeight = if (isFloating) 13.sp else 14.sp,
+                    fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
+                    textAlign = TextAlign.Center,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onTap(chip, A2fChip.Part.CODE) }
                 )
+                if (chip.shortEmail.isNotEmpty()) {
+                    Text(
+                        text = chip.shortEmail,
+                        color = palette.keyText,
+                        fontSize = if (isFloating) 8.sp else 9.sp,
+                        lineHeight = if (isFloating) 9.sp else 10.sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onTap(chip, A2fChip.Part.EMAIL) }
+                    )
+                }
             }
         }
     }

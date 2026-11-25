@@ -20,14 +20,18 @@ import com.example.model.WordPersonalityStat
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-/** Satu sel bilah saran A2F: kode 6 digit atau email, milik satu akun ([entryId]). */
+/**
+ * Satu kolom bilah saran A2F = satu akun ([entryId]): kode 6 digit (baris atas) dan email (baris bawah).
+ * [email] kosong jika akun tidak punya email; [shortEmail] adalah versi terpotong untuk tampilan.
+ */
 data class A2fChip(
-    val kind: Kind,
-    val label: String,
-    val value: String,
-    val entryId: String
+    val entryId: String,
+    val code: String,
+    val email: String,
+    val shortEmail: String
 ) {
-    enum class Kind { CODE, EMAIL }
+    /** Bagian kolom yang disentuh: kode atau email. */
+    enum class Part { CODE, EMAIL }
 }
 
 enum class KeyboardPage {
@@ -744,15 +748,19 @@ class KeyboardController(
     /** Tap sel A2F. Kode dihitung ulang dari seed saat ini; kode tidak masuk statistik kebiasaan. */
     fun onA2fChipTap(
         chip: A2fChip,
+        part: A2fChip.Part,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        val commitValue = when (chip.kind) {
-            A2fChip.Kind.CODE -> {
+        val commitValue = when (part) {
+            A2fChip.Part.CODE -> {
                 val seed = personalEntries.firstOrNull { it.id == chip.entryId && !it.deleted }
                     ?.let { SecretVault.decryptOrNull(it.secretCipher) } ?: return
                 TotpGenerator.currentCodeFromBase32(seed) ?: return
             }
-            A2fChip.Kind.EMAIL -> if (isPasswordField) chip.value else "${chip.value} "
+            A2fChip.Part.EMAIL -> {
+                if (chip.email.isEmpty()) return
+                if (isPasswordField) chip.email else "${chip.email} "
+            }
         }
         replaceCurrentWordForSuggestion(commitValue)
         clearSelectedPreview()
@@ -1061,7 +1069,7 @@ class KeyboardController(
         }
     }
 
-    /** Sel A2F per akun yang berbagi pintasan: kode 6 digit lalu email (dipotong di bilah). */
+    /** Satu kolom per akun yang berbagi pintasan: kode 6 digit dan email (dipotong di bilah). */
     private fun buildA2fChips(
         currentWord: String,
         personalEntries: List<PersonalDictionaryEntry>
@@ -1070,16 +1078,13 @@ class KeyboardController(
         DictionaryEngine.findA2fEntries(currentWord, personalEntries).forEach { entry ->
             val seed = SecretVault.decryptOrNull(entry.secretCipher) ?: return@forEach
             val code = TotpGenerator.currentCodeFromBase32(seed) ?: return@forEach
-            chips += A2fChip(A2fChip.Kind.CODE, code, code, entry.id)
             val email = entry.word.substringBefore('\n').trim()
-            if (email.isNotEmpty()) {
-                chips += A2fChip(
-                    A2fChip.Kind.EMAIL,
-                    SettingsRepository.shortA2fEmail(email),
-                    email,
-                    entry.id
-                )
-            }
+            chips += A2fChip(
+                entryId = entry.id,
+                code = code,
+                email = email,
+                shortEmail = if (email.isEmpty()) "" else SettingsRepository.shortA2fEmail(email)
+            )
         }
         return chips
     }

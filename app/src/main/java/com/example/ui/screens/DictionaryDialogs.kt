@@ -58,6 +58,7 @@ internal fun DictionaryEntryDialog(
     initialEntry: PersonalDictionaryEntry?,
     defaultFolderPath: String,
     isA2f: Boolean = false,
+    isKred: Boolean = false,
     usedShortcuts: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (word: String, shortcut: String, language: String, folder: String, secretPlain: String?, email: String, website: String) -> Unit,
@@ -71,10 +72,28 @@ internal fun DictionaryEntryDialog(
     val language = initialEntry?.language ?: "id-ID"
     // Entri A2F menyimpan "email\nwebsite" di kolom kata.
     val a2fParts = initialEntry?.word?.split('\n').orEmpty()
+    // Entri kredensial menyimpan "kata\nwebsite" di kolom kata.
+    val kredParts = if (isKred) initialEntry?.word?.split('\n').orEmpty() else emptyList()
 
     var email by remember(initialEntry) { mutableStateOf(if (isA2f) a2fParts.getOrElse(0) { "" } else "") }
-    var website by remember(initialEntry) { mutableStateOf(if (isA2f) a2fParts.getOrElse(1) { "" } else "") }
-    var word by remember(initialEntry) { mutableStateOf(if (isA2f) "" else initialEntry?.word.orEmpty()) }
+    var website by remember(initialEntry) {
+        mutableStateOf(
+            when {
+                isA2f -> a2fParts.getOrElse(1) { "" }
+                isKred -> kredParts.getOrElse(1) { "" }
+                else -> ""
+            }
+        )
+    }
+    var word by remember(initialEntry) {
+        mutableStateOf(
+            when {
+                isA2f -> ""
+                isKred -> kredParts.getOrElse(0) { "" }
+                else -> initialEntry?.word.orEmpty()
+            }
+        )
+    }
     var shortcut by remember(initialEntry) { mutableStateOf(initialEntry?.shortcut.orEmpty()) }
     var seed by remember(initialEntry) { mutableStateOf("") }
 
@@ -88,7 +107,7 @@ internal fun DictionaryEntryDialog(
     val emailRegex = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     // Field wajib kosong: menonaktifkan Simpan, tanpa pesan dan tanpa warna merah.
     val emailMissing = isA2f && isNew && email.isBlank()
-    val siteMissing = isA2f && isNew && website.isBlank()
+    val siteMissing = (isA2f || isKred) && isNew && website.isBlank()
     val seedMissing = isA2f && isNew && seed.isBlank()
     // Pintasan A2F dibuat otomatis saat simpan (email + website), jadi tidak pernah wajib diisi di dialog.
     val shortcutMissing = false
@@ -132,6 +151,7 @@ internal fun DictionaryEntryDialog(
                     inTrash -> "Entri di Sampah"
                     isA2f && isNew -> "Tambah Akun A2F"
                     isA2f -> "Akun A2F"
+                    isKred && isNew -> "Tambah Kredensial"
                     isNew -> "Tambah ke Kamus Pribadi"
                     savedLockedFolder -> "Entri Terkunci"
                     else -> "Edit Pintasan"
@@ -201,6 +221,22 @@ internal fun DictionaryEntryDialog(
                         modifier = Modifier.fillMaxWidth().testTag("dictionary_word_input")
                     )
                     }
+                    if (isKred) {
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = website,
+                            onValueChange = { website = it },
+                            enabled = !(fieldsLocked),
+                            colors = dictFieldColors(),
+                            label = { Text("Website") },
+                            singleLine = true,
+                            supportingText = {
+                                Text(if (fieldsLocked) "Dikunci" else "Pintasan dibuat dari domain utama, misalnya github.com")
+                            },
+                            modifier = Modifier.fillMaxWidth().testTag("kred_website_input")
+                        )
+                        }
+                    }
                 }
                 Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
@@ -218,7 +254,8 @@ internal fun DictionaryEntryDialog(
                         )
                     },
                     supportingText = {
-                        if (isA2f) Text("Dibuat otomatis: aut + 2 huruf email + 2 huruf website")
+                        if (isA2f) Text("Dibuat otomatis: aut + domain utama website")
+                        else if (isKred) Text("Dibuat otomatis: kred + domain utama website")
                     },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("dictionary_shortcut_input")
