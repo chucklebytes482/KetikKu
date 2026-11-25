@@ -770,7 +770,6 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
         composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("device_merge_button").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithTag("drive_connect_google_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("local_export_json_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("local_import_json_button").fetchSemanticsNodes().isEmpty())
@@ -1562,7 +1561,6 @@ class ExampleRobolectricTest {
     @Test
     @Config(qualifiers = "w411dp-h891dp")
     fun deviceBackupSheetBody_rendersStatusPathSyncAndConditionalFolderAccessButton() {
-        var mergeClicks = 0
         var folderClicks = 0
         var resetClicks = 0
         var needsAccess by mutableStateOf(false)
@@ -1579,7 +1577,6 @@ class ExampleRobolectricTest {
                     needsFolderAccess = needsAccess,
                     backupDisplayPath = customPath,
                     hasCustomFolder = hasCustomFolder,
-                    onGabungkan = { mergeClicks++ },
                     onRequestFolderAccess = { folderClicks++ },
                     onResetFolderToDefault = { resetClicks++ }
                 )
@@ -1589,7 +1586,6 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
         composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("device_merge_button").assertIsDisplayed()
         composeRule.onNodeWithText(
             "/storage/emulated/0/Documents/ketikku_*.json",
             substring = true
@@ -1605,10 +1601,6 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithTag("drive_connect_google_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Google Drive", substring = true).fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithText("Jadwal Sinkronisasi").fetchSemanticsNodes().isEmpty())
-
-        composeRule.onNodeWithTag("device_merge_button").performClick()
-        composeRule.waitForIdle()
-        assertEquals(1, mergeClicks)
 
         // Custom subfolder displays dynamically and offers reset button to return to Documents/ root
         hasCustomFolder = true

@@ -106,7 +106,6 @@ fun DictionaryScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var editingEntry by remember { mutableStateOf<PersonalDictionaryEntry?>(null) }
     var showNewFolderDialog by remember { mutableStateOf(false) }
-    var showRegenerateDialog by remember { mutableStateOf(false) }
     var renamingFolderPath by remember { mutableStateOf<String?>(null) }
     var deleteRequest by remember { mutableStateOf<Pair<Set<String>, Set<String>>?>(null) }
 
@@ -153,12 +152,17 @@ fun DictionaryScreen(
             .thenBy { SettingsRepository.mainDomainSortKey(it) }
             .thenBy { it.word.lowercase() }
         if (isSearching) {
+            // Mengetik nama folder persis (mis. "num") menampilkan semua entri folder itu.
+            val exactFolder = allOrderedFolders.firstOrNull { it.lowercase() == q }
             activeEntriesAll
                 .filter { entry ->
-                    SettingsRepository.normalizeFolderPath(entry.folder) != SettingsRepository.FOLDER_SAMPAH &&
-                        entry.word.lowercase().contains(q) ||
-                        entry.shortcut.lowercase().contains(q) ||
-                        entry.folder.lowercase().contains(q)
+                    val norm = SettingsRepository.normalizeFolderPath(entry.folder)
+                    norm != SettingsRepository.FOLDER_SAMPAH && (
+                        (exactFolder != null && norm == exactFolder) ||
+                            entry.word.lowercase().contains(q) ||
+                            entry.shortcut.lowercase().contains(q) ||
+                            entry.folder.lowercase().contains(q)
+                        )
                 }
                 .sortedWith(comparator)
         } else {
@@ -333,19 +337,6 @@ fun DictionaryScreen(
                             }
                         }
 
-                        if (!inTrashFolder) OutlinedButton(
-                            onClick = { showRegenerateDialog = true },
-                            shape = RoundedCornerShape(14.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                            modifier = Modifier
-                                .height(48.dp)
-                                .testTag("regenerate_shortcuts_button")
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Pintasan")
-                        }
-
                         if (!inTrashFolder) Button(
                             onClick = { showAddDialog = true },
                             shape = RoundedCornerShape(14.dp),
@@ -506,32 +497,6 @@ fun DictionaryScreen(
                     editingEntry = null
                 }
             } else null
-        )
-    }
-
-    if (showRegenerateDialog) {
-        AlertDialog(
-            onDismissRequest = { showRegenerateDialog = false },
-            modifier = Modifier.testTag("regenerate_shortcuts_dialog"),
-            title = { Text("Generate ulang pintasan?") },
-            text = {
-                Text(
-                    "Pintasan semua kata di folder gm, pw, num, aut, dan kred dibuat ulang otomatis. " +
-                        "Pintasan manual di folder tersebut ikut tertimpa."
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onRegenerateShortcuts()
-                        showRegenerateDialog = false
-                    },
-                    modifier = Modifier.testTag("confirm_regenerate_shortcuts_button")
-                ) { Text("Generate") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRegenerateDialog = false }) { Text("Batal") }
-            }
         )
     }
 

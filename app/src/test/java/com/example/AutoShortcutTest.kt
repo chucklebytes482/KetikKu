@@ -42,10 +42,14 @@ class AutoShortcutTest {
         assertFalse(SettingsRepository.canPermanentlyDeleteFromTrash(pwNoDup, listOf(pwNoDup)))
         val kredNoDup = trashed("k", "BCA", SettingsRepository.FOLDER_KREDENSIAL)
         assertFalse(SettingsRepository.canPermanentlyDeleteFromTrash(kredNoDup, listOf(kredNoDup)))
+        // aut dicocokkan lewat seed terdekripsi (butuh Keystore), jadi tanpa cipher tidak pernah cocok.
         val a2fActive = PersonalDictionaryEntry(
             id = "a2", word = "x@y.com\nsite.com", shortcut = "autsite", folder = SettingsRepository.FOLDER_A2F
         )
-        assertTrue(SettingsRepository.canPermanentlyDeleteFromTrash(a2fNoDup, listOf(a2fNoDup, a2fActive)))
+        assertFalse(SettingsRepository.canPermanentlyDeleteFromTrash(a2fNoDup, listOf(a2fNoDup, a2fActive)))
+        // pw cocok lewat kata/frasa pada entri aktif.
+        val pwActive = PersonalDictionaryEntry(id = "pa", word = "Github", shortcut = "pwg", folder = SettingsRepository.FOLDER_KATA_SANDI)
+        assertTrue(SettingsRepository.canPermanentlyDeleteFromTrash(pwNoDup, listOf(pwNoDup, pwActive)))
         val longWord = trashed("b", "kalimat panjang sekali", SettingsRepository.FOLDER_PRIBADI)
         assertTrue(SettingsRepository.canPermanentlyDeleteFromTrash(longWord, listOf(longWord)))
         val shortWord = trashed("c", "abc", SettingsRepository.FOLDER_PRIBADI)

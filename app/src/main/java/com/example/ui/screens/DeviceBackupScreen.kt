@@ -71,7 +71,6 @@ fun DeviceBackupSheetContent(
     dictionary: List<PersonalDictionaryEntry>,
     syncLocalState: SyncLocalState,
     deviceSyncUiState: DeviceSyncUiState,
-    onGabungkan: () -> Unit,
     onFolderAuthorized: (String) -> Unit,
     encryptionConfigured: Boolean,
     onEnableEncryption: (CharArray, (Result<String>) -> Unit) -> Unit,
@@ -136,7 +135,6 @@ fun DeviceBackupSheetContent(
         needsFolderAccess = needsFolderAccess,
         encryptionConfigured = encryptionConfigured,
         onEnableEncryption = onEnableEncryption,
-        onGabungkan = onGabungkan,
         onRequestFolderAccess = {
             val initialUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 DeviceDictionaryBackupManager.INITIAL_DOCUMENTS_URI
@@ -163,7 +161,6 @@ internal fun DeviceBackupSheetBody(
     statusDotColor: Color,
     isSyncing: Boolean,
     needsFolderAccess: Boolean,
-    onGabungkan: () -> Unit,
     onRequestFolderAccess: () -> Unit,
     backupDisplayPath: String = DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH,
     hasCustomFolder: Boolean = false,
@@ -358,52 +355,6 @@ internal fun DeviceBackupSheetBody(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-        }
-
-        // Langkah 3: sinkron dua arah
-        StepCard(number = "3", title = "Sinkron", testTag = "device_sync_card") {
-            if (isSyncing) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Menyinkron...", style = MaterialTheme.typography.bodyMedium)
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Button(
-                        onClick = onGabungkan,
-                        enabled = !isSyncing,
-                        shape = RoundedCornerShape(28.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        ),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 48.dp)
-                            .testTag("device_merge_button")
-                    ) {
-                        Text(
-                            text = "Gabungkan",
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
             }
         }
     }

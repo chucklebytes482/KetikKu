@@ -248,7 +248,6 @@ private fun KetikKuMainScaffold(
                 dictionary = dictionary,
                 syncLocalState = syncLocalState,
                 deviceSyncUiState = deviceSyncUiState,
-                onGabungkan = { mainViewModel.gabungkanCadangan() },
                 onFolderAuthorized = { uriString ->
                     mainViewModel.onDeviceBackupFolderGranted(uriString)
                 },

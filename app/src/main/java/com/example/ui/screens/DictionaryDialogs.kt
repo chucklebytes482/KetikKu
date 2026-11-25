@@ -99,7 +99,9 @@ internal fun DictionaryEntryDialog(
 
     // Entri yang sudah tersimpan terkunci: kata/email/website/seed tidak bisa diubah. Hanya pintasan non-A2F yang bisa diedit.
     val seedEditable = !inTrash && isNew
-    val fieldsLocked = !isNew
+    // Folder umum (num, prib, bc): semua field bisa diubah, termasuk kata.
+    val openFolder = SettingsRepository.normalizeFolderPath(folder) in SettingsRepository.OPEN_FIELD_FOLDERS
+    val fieldsLocked = !isNew && !openFolder
     // Folder gm/pw/aut/kred: pintasan otomatis. Entri yang sudah tersimpan terkunci penuh.
     val shortcutLockedFolder = SettingsRepository.isShortcutLockedFolder(folder)
     val savedLockedFolder = !isNew && shortcutLockedFolder

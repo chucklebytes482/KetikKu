@@ -437,12 +437,21 @@ class SettingsRepository(
                 require(cleanSite.isNotBlank()) { "Website kred wajib diisi" }
                 // Kata dan domain utama disimpan bersama: "kata\ndomain".
                 wordStored = "$trimmedWord\n$cleanSite"
-            } else if (existing != null) {
+            } else if (existing != null && normalizeFolderPath(existing.folder) !in OPEN_FIELD_FOLDERS) {
                 // Entri tersimpan terkunci (termasuk kred lama tanpa website).
                 wordStored = existing.word
             } else {
                 require(trimmedWord.isNotEmpty()) { "Kata wajib diisi" }
                 wordStored = trimmedWord
+            }
+
+            // Filter duplikat: entri baru (atau kata yang diubah) tidak boleh sama dengan entri aktif.
+            if (existing == null || wordStored != existing.word) {
+                val dupKey = duplicateKey(wordStored, targetFolder)
+                require(current.none { other ->
+                    other.id != id && !other.deleted && normalizeFolderPath(other.folder) != FOLDER_SAMPAH &&
+                        duplicateKey(other.word, other.folder) == dupKey
+                }) { "Entri sudah ada di Kamus Pribadi" }
             }
 
             // Pintasan A2F dan kred selalu otomatis dari domain utama website, tidak bisa diisi manual.
@@ -1228,6 +1237,9 @@ class SettingsRepository(
         const val FOLDER_A2F = "aut"
         const val FOLDER_SAMPAH = "tras"
         const val FOLDER_BALASAN_CEPAT = "bc"
+
+        /** Folder umum yang semua fieldnya (termasuk kata) boleh diubah setelah disimpan. */
+        val OPEN_FIELD_FOLDERS = setOf(FOLDER_NOMOR, FOLDER_PRIBADI, FOLDER_BALASAN_CEPAT)
         private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 
         /** Jenis berkas cadangan untuk entri pada folder ini (satu berkas per jenis). */
@@ -1389,18 +1401,37 @@ class SettingsRepository(
         }
 
         /**
-         * Entri di Sampah yang katanya sama dengan entri aktif di folder lain.
-         * Hanya entri seperti ini yang boleh dihapus permanen.
+         * Kunci pencocokan untuk Sampah: aut memakai seed (base32 terdekripsi), pw dan kred memakai kata/frasa.
+         * Kunci aut dan kata dipisah awalannya, jadi seed tidak pernah cocok dengan kata.
+         */
+        private fun trashMatchKey(entry: PersonalDictionaryEntry, folder: String): String? {
+            return when (normalizeFolderPath(folder)) {
+                FOLDER_A2F -> SecretVault.decryptOrNull(entry.secretCipher)
+                    ?.let { TotpGenerator.normalizeBase32(it) }
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { "seed:$it" }
+                FOLDER_KATA_SANDI, FOLDER_KREDENSIAL -> entry.word.split('\n').firstOrNull()
+                    ?.trim()?.lowercase(Locale.ROOT)
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { "kata:$it" }
+                else -> entry.word.trim().lowercase(Locale.ROOT)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { "kata:$it" }
+            }
+        }
+
+        /**
+         * Entri di Sampah yang seed (aut) atau kata/frasa (pw, kred, lainnya) sama dengan entri aktif.
+         * Hanya entri seperti ini yang boleh dihapus permanen untuk asal aut, pw, dan kred.
          */
         fun isDuplicateInTrash(entry: PersonalDictionaryEntry, all: List<PersonalDictionaryEntry>): Boolean {
             if (entry.deleted || normalizeFolderPath(entry.folder) != FOLDER_SAMPAH) return false
             val origin = normalizeFolderPath(entry.trashedFrom)
-            val key = duplicateKey(entry.word, origin)
-            if (key.isBlank() || key == "a2f:\n" || key == "kred:\n") return false
+            val key = trashMatchKey(entry, origin) ?: return false
             return all.any { other ->
                 other.id != entry.id && !other.deleted &&
                     normalizeFolderPath(other.folder) != FOLDER_SAMPAH &&
-                    duplicateKey(other.word, other.folder) == key
+                    trashMatchKey(other, other.folder) == key
             }
         }
 

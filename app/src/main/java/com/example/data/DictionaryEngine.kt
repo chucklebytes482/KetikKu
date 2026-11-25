@@ -254,26 +254,9 @@ object DictionaryEngine {
     ): SuggestionResult {
         val index = getOrBuildIndex(personalEntries)
         val boundedWord = if (currentWord.length > 30) currentWord.takeLast(30) else currentWord
-        if (boundedWord.isEmpty()) {
-            if (index.defaultSuggestions.isEmpty()) {
-                return SuggestionResult(primaryAutoCorrect = null, suggestions = emptyList())
-            }
-            val topIdle = index.defaultSuggestions
-                .sortedByDescending { word ->
-                    val score = personalityScore(word, personality, nowMillis)
-                    val shortcutBonus = if (index.shortcutOwnedLowerWords.contains(word.lowercase(Locale.ROOT))) {
-                        SHORTCUT_PERSONALIZATION_BONUS
-                    } else {
-                        0.0
-                    }
-                    score + shortcutBonus + 1.0
-                }
-                .take(3)
-
-            return SuggestionResult(
-                primaryAutoCorrect = null,
-                suggestions = topIdle
-            )
+        // Tidak sedang mengetik (kosong, atau baru selesai spasi): bilah saran dikosongkan.
+        if (boundedWord.isEmpty() || boundedWord.isBlank()) {
+            return SuggestionResult(primaryAutoCorrect = null, suggestions = emptyList())
         }
 
         val lowerWord = boundedWord.lowercase(Locale.ROOT)
@@ -341,7 +324,9 @@ object DictionaryEngine {
                     } else {
                         0.0
                     }
-                    rankedPool.add(styled to (score + shortcutBonus + 2.0))
+                    // Kata yang panjangnya paling dekat dengan ketikan lebih dulu (mis. "ter" -> "terima" sebelum "terima kasih").
+                    val closeness = 3.0 / (1.0 + (lowerDict.length - lowerWord.length).coerceAtLeast(0))
+                    rankedPool.add(styled to (score + shortcutBonus + 2.0 + closeness))
                 }
             }
         }
