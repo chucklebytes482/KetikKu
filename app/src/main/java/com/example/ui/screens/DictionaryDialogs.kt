@@ -169,15 +169,6 @@ internal fun DictionaryEntryDialog(
                         colors = dictFieldColors(),
                         label = { Text("Website") },
                         singleLine = true,
-                        supportingText = {
-                            Text(
-                                when {
-                                    fieldsLocked -> "Dikunci"
-                                    isA2f -> "Dipakai juga untuk saran email dan website"
-                                    else -> "Pintasan dibuat dari domain utama, misalnya github.com"
-                                }
-                            )
-                        },
                         modifier = Modifier.fillMaxWidth().testTag(if (isA2f) "a2f_website_input" else "kred_website_input")
                     )
                     }
@@ -191,7 +182,6 @@ internal fun DictionaryEntryDialog(
                         colors = dictFieldColors(),
                         label = { Text("Email") },
                         singleLine = true,
-                        supportingText = { if (fieldsLocked) Text("Dikunci") },
                         modifier = Modifier.fillMaxWidth().testTag("a2f_email_input")
                     )
                     }
@@ -205,9 +195,6 @@ internal fun DictionaryEntryDialog(
                             label = { Text("Seed (secret base32)") },
                             singleLine = true,
                             visualTransformation = PasswordVisualTransformation(),
-                            supportingText = {
-                                Text("TOTP SHA-1, 6 digit, 30 detik. Disimpan di Android Keystore.")
-                            },
                             modifier = Modifier.fillMaxWidth().testTag("a2f_secret_input")
                         )
                     }
@@ -232,12 +219,7 @@ internal fun DictionaryEntryDialog(
                         onValueChange = { shortcut = it },
                         enabled = !inTrash,
                         colors = dictFieldColors(),
-                        label = {
-                            Text(
-                                if (folder == SettingsRepository.FOLDER_NOMOR) "Pintasan (kosong = tanpa pintasan)"
-                                else "Pintasan (kosong = otomatis)"
-                            )
-                        },
+                        label = { Text("Pintasan") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("dictionary_shortcut_input")
                     )
