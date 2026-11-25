@@ -16,21 +16,22 @@ Keterangan status:
 
 ## 2. Kamus pribadi
 
-- Ada 8 folder tetap. Kode folder dan urutannya sesuai `SettingsRepository.PRIMARY_FOLDERS`:
+- Ada 7 folder tetap. Kode folder dan urutannya sesuai `SettingsRepository.PRIMARY_FOLDERS`:
 
   | No | Kode folder | Konstanta | Keterangan |
   |---|---|---|---|
   | 1 | `pw` | `FOLDER_KATA_SANDI` | Kata Sandi |
   | 2 | `aut` | `FOLDER_A2F` | A2F |
   | 3 | `kred` | `FOLDER_KREDENSIAL` | Kredensial |
-  | 4 | `gm` | `FOLDER_GMAIL` | Gmail |
-  | 5 | `num` | `FOLDER_NOMOR` | Nomor |
-  | 6 | `prib` | `FOLDER_PRIBADI` | Pribadi |
-  | 7 | `bc` | `FOLDER_BALASAN_CEPAT` | Balasan Cepat |
-  | 8 | `tras` | `FOLDER_SAMPAH` | Sampah |
+  | 4 | `num` | `FOLDER_NOMOR` | Nomor |
+  | 5 | `prib` | `FOLDER_PRIBADI` | Pribadi |
+  | 6 | `bc` | `FOLDER_BALASAN_CEPAT` | Balasan Cepat |
+  | 7 | `tras` | `FOLDER_SAMPAH` | Sampah |
 
-- Di layar Kamus, nama folder tampil apa adanya dari kode di atas (misalnya `gm`, `pw`).
-- Urutan: 8 folder utama selalu di atas sesuai tabel. Folder kustom (jika ada) di bawahnya (`normalizeOrderedFolders`).
+  Folder `gm` (Gmail) sudah dihapus. Entri yang masih ada di `gm` dipindah ke Sampah dengan asal `gm` (migrasi `GM_RETIRED_V5_DONE`) dan bisa dipulihkan ke root.
+
+- Di layar Kamus, nama folder tampil apa adanya dari kode di atas (misalnya `pw`, `num`).
+- Urutan: 7 folder utama selalu di atas sesuai tabel. Folder kustom (jika ada) di bawahnya (`normalizeOrderedFolders`).
 - Nama folder tidak bisa diubah. Folder tidak bisa dihapus. Entri tidak bisa dipindah folder.
 - Hapus entri berarti memindahkannya ke **Sampah**. Dari Sampah entri bisa dipulihkan (`restoreDictionaryEntries`) atau dihapus permanen (`deleteDictionaryItems`).
 - Di layar Kamus tersedia pencarian, mode pilih (multi-pilih) untuk aksi massal, dan opsi folder (`DictionaryScreen.kt`, `DictionaryDialogs.kt`).
@@ -46,7 +47,6 @@ Pintasan adalah kata pemicu yang memunculkan chip di bilah saran. Teks **tidak**
 | Kata Sandi | `pw` + huruf pertama entri | `pwg` | Muncul hanya saat diawali `pw` |
 | Kredensial | `kred` + domain utama | `kredgithub.com` | Wajib website. `kred` utuh menampilkan maksimal 3 entri terbaru. Muncul hanya saat diketik |
 | A2F | `aut` + domain utama | `autgoogle.com` | Akun dengan domain sama berbagi pintasan. Menampilkan kode TOTP |
-| Gmail | `gm` + 2 huruf | `gmxx` | Untuk entri Gmail di folder Gmail |
 | Nomor | `num` + 4 digit pertama | `num0812` | Untuk entri di folder Nomor |
 
 Catatan:
@@ -84,8 +84,8 @@ Catatan:
 - Riwayat tersimpan di panel Papan Klip.
 - Dapat diatur lewat `clipboardHistoryEnabled`.
 - Deteksi otomatis:
-  - Gmail: teks berformat `@gmail.com` dengan panjang minimal 20 karakter.
   - Nomor: diawali +62, 62, atau 08 dan minimal 11 digit.
+  - Alamat `@gmail.com` tidak lagi disimpan otomatis.
 
 ## 8. Keyboard
 

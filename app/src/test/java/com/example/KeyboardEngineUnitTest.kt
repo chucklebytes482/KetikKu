@@ -266,14 +266,13 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
-    fun settingsRepository_extractAutoSavableEntries_validatesGmailMin20AndNumberMin11() {
-        // Too short Gmail (<20 chars) and wrong domain ignored; >=20 char @gmail.com saved
+    fun settingsRepository_extractAutoSavableEntries_onlyNumbersAreAutoSaved() {
+        // Alamat @gmail.com tidak lagi disimpan otomatis (folder gm dihapus).
         assertEquals(emptyList<String>(), SettingsRepository.extractAutoSavableEntries("pendek@gmail.com"))
-        assertEquals(emptyList<String>(), SettingsRepository.extractAutoSavableEntries("alamatsuperpanjang@yahoo.com"))
-        assertEquals(
-            listOf("alamatemailsuper@gmail.com"),
-            SettingsRepository.extractAutoSavableEntries("alamatemailsuper@gmail.com")
-        )
+        assertEquals(emptyList<String>(), SettingsRepository.extractAutoSavableEntries("alamatemailsuper@gmail.com"))
+        assertEquals(emptyList<String>(), SettingsRepository.extractAutoSavableEntries("user123456789012@gmail.com"))
+        // Angka di dalam alamat email tetap tidak dianggap nomor.
+        assertEquals(emptyList<String>(), SettingsRepository.extractAutoSavableEntries("08123456789@gmail.com"))
 
         // Numbers: must start with +62, 62, or 08 AND have 11+ digits; other prefixes or <11 digits ignored
         assertEquals(emptyList<String>(), SettingsRepository.extractAutoSavableEntries("0812345678"))
@@ -292,14 +291,10 @@ class KeyboardEngineUnitTest {
             listOf("+6281234567890"),
             SettingsRepository.extractAutoSavableEntries("Hubungi +6281234567890 segera")
         )
-        assertEquals(
-            listOf("user123456789012@gmail.com"),
-            SettingsRepository.extractAutoSavableEntries("user123456789012@gmail.com")
-        )
     }
 
     @Test
-    fun keyboardController_suggestsAutoSavedNumberAndGmailOnPrefix() {
+    fun keyboardController_suggestsAutoSavedNumberAndDictionaryWordOnPrefix() {
         var tf = TextFieldValue("")
         val settings = KeyboardSettings()
         val entries = listOf(
@@ -670,7 +665,7 @@ class KeyboardEngineUnitTest {
     fun folderedPersonalDictionaryEntries_remainActiveForShortcutsAndPrefixSuggestions() {
         val folderedEntries = listOf(
             PersonalDictionaryEntry(id = "f1", word = "CS siap membantu kakak!", shortcut = "csok", folder = "Kerja", updatedAtMillis = 10L),
-            PersonalDictionaryEntry(id = "f2", word = "csresmi2026@gmail.com", shortcut = "", folder = "gm", updatedAtMillis = 11L),
+            PersonalDictionaryEntry(id = "f2", word = "csresmi2026@gmail.com", shortcut = "", folder = "Kerja", updatedAtMillis = 11L),
             PersonalDictionaryEntry(id = "f3", word = "081234567890", shortcut = "", folder = "num", updatedAtMillis = 12L)
         )
         assertEquals(
@@ -784,7 +779,7 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
-    fun settingsRepository_normalizeFolderPathFlattensSubfoldersAndCanonicalizesSixPrimaryFolders() {
+    fun settingsRepository_normalizeFolderPathFlattensSubfoldersAndCanonicalizesPrimaryFolders() {
         assertEquals("Kerja CS", SettingsRepository.normalizeFolderPath("Kerja/CS"))
         assertEquals("Kerja CS", SettingsRepository.normalizeFolderPath("  Kerja \\ CS  "))
         assertEquals("gm", SettingsRepository.normalizeFolderPath("GM"))
@@ -803,7 +798,7 @@ class KeyboardEngineUnitTest {
             entries = emptyList()
         )
         assertEquals(
-            listOf("pw", "aut", "kred", "gm", "num", "prib", "bc", "tras", "Kerja"),
+            listOf("pw", "aut", "kred", "num", "prib", "bc", "tras", "Kerja"),
             ordered
         )
     }

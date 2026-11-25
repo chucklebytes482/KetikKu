@@ -80,6 +80,7 @@ class SettingsRepository(
         val NUM_SHORTCUT_CLEARED_V1 = booleanPreferencesKey("num_shortcut_cleared_v1")
         val A2F_SHORTCUT_V3_DONE = booleanPreferencesKey("a2f_shortcut_v3_done")
         val KRED_DOMAIN_V4_DONE = booleanPreferencesKey("kred_domain_v4_done")
+        val GM_RETIRED_V5_DONE = booleanPreferencesKey("gm_retired_v5_done")
         val PERSONALITY_JSON = stringPreferencesKey("suggestion_personality_json")
         val CLIPBOARD_REVISION = longPreferencesKey("clipboard_revision")
         val DISMISSED_CLIPBOARD_ID = stringPreferencesKey("dismissed_clipboard_id")
@@ -117,6 +118,7 @@ class SettingsRepository(
             if (prefs[Keys.NUM_SHORTCUT_CLEARED_V1] != true) clearNumShortcutsV1()
             if (prefs[Keys.A2F_SHORTCUT_V3_DONE] != true) migrateA2fShortcutsV3()
             if (prefs[Keys.KRED_DOMAIN_V4_DONE] != true) migrateKredShortcutsV4()
+            if (prefs[Keys.GM_RETIRED_V5_DONE] != true) migrateGmailFolderRetiredV5()
         }
         .map { prefs -> prefs[Keys.DICTIONARY_JSON] }
         .distinctUntilChanged()
@@ -236,6 +238,40 @@ class SettingsRepository(
      * Sekali jalan: pintasan kredensial pindah ke `kred` + domain utama website (kredgithub.com).
      * Entri lama tanpa website tidak punya pintasan lagi, tetapi tetap ada dan tetap bisa dilihat lewat "kred".
      */
+    /**
+     * Sekali jalan: folder gm dihapus. Entri aktif di gm dipindah ke Sampah (asal = gm) supaya bisa dipulihkan.
+     * Folder gm dibuang dari daftar folder. Entri yang diubah dapat updatedAtMillis baru supaya ikut sync.
+     */
+    private suspend fun migrateGmailFolderRetiredV5() {
+        val now = System.currentTimeMillis()
+        dataStore.edit { prefs ->
+            if (prefs[Keys.GM_RETIRED_V5_DONE] == true) return@edit
+            val raw = prefs[Keys.DICTIONARY_JSON]
+            if (!raw.isNullOrBlank()) {
+                // Dibaca mentah (bukan lewat parseDictionaryList) supaya perubahan terdeteksi dan tersimpan.
+                val list = runCatching { dictListAdapter.fromJson(raw) }.getOrNull().orEmpty()
+                var changed = false
+                val updated = list.map { e ->
+                    val moved = migrateRetiredFolderEntry(e)
+                    if (moved !== e) {
+                        changed = true
+                        moved.copy(updatedAtMillis = now)
+                    } else {
+                        e
+                    }
+                }
+                if (changed) {
+                    prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(updated)
+                    prefs[Keys.PENDING_CHANGES] = true
+                }
+            }
+            prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(
+                normalizeOrderedFolders(parseFolderList(prefs[Keys.FOLDERS_JSON]), parseDictionaryList(prefs[Keys.DICTIONARY_JSON]))
+            )
+            prefs[Keys.GM_RETIRED_V5_DONE] = true
+        }
+    }
+
     private suspend fun migrateKredShortcutsV4() {
         val now = System.currentTimeMillis()
         dataStore.edit { prefs ->
@@ -287,8 +323,9 @@ class SettingsRepository(
             runCatching { dictListAdapter.fromJson(raw) }.getOrNull() ?: defaultDictionaryEntries()
         }
         return list.map { entry ->
-            val norm = normalizeFolderPath(entry.folder)
-            if (norm == entry.folder) entry else entry.copy(folder = norm)
+            val moved = migrateRetiredFolderEntry(entry)
+            val norm = normalizeFolderPath(moved.folder)
+            if (norm == moved.folder) moved else moved.copy(folder = norm)
         }
     }
 
@@ -365,8 +402,6 @@ class SettingsRepository(
 
             val wordStored: String
             var cipher = ""
-            // Email yang harus ada di Gmail setelah simpan (hanya akun A2F baru).
-            var gmailEmailToEnsure: String? = null
             if (isA2f) {
                 if (existing == null) {
                     require(EMAIL_REGEX.matches(cleanEmail)) { "Email A2F wajib diisi dengan benar" }
@@ -374,7 +409,6 @@ class SettingsRepository(
                     require(!secretCipher.isNullOrBlank() && SecretVault.decryptOrNull(secretCipher) != null) { "Seed A2F wajib diisi" }
                     wordStored = "$cleanEmail\n$cleanSite"
                     cipher = secretCipher
-                    gmailEmailToEnsure = cleanEmail
                 } else {
                     // Entri A2F yang sudah tersimpan terkunci: email, website, dan seed tidak bisa diubah.
                     require(secretCipher == null) { "Seed A2F sudah terkunci" }
@@ -391,7 +425,6 @@ class SettingsRepository(
                 wordStored = existing.word
             } else {
                 require(trimmedWord.isNotEmpty()) { "Kata wajib diisi" }
-                if (targetFolder == FOLDER_GMAIL) require(trimmedWord.contains('@')) { "Folder gm harus berupa alamat email" }
                 wordStored = trimmedWord
             }
 
@@ -423,29 +456,10 @@ class SettingsRepository(
                 secretCipher = if (isA2f) cipher else "",
                 trashedFrom = ""
             )
-            var updatedList = current.filterNot { it.id == id } + entry
-            val gmailEmail = gmailEmailToEnsure
-            if (gmailEmail != null) {
-                // Email A2F otomatis masuk Gmail jika belum ada.
-                val gmailExists = updatedList.any { other ->
-                    !other.deleted && other.word.trim().equals(gmailEmail, ignoreCase = true) &&
-                        normalizeFolderPath(other.folder) in setOf(FOLDER_GMAIL, FOLDER_SAMPAH)
-                }
-                if (!gmailExists) {
-                    updatedList = updatedList + PersonalDictionaryEntry(
-                        id = UUID.randomUUID().toString().take(12),
-                        word = gmailEmail,
-                        shortcut = autoShortcut(FOLDER_GMAIL, gmailEmail, updatedList, null),
-                        folder = FOLDER_GMAIL,
-                        language = language,
-                        updatedAtMillis = now
-                    )
-                }
-            }
+            val updatedList = current.filterNot { it.id == id } + entry
             prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(updatedList)
             val folderNames = buildList {
                 if (targetFolder.isNotEmpty()) add(targetFolder)
-                if (gmailEmail != null) add(FOLDER_GMAIL)
             }
             prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(
                 prependFoldersToStorage(
@@ -460,7 +474,7 @@ class SettingsRepository(
 
     suspend fun createFolder(folderPath: String) {
         val normalized = normalizeFolderPath(folderPath)
-        if (normalized.isEmpty()) return
+        if (normalized.isEmpty() || normalized == FOLDER_GMAIL_DIHAPUS) return
         dataStore.edit { prefs ->
             val currentEntries = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
             val currentFolders = parseFolderList(prefs[Keys.FOLDERS_JSON])
@@ -478,7 +492,7 @@ class SettingsRepository(
         val normOld = normalizeFolderPath(oldPath)
         if (normOld.isEmpty() || isPrimaryFolder(normOld)) return
         val normNew = normalizeFolderPath(newNameOrPath)
-        if (normNew.isEmpty() || normNew == normOld) return
+        if (normNew.isEmpty() || normNew == normOld || normNew == FOLDER_GMAIL_DIHAPUS) return
 
         val now = System.currentTimeMillis()
         dataStore.edit { prefs ->
@@ -564,7 +578,7 @@ class SettingsRepository(
     }
 
     /**
-     * Generate ulang pintasan otomatis untuk semua entri aktif di folder gm, pw, dan num.
+     * Generate ulang pintasan otomatis untuk semua entri aktif di folder pw, aut, dan kred.
      * Urutan: entri terlama dulu, supaya hasilnya deterministik. Mengembalikan jumlah entri yang berubah.
      */
     suspend fun regenerateAutoShortcuts(): Int {
@@ -625,7 +639,7 @@ class SettingsRepository(
             for (i in updated.indices) {
                 val e = updated[i]
                 if (e.id !in entryIds || e.deleted || normalizeFolderPath(e.folder) != FOLDER_SAMPAH) continue
-                val target = normalizeFolderPath(e.trashedFrom)
+                val target = normalizeFolderPath(e.trashedFrom).let { if (it == FOLDER_GMAIL_DIHAPUS) "" else it }
                 val shortcut = if (e.shortcut.isBlank()) e.shortcut
                 else nextFreeShortcut(e.shortcut.trim().lowercase(Locale.ROOT), updated, e.id)
                 updated[i] = e.copy(folder = target, trashedFrom = "", shortcut = shortcut, updatedAtMillis = now)
@@ -639,6 +653,15 @@ class SettingsRepository(
             prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(finalFolders)
             prefs[Keys.PENDING_CHANGES] = true
         }
+    }
+
+    /**
+     * Entri aktif di folder gm yang sudah dihapus dipindah ke Sampah dengan asal gm.
+     * Mengembalikan instance yang sama jika tidak ada yang perlu diubah.
+     */
+    private fun migrateRetiredFolderEntry(entry: PersonalDictionaryEntry): PersonalDictionaryEntry {
+        if (entry.deleted || normalizeFolderPath(entry.folder) != FOLDER_GMAIL_DIHAPUS) return entry
+        return entry.copy(folder = FOLDER_SAMPAH, trashedFrom = FOLDER_GMAIL_DIHAPUS)
     }
 
     private fun moveToTrash(
@@ -662,7 +685,7 @@ class SettingsRepository(
         var mergedResult = emptyList<PersonalDictionaryEntry>()
         dataStore.edit { prefs ->
             val local = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
-            val safeRemote = remoteEntries.map { entry ->
+            val safeRemote = remoteEntries.map(::migrateRetiredFolderEntry).map { entry ->
                 if (!DictionaryEngine.isA2fEntry(entry)) entry else {
                     val seed = SecretVault.decryptOrNull(entry.secretCipher)
                         ?: error("Cadangan A2F terkunci untuk perangkat lain; seed tidak dapat dipulihkan di sini")
@@ -733,7 +756,7 @@ class SettingsRepository(
         entries: List<PersonalDictionaryEntry>,
         folders: List<String> = emptyList()
     ): Pair<List<PersonalDictionaryEntry>, List<String>> {
-        var normalizedEntries = entries.map { entry ->
+        var normalizedEntries = entries.map(::migrateRetiredFolderEntry).map { entry ->
             val normFolder = normalizeFolderPath(entry.folder)
             if (normFolder == entry.folder) entry else entry.copy(folder = normFolder)
         }
@@ -1179,7 +1202,8 @@ class SettingsRepository(
 
     companion object {
         private const val PERSONALITY_MAX_ENTRIES = 600
-        const val FOLDER_GMAIL = "gm"
+        /** Folder gm sudah dihapus. Kodenya hanya dipakai untuk migrasi entri lama dan tidak bisa dibuat lagi. */
+        private const val FOLDER_GMAIL_DIHAPUS = "gm"
         const val FOLDER_NOMOR = "num"
         const val FOLDER_PRIBADI = "prib"
         const val FOLDER_KATA_SANDI = "pw"
@@ -1202,7 +1226,6 @@ class SettingsRepository(
             FOLDER_KATA_SANDI,
             FOLDER_A2F,
             FOLDER_KREDENSIAL,
-            FOLDER_GMAIL,
             FOLDER_NOMOR,
             FOLDER_PRIBADI,
             FOLDER_BALASAN_CEPAT,
@@ -1210,8 +1233,7 @@ class SettingsRepository(
         )
 
         /**
-         * Dasar pintasan otomatis (prefix folder + huruf):
-         * gm + 2 huruf/angka pertama local part email (abdul@gmail.com -> gmab)
+         * Dasar pintasan otomatis (prefix folder + huruf). Folder gm sudah dihapus.
          * pw + huruf/angka pertama kata (Github -> pwg)
          * num + 4 digit pertama nomor (081234567890 -> num0812)
          * aut + domain utama website (word = "email\nwebsite"; github.com -> autgithub.com; myaccount.google.com -> autgoogle.com). Kosong jika website kosong.
@@ -1220,8 +1242,6 @@ class SettingsRepository(
         fun autoShortcutBase(folder: String, word: String): String {
             val w = word.trim()
             return when (normalizeFolderPath(folder)) {
-                FOLDER_GMAIL -> w.substringBefore('@').filter { it.isLetterOrDigit() }.lowercase(Locale.ROOT).take(2)
-                    .takeIf { it.isNotEmpty() }?.let { "gm$it" }.orEmpty()
                 FOLDER_KATA_SANDI -> w.firstOrNull { it.isLetterOrDigit() }
                     ?.lowercaseChar()?.let { "pw$it" }.orEmpty()
                 FOLDER_A2F -> {
@@ -1330,7 +1350,7 @@ class SettingsRepository(
         }
 
         /** Folder auto-pintasan: pintasan dibuat ulang saat entri ditambah atau diubah di sini. */
-        private val AUTO_SHORTCUT_FOLDERS = setOf(FOLDER_GMAIL, FOLDER_KATA_SANDI, FOLDER_A2F, FOLDER_KREDENSIAL)
+        private val AUTO_SHORTCUT_FOLDERS = setOf(FOLDER_KATA_SANDI, FOLDER_A2F, FOLDER_KREDENSIAL)
 
         /** Folder terkunci: pintasan otomatis, dan entri yang sudah disimpan tidak bisa diubah. */
         fun isShortcutLockedFolder(folder: String): Boolean = normalizeFolderPath(folder) in AUTO_SHORTCUT_FOLDERS
@@ -1387,6 +1407,7 @@ class SettingsRepository(
             val lower = cleaned.lowercase(Locale.ROOT)
             // Hanya kode folder utama yang dikenali (tanpa memperhatikan huruf besar/kecil); nama lain tetap folder kustom.
             PRIMARY_FOLDERS.firstOrNull { it == lower }?.let { return it }
+            if (lower == FOLDER_GMAIL_DIHAPUS) return lower
             return cleaned
         }
 
@@ -1414,8 +1435,8 @@ class SettingsRepository(
 
         /**
          * Preserves ordered single-level folder list (no subfolders):
-         * - 8 permanent primary folders pinned at top in exact order (kode folder):
-         *   pw, aut, kred, gm, num, prib, bc, tras.
+         * - 7 permanent primary folders pinned at top in exact order (kode folder):
+         *   pw, aut, kred, num, prib, bc, tras. Folder gm sudah dihapus dan tidak pernah masuk daftar.
          * - All other custom folders preserve existing order (newest-first on creation).
          */
         fun normalizeOrderedFolders(
@@ -1427,12 +1448,12 @@ class SettingsRepository(
 
             explicitFolders.forEach { raw ->
                 val norm = normalizeFolderPath(raw)
-                if (norm.isNotEmpty()) orderedAll.add(norm)
+                if (norm.isNotEmpty() && norm != FOLDER_GMAIL_DIHAPUS) orderedAll.add(norm)
             }
             entries.forEach { entry ->
                 if (!entry.deleted && entry.folder.isNotBlank()) {
                     val norm = normalizeFolderPath(entry.folder)
-                    if (norm.isNotEmpty()) orderedAll.add(norm)
+                    if (norm.isNotEmpty() && norm != FOLDER_GMAIL_DIHAPUS) orderedAll.add(norm)
                 }
             }
 
@@ -1521,23 +1542,20 @@ class SettingsRepository(
 
         /**
          * Mengekstrak kandidat yang otomatis disimpan ke Kamus Pribadi (beserta folder otomatisnya):
-         * 1. Alamat email berakhiran @gmail.com (>= 20 karakter) -> folder "gm".
-         * 2. Nomor telepon berawalan +62, 62, atau 08 (>= 11 digit) -> folder "num".
+         * Alamat @gmail.com tidak lagi disimpan otomatis (folder gm dihapus). Hanya nomor telepon:
+         * berawalan +62, 62, atau 08 (>= 11 digit) -> folder "num".
          */
         fun extractAutoSavableCategorizedEntries(rawText: String): List<AutoSavableCandidate> {
             val (start, end) = TextChunker.trimmedBounds(rawText)
             if (start >= end) return emptyList()
 
             val results = linkedMapOf<String, AutoSavableCandidate>()
+            // Rentang email tetap dicatat supaya angka di dalam alamat email tidak tersimpan sebagai nomor.
             val emailRanges = mutableListOf<IntRange>()
 
             GMAIL_REGEX.findAll(rawText, start).forEach { match ->
                 if (match.range.first >= end) return@forEach
                 emailRanges.add(match.range)
-                val email = match.value.trim()
-                if (email.length >= 20) {
-                    results.putIfAbsent(email.lowercase(Locale.ROOT), AutoSavableCandidate(email, FOLDER_GMAIL))
-                }
             }
 
             NUMBER_REGEX.findAll(rawText, start).forEach { match ->

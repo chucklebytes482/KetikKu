@@ -135,7 +135,6 @@ internal fun DictionaryEntryDialog(
     val wordError = when {
         isA2f || !isNew -> null
         wordMissing -> null
-        folder == SettingsRepository.FOLDER_GMAIL && !word.contains('@') -> "Folder gm harus berupa alamat email"
         else -> null
     }
     val canSave = !inTrash && shortcutError == null && emailError == null &&

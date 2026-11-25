@@ -105,7 +105,7 @@ class ExampleRobolectricTest {
         val dictJson = repo.encodeDictionaryBackupJson(
             entries = entries,
             updatedAtMillis = 999L,
-            folders = listOf("gm", "num", "Kerja/CS")
+            folders = listOf("prib", "num", "Kerja/CS")
         )
         assertFalse(dictJson.contains("\"language\""))
         assertFalse(dictJson.contains("\"schemaVersion\""))
@@ -1077,43 +1077,37 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun settingsRepository_addClipboardText_autoSavesQualifyingGmailAndNumbersToDictionary() = runTest {
+    fun settingsRepository_addClipboardText_autoSavesNumbersButNeverGmail() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val repo = SettingsRepository(context)
 
-        repo.addClipboardText("short@gmail.com")
+        repo.addClipboardText("penggunapanjang2026@gmail.com")
         repo.addClipboardText("0812345678")
         repo.addClipboardText("1234567890123")
         repo.addClipboardText("+14155551234")
-        val dictBefore = repo.getCurrentDictionary()
-        assertTrue(dictBefore.none { it.word == "short@gmail.com" })
-        assertTrue(dictBefore.none { it.word == "0812345678" })
-        assertTrue(dictBefore.none { it.word == "1234567890123" })
-        assertTrue(dictBefore.none { it.word == "+14155551234" })
-
-        repo.addClipboardText("penggunapanjang2026@gmail.com")
         repo.addClipboardText("081234567890")
         repo.addClipboardText("6281234567891")
         repo.addClipboardText("+6281234567892")
-        repo.addClipboardText("penggunapanjang2026@gmail.com")
 
         val dictAfter = repo.getCurrentDictionary()
-        val gmailEntry = dictAfter.firstOrNull { !it.deleted && it.word == "penggunapanjang2026@gmail.com" }
+        // Gmail dari clipboard tidak disimpan lagi.
+        assertTrue(dictAfter.none { !it.deleted && it.word.endsWith("@gmail.com") })
+        assertTrue(dictAfter.none { it.word == "0812345678" })
+        assertTrue(dictAfter.none { it.word == "1234567890123" })
+        assertTrue(dictAfter.none { it.word == "+14155551234" })
+
         val nomor08 = dictAfter.firstOrNull { !it.deleted && it.word == "081234567890" }
         val nomor62 = dictAfter.firstOrNull { !it.deleted && it.word == "6281234567891" }
         val nomorPlus62 = dictAfter.firstOrNull { !it.deleted && it.word == "+6281234567892" }
-        assertNotNull(gmailEntry)
         assertNotNull(nomor08)
         assertNotNull(nomor62)
         assertNotNull(nomorPlus62)
-        assertEquals(SettingsRepository.FOLDER_GMAIL, gmailEntry?.folder)
         assertEquals(SettingsRepository.FOLDER_NOMOR, nomor08?.folder)
         assertEquals(SettingsRepository.FOLDER_NOMOR, nomor62?.folder)
         assertEquals(SettingsRepository.FOLDER_NOMOR, nomorPlus62?.folder)
-        assertEquals(1, dictAfter.count { !it.deleted && it.word == "penggunapanjang2026@gmail.com" })
         assertEquals(1, dictAfter.count { !it.deleted && it.word == "081234567890" })
         val foldersAfter = repo.getCurrentFolders()
-        assertTrue(foldersAfter.contains(SettingsRepository.FOLDER_GMAIL))
+        assertFalse(foldersAfter.contains("gm"))
         assertTrue(foldersAfter.contains(SettingsRepository.FOLDER_NOMOR))
     }
 
@@ -1728,11 +1722,10 @@ class ExampleRobolectricTest {
     fun dictionaryScreen_simpleFileManagerFlatFoldersOnlySelectsMovesAndDeletes() {
         val entries = listOf(
             PersonalDictionaryEntry(id = "e_root", word = "Salam hangat", shortcut = "sh", folder = "", updatedAtMillis = 10L),
-            PersonalDictionaryEntry(id = "e_gmail", word = "adminsuperpanjang@gmail.com", shortcut = "", folder = "gm", updatedAtMillis = 11L),
             PersonalDictionaryEntry(id = "e_nomor", word = "081234567890", shortcut = "", folder = "num", updatedAtMillis = 12L),
             PersonalDictionaryEntry(id = "e_kerja", word = "Mohon ditunggu sebentar", shortcut = "mds", folder = "Kerja", updatedAtMillis = 13L),
         )
-        val folders = listOf("Kerja", "gm", "num")
+        val folders = listOf("Kerja", "num")
         composeRule.setContent {
             KetikKuTheme(darkTheme = false) {
                 DictionaryScreen(
@@ -1745,8 +1738,7 @@ class ExampleRobolectricTest {
         }
 
         composeRule.waitForIdle()
-        // All 6 primary folders + custom folder + root entry fit in a single frame for deterministic bounds checks
-        val gmailBounds = composeRule.onNodeWithTag("folder_item_gm").fetchSemanticsNode().boundsInRoot
+        // All 7 primary folders + custom folder + root entry fit in a single frame for deterministic bounds checks
         val nomorBounds = composeRule.onNodeWithTag("folder_item_num").fetchSemanticsNode().boundsInRoot
         val pribadiBounds = composeRule.onNodeWithTag("folder_item_prib").fetchSemanticsNode().boundsInRoot
         val sandiBounds = composeRule.onNodeWithTag("folder_item_pw").fetchSemanticsNode().boundsInRoot
@@ -1756,14 +1748,13 @@ class ExampleRobolectricTest {
         val rootEntryBounds = composeRule.onNodeWithTag("dictionary_item_e_root").fetchSemanticsNode().boundsInRoot
 
         assertTrue("pw must be above kred", sandiBounds.bottom <= kredBounds.top + 1f)
-        assertTrue("kred must be above gm", kredBounds.bottom <= gmailBounds.top + 1f)
-        assertTrue("gm must be above num", gmailBounds.bottom <= nomorBounds.top + 1f)
+        assertTrue("kred must be above num", kredBounds.bottom <= nomorBounds.top + 1f)
         assertTrue("num must be above prib", nomorBounds.bottom <= pribadiBounds.top + 1f)
         assertTrue("prib must be above bc", pribadiBounds.bottom <= balasanBounds.top + 1f)
         assertTrue("bc must be above custom folders", balasanBounds.bottom <= kerjaBounds.top + 1f)
         assertTrue("Custom folders must be above unfoldered entries", kerjaBounds.bottom <= rootEntryBounds.top + 1f)
 
-        // None of the 6 primary folders show a 3-dot menu
+        // None of the 7 primary folders show a 3-dot menu
         SettingsRepository.PRIMARY_FOLDERS.forEach { primary ->
             assertTrue(
                 "Primary folder '$primary' must not show a 3-dot menu",
@@ -1783,15 +1774,15 @@ class ExampleRobolectricTest {
         // Navigate back to Utama
         composeRule.onNodeWithTag("breadcrumb_root").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("folder_item_gm").assertIsDisplayed()
+        composeRule.onNodeWithTag("folder_item_num").assertIsDisplayed()
 
         // Long-pressing a primary folder must NOT enter selection mode or open the folder
-        composeRule.onNodeWithTag("folder_item_gm").performTouchInput { longClick() }
+        composeRule.onNodeWithTag("folder_item_num").performTouchInput { longClick() }
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithTag("selection_action_bar").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("folder_breadcrumb_bar").fetchSemanticsNodes().isEmpty())
 
-        // Multi-select mode (long press) -> Pilih Semua selects ONLY custom folder Kerja + e_root (2 dipilih, excluding 6 primary folders)
+        // Multi-select mode (long press) -> Pilih Semua selects ONLY custom folder Kerja + e_root (2 dipilih, excluding 7 primary folders)
         composeRule.onNodeWithTag("folder_item_Kerja").performTouchInput { longClick() }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("selection_action_bar").assertIsDisplayed()
@@ -1800,7 +1791,7 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithText("2 dipilih").fetchSemanticsNodes().isNotEmpty())
 
         // Tapping a primary folder in selection mode does NOT select it
-        composeRule.onNodeWithTag("folder_item_gm").performClick()
+        composeRule.onNodeWithTag("folder_item_num").performClick()
         composeRule.waitForIdle()
         assertTrue(composeRule.onAllNodesWithText("2 dipilih").fetchSemanticsNodes().isNotEmpty())
 

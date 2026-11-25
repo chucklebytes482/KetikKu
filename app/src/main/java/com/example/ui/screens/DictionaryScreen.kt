@@ -37,7 +37,6 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Home
@@ -756,7 +755,6 @@ private fun FolderRowCard(
     var menuExpanded by remember { mutableStateOf(false) }
     val isPrimary = SettingsRepository.isPrimaryFolder(folderName)
     val folderIcon = when (folderName) {
-        SettingsRepository.FOLDER_GMAIL -> Icons.Default.Email
         SettingsRepository.FOLDER_NOMOR -> Icons.Default.Phone
         SettingsRepository.FOLDER_PRIBADI -> Icons.Default.Person
         SettingsRepository.FOLDER_KATA_SANDI -> Icons.Default.Lock

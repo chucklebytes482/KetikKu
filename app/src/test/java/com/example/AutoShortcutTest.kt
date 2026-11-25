@@ -13,9 +13,8 @@ class AutoShortcutTest {
         PersonalDictionaryEntry(id = id, word = id, shortcut = shortcut, folder = folder, deleted = deleted)
 
     @Test
-    fun gmShortcutUsesFirstTwoCharsBeforeAtPlusGm() {
-        assertEquals("gmab", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "abdul@gmail.com", emptyList(), null))
-        assertEquals("gmch", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "chucklebytes482@gmail.com", emptyList(), null))
+    fun pwShortcutUsesFirstCharPlusPw() {
+        assertEquals("pwg", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KATA_SANDI, "Github", emptyList(), null))
     }
 
     @Test
@@ -25,8 +24,8 @@ class AutoShortcutTest {
     }
 
     @Test
-    fun lockedFoldersAreGmPwAutKred() {
-        listOf(SettingsRepository.FOLDER_GMAIL, SettingsRepository.FOLDER_KATA_SANDI,
+    fun lockedFoldersArePwAutKred() {
+        listOf(SettingsRepository.FOLDER_KATA_SANDI,
             SettingsRepository.FOLDER_A2F, SettingsRepository.FOLDER_KREDENSIAL).forEach {
             assertTrue(it, SettingsRepository.isShortcutLockedFolder(it))
         }
@@ -142,14 +141,14 @@ class AutoShortcutTest {
 
     @Test
     fun collisionGetsNumberSuffix() {
-        val others = listOf(e("x", "gmab", SettingsRepository.FOLDER_GMAIL))
-        assertEquals("gmab2", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "abdul@gmail.com", others, null))
+        val others = listOf(e("x", "pwg", SettingsRepository.FOLDER_KATA_SANDI))
+        assertEquals("pwg2", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KATA_SANDI, "Github", others, null))
     }
 
     @Test
     fun trashEntriesDoNotBlockShortcuts() {
-        val others = listOf(e("x", "gmab", SettingsRepository.FOLDER_SAMPAH))
-        assertEquals("gmab", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_GMAIL, "abdul@gmail.com", others, null))
+        val others = listOf(e("x", "pwg", SettingsRepository.FOLDER_SAMPAH))
+        assertEquals("pwg", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KATA_SANDI, "Github", others, null))
     }
 
     @Test
