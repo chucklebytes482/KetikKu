@@ -1150,9 +1150,9 @@ class SettingsRepository(
         val PRIMARY_FOLDERS: List<String> = listOf(
             FOLDER_GMAIL,
             FOLDER_KATA_SANDI,
-            FOLDER_NOMOR,
             FOLDER_A2F,
             FOLDER_KREDENSIAL,
+            FOLDER_NOMOR,
             FOLDER_PRIBADI,
             FOLDER_BALASAN_CEPAT,
             FOLDER_SAMPAH
