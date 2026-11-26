@@ -1205,9 +1205,9 @@ private fun TopUtilityAndSuggestionBar(
                         dividerColor = dividerColor,
                         palette = palette,
                         isFloating = isFloating,
-                        onTap = { chip, part ->
+                        onTap = { chip ->
                             onFeedback()
-                            controller.onA2fChipTap(chip, part, personalEntries)
+                            controller.onA2fChipTap(chip, personalEntries)
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1222,7 +1222,7 @@ private fun TopUtilityAndSuggestionBar(
                         isFloating = isFloating,
                         onTap = { word ->
                             onFeedback()
-                            controller.onSuggestionTap(word, settings, personalEntries, recordUsage = false)
+                            controller.onFolderWordTap(word, settings, personalEntries)
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1530,16 +1530,18 @@ private fun A2fChipsRow(
     dividerColor: Color,
     palette: KeyboardPalette,
     isFloating: Boolean,
-    onTap: (A2fChip, A2fChip.Part) -> Unit,
+    onTap: (A2fChip) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Perubahan kode tiap 30 detik tidak mereset halaman yang sedang dibuka.
+    // Seluruh kolom bisa disentuh; yang ditempel selalu kode, bukan email.
     ThreeColumnSuggestionPager(chips.size, chips.map { it.entryId }, dividerColor, modifier) { index ->
         val chip = chips[index]
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("a2f_chip")
+                .clickable { onTap(chip) }
                 .padding(horizontal = if (isFloating) 2.dp else 4.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
@@ -1554,9 +1556,7 @@ private fun A2fChipsRow(
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onTap(chip, A2fChip.Part.CODE) }
+                modifier = Modifier.fillMaxWidth()
             )
             if (chip.shortEmail.isNotEmpty()) {
                 Text(
@@ -1567,9 +1567,7 @@ private fun A2fChipsRow(
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onTap(chip, A2fChip.Part.EMAIL) }
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }

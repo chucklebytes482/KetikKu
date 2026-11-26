@@ -9,6 +9,13 @@ data class SuggestionResult(
     val suggestions: List<String> = emptyList()
 )
 
+/** Satu kata folder (num, pw, kred) beserta ID entri asalnya, untuk statistik pemakaian. */
+data class FolderChoice(val entryId: String, val word: String)
+
+/** Batas habit sesi: kata yang sering diketik (hanya di memori, tidak pernah ditulis ke berkas). */
+const val HABIT_MIN_USES = 2
+const val HABIT_MAX_WORDS = 200
+
 object DictionaryEngine {
 
     private val UNMODIFIABLE_LIST_MARKER: Class<*> =
@@ -80,54 +87,81 @@ object DictionaryEngine {
     fun isTrashEntry(entry: PersonalDictionaryEntry): Boolean =
         SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_SAMPAH
 
+    /** Kunci pemakaian entri di peta personalitas. Hanya ID, tanpa isi kredensial. */
+    fun entryUsageKey(entryId: String): String = "entry:${entryId.trim()}".lowercase(Locale.ROOT)
+
+    /** Urutan folder: paling sering dipakai dulu, lalu yang paling baru diubah. */
+    private fun rankByUsage(
+        entries: List<PersonalDictionaryEntry>,
+        personality: Map<String, WordPersonalityStat>,
+        nowMillis: Long
+    ): List<PersonalDictionaryEntry> {
+        if (personality.isEmpty()) return entries.sortedByDescending { it.updatedAtMillis }
+        return entries.sortedWith(
+            compareByDescending<PersonalDictionaryEntry> {
+                personalityScore(entryUsageKey(it.id), personality, nowMillis)
+            }.thenByDescending { it.updatedAtMillis }
+        )
+    }
+
     /**
      * Semua akun A2F aktif yang berbagi pintasan [currentWord] (akun dengan domain sama).
-     * Urutan: yang paling baru diubah dulu.
+     * Urutan: paling sering dipakai, lalu yang paling baru diubah.
      */
     fun findA2fEntries(
         currentWord: String,
-        personalEntries: List<PersonalDictionaryEntry>
+        personalEntries: List<PersonalDictionaryEntry>,
+        personality: Map<String, WordPersonalityStat> = emptyMap(),
+        nowMillis: Long = System.currentTimeMillis()
     ): List<PersonalDictionaryEntry> {
         val key = currentWord.trim()
         if (key.isEmpty()) return emptyList()
-        return personalEntries.asSequence()
-            .filter { entry ->
-                !entry.deleted &&
-                    isA2fEntry(entry) &&
-                    entry.secretCipher.isNotBlank() &&
-                    (entry.shortcut.trim().equals(key, ignoreCase = true) ||
-                        SettingsRepository.autoShortcut(entry.folder, entry.word).equals(key, ignoreCase = true))
-            }
-            .sortedByDescending { it.updatedAtMillis }
-            .toList()
+        val matches = personalEntries.filter { entry ->
+            !entry.deleted &&
+                isA2fEntry(entry) &&
+                entry.secretCipher.isNotBlank() &&
+                (entry.shortcut.trim().equals(key, ignoreCase = true) ||
+                    SettingsRepository.autoShortcut(entry.folder, entry.word).equals(key, ignoreCase = true))
+        }
+        return rankByUsage(matches, personality, nowMillis)
+    }
+
+    /** Pasangan (ID entri, kata) untuk folder `num`. Kosong untuk kata lain. */
+    fun findFolderEntryChoices(
+        currentWord: String,
+        personalEntries: List<PersonalDictionaryEntry>,
+        personality: Map<String, WordPersonalityStat> = emptyMap(),
+        nowMillis: Long = System.currentTimeMillis()
+    ): List<FolderChoice> {
+        if (!currentWord.trim().equals(SettingsRepository.FOLDER_NOMOR, ignoreCase = true)) return emptyList()
+        val matches = personalEntries.filter { entry ->
+            !entry.deleted &&
+                entry.word.isNotBlank() &&
+                SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_NOMOR
+        }
+        return rankByUsage(matches, personality, nowMillis)
+            .map { FolderChoice(it.id, it.word.trim()) }
+            .distinctBy { it.word }
     }
 
     /**
      * Mengetik persis nama folder [SettingsRepository.FOLDER_NOMOR] ("num") menampilkan semua kata di folder itu.
-     * Kosong untuk kata lain. Entri terbaru tampil lebih dulu.
+     * Kosong untuk kata lain.
      */
     fun findFolderEntryWords(
         currentWord: String,
-        personalEntries: List<PersonalDictionaryEntry>
-    ): List<String> {
-        if (!currentWord.trim().equals(SettingsRepository.FOLDER_NOMOR, ignoreCase = true)) return emptyList()
-        return personalEntries.asSequence()
-            .filter { entry ->
-                !entry.deleted &&
-                    entry.word.isNotBlank() &&
-                    SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_NOMOR
-            }
-            .sortedByDescending { it.updatedAtMillis }
-            .map { it.word.trim() }
-            .distinct()
-            .toList()
-    }
+        personalEntries: List<PersonalDictionaryEntry>,
+        personality: Map<String, WordPersonalityStat> = emptyMap(),
+        nowMillis: Long = System.currentTimeMillis()
+    ): List<String> = findFolderEntryChoices(currentWord, personalEntries, personality, nowMillis).map { it.word }
 
-    /** Hasil lengkap untuk pintasan pw/kred, terpisah dari tiga saran kata biasa. */
-    fun findPagedShortcutWords(
+    /** Pasangan (ID entri, kata) untuk pintasan pw/kred. */
+    fun findPagedShortcutChoices(
         currentWord: String,
-        personalEntries: List<PersonalDictionaryEntry>
-    ): List<String> {
+        personalEntries: List<PersonalDictionaryEntry>,
+        personality: Map<String, WordPersonalityStat> = emptyMap(),
+        nowMillis: Long = System.currentTimeMillis()
+    ): List<FolderChoice> {
         val key = currentWord.trim().lowercase(Locale.ROOT)
         val folder = when {
             key.startsWith(KRED_TRIGGER) -> SettingsRepository.FOLDER_KREDENSIAL
@@ -135,17 +169,23 @@ object DictionaryEngine {
                 SettingsRepository.FOLDER_KATA_SANDI
             else -> return emptyList()
         }
-        return personalEntries.asSequence()
-            .filter { entry ->
-                !entry.deleted && SettingsRepository.normalizeFolderPath(entry.folder) == folder &&
-                    (key == KRED_TRIGGER || SettingsRepository.autoShortcut(folder, entry.word) == key ||
-                        entry.shortcut.trim().equals(key, ignoreCase = true))
-            }
-            .sortedByDescending { it.updatedAtMillis }
-            .map(::displayWord)
-            .filter(String::isNotEmpty)
-            .toList()
+        val matches = personalEntries.filter { entry ->
+            !entry.deleted && SettingsRepository.normalizeFolderPath(entry.folder) == folder &&
+                (key == KRED_TRIGGER || SettingsRepository.autoShortcut(folder, entry.word) == key ||
+                    entry.shortcut.trim().equals(key, ignoreCase = true))
+        }
+        return rankByUsage(matches, personality, nowMillis)
+            .map { FolderChoice(it.id, displayWord(it)) }
+            .filter { it.word.isNotEmpty() }
     }
+
+    /** Hasil lengkap untuk pintasan pw/kred, terpisah dari tiga saran kata biasa. */
+    fun findPagedShortcutWords(
+        currentWord: String,
+        personalEntries: List<PersonalDictionaryEntry>,
+        personality: Map<String, WordPersonalityStat> = emptyMap(),
+        nowMillis: Long = System.currentTimeMillis()
+    ): List<String> = findPagedShortcutChoices(currentWord, personalEntries, personality, nowMillis).map { it.word }
 
     private fun getOrBuildIndex(personalEntries: List<PersonalDictionaryEntry>): IndexedDictionary {
         val current = cachedIndex
@@ -289,7 +329,8 @@ object DictionaryEngine {
         previousWord: String,
         personalEntries: List<PersonalDictionaryEntry>,
         personality: Map<String, WordPersonalityStat> = emptyMap(),
-        nowMillis: Long = System.currentTimeMillis()
+        nowMillis: Long = System.currentTimeMillis(),
+        habit: Map<String, Int> = emptyMap()
     ): SuggestionResult {
         val index = getOrBuildIndex(personalEntries)
         val boundedWord = if (currentWord.length > 30) currentWord.takeLast(30) else currentWord
@@ -367,6 +408,15 @@ object DictionaryEngine {
                     val closeness = 3.0 / (1.0 + (lowerDict.length - lowerWord.length).coerceAtLeast(0))
                     rankedPool.add(styled to (score + shortcutBonus + 2.0 + closeness))
                 }
+            }
+        }
+
+        // Kebiasaan sesi: kata yang sudah diketik berulang, dicocokkan lewat 3 huruf pertama.
+        if (habit.isNotEmpty() && boundedWord.length >= MIN_PREFIX_SUGGEST_LEN) {
+            for ((lowerHabit, uses) in habit) {
+                if (uses < HABIT_MIN_USES || lowerHabit == lowerWord) continue
+                if (!lowerHabit.startsWith(lowerWord) || !seenPoolLower.add(lowerHabit)) continue
+                rankedPool.add(applyCase(lowerHabit) to (uses * 100.0 + 1.0))
             }
         }
 

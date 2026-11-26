@@ -36,7 +36,7 @@ Keterangan status:
 - Hapus entri berarti memindahkannya ke **Sampah**. Dari Sampah entri bisa dipulihkan (`restoreDictionaryEntries`) atau dihapus permanen (`deleteDictionaryItems`).
 - Di layar Kamus tersedia pencarian, mode pilih (multi-pilih) untuk aksi massal, dan opsi folder (`DictionaryScreen.kt`, `DictionaryDialogs.kt`).
 - Urutan entri di dalam folder: entri yang punya pintasan dulu. Lalu entri A2F dan Kredensial yang punya website, diurutkan menurut **domain utama tanpa TLD** (`SettingsRepository.mainDomainSortKey`): `google.com` dan `myaccount.google.com` masuk ke urutan "google", bukan "com". `bbc.co.uk` masuk ke "bbc". Entri tanpa website diletakkan setelahnya. Sisanya diurutkan menurut kata.
-- Bilah saran `kred` menampilkan semua entri aktif, yang paling baru diubah dulu.
+- Bilah saran `kred` menampilkan semua entri aktif. Urutannya: yang paling sering dipakai dulu, lalu yang paling baru diubah.
 
 ## 3. Pintasan
 
@@ -62,7 +62,8 @@ Catatan:
 
 ## 5. Autentikasi dua faktor (A2F)
 
-- Bilah A2F menampilkan **satu kolom per akun**.
+- Bilah A2F menampilkan **satu kolom per akun**. Seluruh kolom bisa disentuh, dan yang ditempel selalu **kode 6 digit saja** (email hanya tampilan, tidak ikut ditempel).
+- Urutan kolom A2F, dan urutan saran `kred`, `pw`, `num`: paling sering dipakai dulu, lalu paling baru diubah. Pemakaian dicatat per ID entri (kunci `entry:<id>` di statistik pemakaian), bukan isi entri.
 - Website bisa diedit setelah akun disimpan. Email dan seed tetap terkunci, dan pintasan mengikuti domain website terbaru.
 - Kode TOTP: SHA-1, 6 digit, periode 30 detik.
 - Seed A2F dilindungi Android Keystore.
@@ -76,6 +77,7 @@ Catatan:
 - Idle suggestion: saran muncul saat tidak mengetik.
 - Autocorrect utama (`primaryAutoCorrect`).
 - Personalisasi perilaku pengguna: menyimpan hingga 600 entri (`PERSONALITY_MAX_ENTRIES = 600`).
+- Kebiasaan sesi: kata yang sudah diketik dan diselesaikan (spasi, enter, atau tanda baca) 2 kali atau lebih, panjang 3–30 huruf, disarankan lagi setelah 3 huruf pertama. Contoh: `autgoogle` diketik beberapa kali, lalu `aut` menyarankan `autgoogle`. Disimpan **hanya di memori** selama controller keyboard hidup: tidak ditulis ke berkas, tidak masuk kamus pribadi, tidak dipakai di kolom sandi, maksimum 200 kata.
 
 ## 7. Papan klip
 

@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.example.data.DictionaryEngine
+import com.example.data.HABIT_MAX_WORDS
 import com.example.data.SettingsRepository
 import com.example.data.SecretVault
 import com.example.data.TotpGenerator
@@ -29,10 +30,7 @@ data class A2fChip(
     val code: String,
     val email: String,
     val shortEmail: String
-) {
-    /** Bagian kolom yang disentuh: kode atau email. */
-    enum class Part { CODE, EMAIL }
-}
+)
 
 enum class KeyboardPage {
     QWERTY,
@@ -330,6 +328,15 @@ class KeyboardController(
     var onRecordWordUsage: ((String) -> Unit)? = null
 
     private var personalityStats: MutableMap<String, WordPersonalityStat> = LinkedHashMap()
+
+    /**
+     * Kebiasaan sesi: jumlah kata yang diketik lalu diselesaikan (spasi/enter/tanda baca).
+     * Hanya di memori: tidak ditulis ke berkas, tidak masuk kamus pribadi, hilang saat controller dibuat ulang.
+     */
+    private val habitCounts = HashMap<String, Int>()
+
+    /** Kata folder yang sedang tampil -> ID entrinya, untuk mencatat pemakaian saat diketuk. */
+    private var folderEntryIdByWord: Map<String, String> = emptyMap()
 
     fun updatePersonality(
         stats: Map<String, WordPersonalityStat>,
@@ -733,6 +740,16 @@ class KeyboardController(
         applySuggestionResult(personalEntries)
     }
 
+    /** Tap kata folder (num, pw, kred). Pemakaian dicatat per entri, bukan per kata, agar isi rahasia tidak masuk statistik. */
+    fun onFolderWordTap(
+        word: String,
+        settings: KeyboardSettings,
+        personalEntries: List<PersonalDictionaryEntry>
+    ) {
+        folderEntryIdByWord[word]?.let { recordEntryUsage(it) }
+        onSuggestionTap(word, settings, personalEntries, recordUsage = false)
+    }
+
     fun onSuggestionTap(
         word: String,
         settings: KeyboardSettings,
@@ -749,24 +766,19 @@ class KeyboardController(
         applySuggestionResult(personalEntries)
     }
 
-    /** Tap sel A2F. Kode dihitung ulang dari seed saat ini; kode tidak masuk statistik kebiasaan. */
+    /**
+     * Tap kolom A2F. Hanya kode 6 digit yang ditempel (tanpa email). Kode dihitung ulang dari seed saat ini.
+     * Kode tidak dicatat; yang dicatat hanya pemakaian entri akun untuk urutan kolom.
+     */
     fun onA2fChipTap(
         chip: A2fChip,
-        part: A2fChip.Part,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        val commitValue = when (part) {
-            A2fChip.Part.CODE -> {
-                val seed = personalEntries.firstOrNull { it.id == chip.entryId && !it.deleted }
-                    ?.let { SecretVault.decryptOrNull(it.secretCipher) } ?: return
-                TotpGenerator.currentCodeFromBase32(seed) ?: return
-            }
-            A2fChip.Part.EMAIL -> {
-                if (chip.email.isEmpty()) return
-                if (isPasswordField) chip.email else "${chip.email} "
-            }
-        }
-        replaceCurrentWordForSuggestion(commitValue)
+        val seed = personalEntries.firstOrNull { it.id == chip.entryId && !it.deleted }
+            ?.let { SecretVault.decryptOrNull(it.secretCipher) } ?: return
+        val code = TotpGenerator.currentCodeFromBase32(seed) ?: return
+        recordEntryUsage(chip.entryId)
+        replaceCurrentWordForSuggestion(code)
         clearSelectedPreview()
         localContextValid = true
         clearLocalWordBuffer()
@@ -1015,7 +1027,29 @@ class KeyboardController(
         }
         if (typed.isNotBlank()) {
             recordWordUsageInternal(typed, personalEntries, forceRecord = false)
+            recordHabitWord(typed)
         }
+    }
+
+    /** Hitung kata yang selesai diketik untuk saran sesi. Hanya huruf, 3–30 karakter, batas jumlah kata. */
+    private fun recordHabitWord(word: String) {
+        val clean = word.trim().lowercase(Locale.ROOT)
+        if (clean.length !in 3..30 || !HABIT_WORD_REGEX.matches(clean)) return
+        val existing = habitCounts[clean]
+        if (existing == null && habitCounts.size >= HABIT_MAX_WORDS) return
+        habitCounts[clean] = (existing ?: 0) + 1
+    }
+
+    /** Catat pemakaian satu entri (A2F, kred, pw, num). Kunci hanya ID entri, tidak memuat isi entri. */
+    private fun recordEntryUsage(entryId: String) {
+        val key = DictionaryEngine.entryUsageKey(entryId)
+        val existing = personalityStats[key]
+        personalityStats[key] = WordPersonalityStat(
+            word = key,
+            usageCount = (existing?.usageCount ?: 0) + 1,
+            lastUsedMillis = System.currentTimeMillis()
+        )
+        onRecordWordUsage?.invoke(key)
     }
 
     private fun recordWordUsageInternal(
@@ -1063,21 +1097,27 @@ class KeyboardController(
             return
         }
         clearA2f()
-        val shortcutWords = DictionaryEngine.findPagedShortcutWords(currentWord, personalEntries)
-        val folderWords = if (shortcutWords.isNotEmpty() || isPasswordField) shortcutWords
-        else DictionaryEngine.findFolderEntryWords(currentWord, personalEntries)
-        if (folderWords.isNotEmpty()) {
+        val now = System.currentTimeMillis()
+        val shortcutChoices = DictionaryEngine.findPagedShortcutChoices(currentWord, personalEntries, personalityStats, now)
+        val folderChoices = if (shortcutChoices.isNotEmpty() || isPasswordField) shortcutChoices
+        else DictionaryEngine.findFolderEntryChoices(currentWord, personalEntries, personalityStats, now)
+        if (folderChoices.isNotEmpty()) {
+            val folderWords = folderChoices.map { it.word }.distinct()
             if (suggestions.isNotEmpty()) suggestions = emptyList()
             if (primaryAutoCorrect != null) primaryAutoCorrect = null
             if (folderSuggestions != folderWords) folderSuggestions = folderWords
+            folderEntryIdByWord = folderChoices.distinctBy { it.word }.associate { it.word to it.entryId }
             return
         }
         if (folderSuggestions.isNotEmpty()) folderSuggestions = emptyList()
+        if (folderEntryIdByWord.isNotEmpty()) folderEntryIdByWord = emptyMap()
         val result = DictionaryEngine.getSuggestions(
             currentWord = currentWord,
             previousWord = "",
             personalEntries = personalEntries,
-            personality = personalityStats
+            personality = personalityStats,
+            nowMillis = now,
+            habit = habitCounts
         )
         if (suggestions != result.suggestions) {
             suggestions = result.suggestions
@@ -1093,7 +1133,7 @@ class KeyboardController(
         personalEntries: List<PersonalDictionaryEntry>
     ): List<A2fChip> {
         val chips = ArrayList<A2fChip>()
-        DictionaryEngine.findA2fEntries(currentWord, personalEntries).forEach { entry ->
+        DictionaryEngine.findA2fEntries(currentWord, personalEntries, personalityStats).forEach { entry ->
             val seed = SecretVault.decryptOrNull(entry.secretCipher) ?: return@forEach
             val code = TotpGenerator.currentCodeFromBase32(seed) ?: return@forEach
             val email = entry.word.substringBefore('\n').trim()
@@ -1120,6 +1160,7 @@ class KeyboardController(
 
     companion object {
         const val MAX_ACTIVE_WORD_CHARS = 30
+        private val HABIT_WORD_REGEX = Regex("^\\p{L}+$")
         const val MAX_LIVE_PREVIEW_CHARS = 120
         const val CTRL_STICKY_CHAR_LIMIT = 1
         private const val MAX_ACTIVE_WORD_READ_UTF16 = 60
