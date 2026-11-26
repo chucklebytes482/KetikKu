@@ -616,6 +616,7 @@ class KeyboardEngineUnitTest {
             controller.onCharacterTap("s", settings, entries)
             controller.onCharacterTap("l", settings, entries)
             controller.onSuggestionTap("Selamat malam", settings, entries)
+            controller.onSpaceTap(settings, entries)
         }
         controller.onCharacterTap("s", settings, entries)
         controller.onCharacterTap("l", settings, entries)
@@ -651,6 +652,7 @@ class KeyboardEngineUnitTest {
             controller.onCharacterTap("e", settings, personal)
             controller.onCharacterTap("r", settings, personal)
             controller.onSuggestionTap("perjalanan", settings, personal)
+            controller.onSpaceTap(settings, personal)
         }
         controller.onCharacterTap("p", settings, personal)
         controller.onCharacterTap("e", settings, personal)
@@ -744,7 +746,7 @@ class KeyboardEngineUnitTest {
         controller.onCharacterTap("t", settings, entries)
         controller.onCharacterTap("k", settings, entries)
         controller.onSuggestionTap("Terima kasih banyak", settings, entries)
-        assertEquals("tk tk. tk\ntk\nTerima kasih banyak ", tf.text)
+        assertEquals("tk tk. tk\ntk\nTerima kasih banyak", tf.text)
     }
 
     @Test
@@ -813,7 +815,7 @@ class KeyboardEngineUnitTest {
             entries = emptyList()
         )
         assertEquals(
-            listOf("aut", "pw", "kred", "num", "prib", "bc", "tras", "Kerja"),
+            listOf("aut", "kred", "num", "pw", "prib", "bc", "tras", "Kerja"),
             ordered
         )
     }
@@ -948,7 +950,7 @@ class KeyboardEngineUnitTest {
         controller.onCharacterTap("m", settings, entries)
         assertTrue(controller.suggestions.contains("admin@contoh.id"))
         controller.onSuggestionTap("admin@contoh.id", settings, entries)
-        assertEquals("admin@contoh.id ", committedText)
+        assertEquals("admin@contoh.id", committedText)
     }
 }
 
