@@ -344,11 +344,25 @@ class SettingsRepository(
         } else {
             runCatching { dictListAdapter.fromJson(raw) }.getOrNull() ?: defaultDictionaryEntries()
         }
-        return list.map { entry ->
+        return dedupeById(list).map { entry ->
             val moved = migrateRetiredFolderEntry(entry)
             val norm = normalizeFolderPath(moved.folder)
             if (norm == moved.folder) moved else moved.copy(folder = norm)
         }
+    }
+
+    /**
+     * ID entri harus unik: LazyColumn memakai ID sebagai kunci dan crash jika ada dua kunci sama.
+     * Data yang rusak (duplikat ID) dirapikan di sini: dipertahankan versi yang paling baru.
+     */
+    private fun dedupeById(list: List<PersonalDictionaryEntry>): List<PersonalDictionaryEntry> {
+        if (list.map { it.id }.toSet().size == list.size) return list
+        val byId = LinkedHashMap<String, PersonalDictionaryEntry>(list.size)
+        for (item in list) {
+            val existing = byId[item.id]
+            if (existing == null || shouldUseBackupEntry(existing, item)) byId[item.id] = item
+        }
+        return byId.values.toList()
     }
 
     private fun parseFolderList(raw: String?): List<String> {

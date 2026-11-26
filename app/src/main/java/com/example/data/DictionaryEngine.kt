@@ -411,7 +411,7 @@ object DictionaryEngine {
             }
         }
 
-        // Kebiasaan sesi: kata yang sudah diketik berulang, dicocokkan lewat 3 huruf pertama.
+        // Kebiasaan sesi: kata yang sudah diketik berulang, dicocokkan lewat awalan (minimal MIN_PREFIX_SUGGEST_LEN huruf).
         if (habit.isNotEmpty() && boundedWord.length >= MIN_PREFIX_SUGGEST_LEN) {
             for ((lowerHabit, uses) in habit) {
                 if (uses < HABIT_MIN_USES || lowerHabit == lowerWord) continue
