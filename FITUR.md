@@ -85,7 +85,8 @@ Catatan:
 - Preview menampilkan 200 karakter pertama.
 - Paste langsung untuk teks sampai 10.000 karakter. Teks lebih panjang dikirim per bagian (chunked).
 - Teks salinan tidak tampil di bilah saran.
-- Riwayat tersimpan di panel Papan Klip.
+- Riwayat hanya di memori proses: tidak ditulis ke berkas. Riwayat hilang saat aplikasi ditutup/di-restart.
+- Tombol hapus riwayat menghapus semua item. Teks yang masih ada di papan klip sistem tidak diambil ulang otomatis, hanya salinan baru yang dicatat.
 - Dapat diatur lewat `clipboardHistoryEnabled`.
 - Deteksi otomatis:
   - Nomor: diawali +62, 62, atau 08 dan minimal 11 digit.

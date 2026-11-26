@@ -284,27 +284,6 @@ class MainViewModel(
         }
     }
 
-    fun syncSystemClipboardFromDevice(context: Context) {
-        val appContext = context.applicationContext
-        viewModelScope.launch {
-            try {
-                val text = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    val cm = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                        ?: return@withContext ""
-                    val clip = cm.primaryClip ?: return@withContext ""
-                    if (clip.itemCount > 0) {
-                        clip.getItemAt(0).coerceToText(appContext)?.toString().orEmpty()
-                    } else ""
-                }
-                if (text.isNotBlank()) {
-                    settingsRepository.syncSystemClipboardIfChanged(text)
-                }
-            } catch (_: Throwable) {
-                // Keep app running smoothly if system clipboard cannot be read
-            }
-        }
-    }
-
     fun clearAllClipboard() {
         viewModelScope.launch {
             settingsRepository.clearAllClipboard()

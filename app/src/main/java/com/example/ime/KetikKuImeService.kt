@@ -324,18 +324,6 @@ class KetikKuImeService : InputMethodService() {
             settings = latestSettings,
             personalEntries = latestDictionary
         )
-        if (!isPassword && latestSettings.clipboardHistoryEnabled) {
-            serviceScope.launch {
-                try {
-                    val clipText = withContext(Dispatchers.IO) { readSystemClipboardTextSafe() }
-                    if (!clipText.isNullOrBlank()) {
-                        settingsRepository.syncSystemClipboardIfChanged(clipText)
-                    }
-                } catch (_: Throwable) {
-                    showBriefClipboardError("Gagal menyinkronkan papan klip")
-                }
-            }
-        }
     }
 
     override fun onUpdateSelection(

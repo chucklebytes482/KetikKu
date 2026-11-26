@@ -1270,9 +1270,8 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun clipboardDatabaseHelper_storesAndLoadsMultiHundredThousandCharTextWithoutTruncation() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val db = com.example.data.ClipboardDatabaseHelper(context)
+    fun clipboardMemoryStore_storesAndLoadsMultiHundredThousandCharTextWithoutTruncation() {
+        val db = com.example.data.InMemoryClipboardBackingStore()
         db.clearAll()
 
         val hugeText = "Awal teks super panjang 😀 " + "B".repeat(349_950) + " Akhir"
@@ -1288,7 +1287,6 @@ class ExampleRobolectricTest {
         val loadedFull = db.getFullText(previews.first().id)
         assertEquals(hugeText, loadedFull)
         db.clearAll()
-        db.close()
     }
 
     @Test
@@ -1466,7 +1464,6 @@ class ExampleRobolectricTest {
 
         // Duplicate clip listener events with identical text must NOT clear dismissal
         repo.addClipboardText("Teks salinan uji 123")
-        repo.syncSystemClipboardIfChanged("Teks salinan uji 123")
         assertEquals(firstItem.id, repo.dismissedClipboardIdFlow.first())
         assertEquals(firstItem.dismissSignature(), repo.dismissedClipboardSignatureFlow.first())
         assertEquals(1, repo.clipboardFlow.first().size)

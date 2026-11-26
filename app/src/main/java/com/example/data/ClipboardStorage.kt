@@ -1,9 +1,5 @@
 package com.example.data
 
-import android.content.ContentValues
-import android.content.Context
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
 import com.example.model.ClipboardItem
 import java.security.MessageDigest
 import java.util.UUID
@@ -178,6 +174,10 @@ interface ClipboardBackingStore {
     fun clearAll()
 }
 
+/**
+ * Papan klip hanya data sementara di memori proses. Tidak pernah ditulis ke berkas.
+ * Satu instans dipakai bersama oleh aplikasi dan IME (proses yang sama).
+ */
 class InMemoryClipboardBackingStore : ClipboardBackingStore {
     private data class StoredEntry(
         val item: ClipboardItem,
@@ -204,8 +204,8 @@ class InMemoryClipboardBackingStore : ClipboardBackingStore {
         synchronized(lock) {
             entries.removeAll { it.hash == hash && it.item.charCount == charCount }
             entries.add(0, StoredEntry(item = item, hash = hash, fullText = cleaned))
-            if (entries.size > 25) {
-                entries.subList(25, entries.size).clear()
+            if (entries.size > ClipboardMemory.HISTORY_LIMIT) {
+                entries.subList(ClipboardMemory.HISTORY_LIMIT, entries.size).clear()
             }
         }
         return item
@@ -243,267 +243,7 @@ class InMemoryClipboardBackingStore : ClipboardBackingStore {
     }
 }
 
-class ClipboardDatabaseHelper(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, DB_NAME, null, DB_VERSION),
-    ClipboardBackingStore {
-
-    override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL(
-            """
-            CREATE TABLE IF NOT EXISTS $TABLE_ITEMS (
-                $COL_ID TEXT PRIMARY KEY,
-                $COL_PREVIEW TEXT NOT NULL,
-                $COL_CHAR_COUNT INTEGER NOT NULL,
-                $COL_HASH TEXT NOT NULL,
-                $COL_IS_CHUNKED INTEGER NOT NULL DEFAULT 0,
-                $COL_FULL_TEXT TEXT NOT NULL,
-                $COL_TIMESTAMP INTEGER NOT NULL
-            )
-            """.trimIndent()
-        )
-        db.execSQL(
-            """
-            CREATE INDEX IF NOT EXISTS idx_clipboard_timestamp
-            ON $TABLE_ITEMS ($COL_TIMESTAMP DESC)
-            """.trimIndent()
-        )
-        db.execSQL(
-            """
-            CREATE TABLE IF NOT EXISTS $TABLE_CHUNKS (
-                $COL_CHUNK_ITEM_ID TEXT NOT NULL,
-                $COL_CHUNK_INDEX INTEGER NOT NULL,
-                $COL_CHUNK_TEXT TEXT NOT NULL,
-                PRIMARY KEY ($COL_CHUNK_ITEM_ID, $COL_CHUNK_INDEX)
-            )
-            """.trimIndent()
-        )
-    }
-
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_CHUNKS")
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_ITEMS")
-        onCreate(db)
-    }
-
-    override fun saveClipboardText(rawText: String, nowMillis: Long): ClipboardItem? {
-        val (start, end) = TextChunker.trimmedBounds(rawText)
-        if (start >= end) return null
-        val cleaned = if (start == 0 && end == rawText.length) rawText else rawText.substring(start, end)
-        val (preview, charCount) = TextChunker.buildPreview(cleaned, 0, cleaned.length)
-        val hash = TextChunker.sha256OfSlice(cleaned, 0, cleaned.length)
-        val newId = UUID.randomUUID().toString().take(10)
-        val isChunked = cleaned.length > INLINE_MAX_CHARS
-
-        val db = writableDatabase
-        db.beginTransaction()
-        try {
-            // Remove duplicate entries by hash & char_count
-            db.rawQuery(
-                "SELECT $COL_ID FROM $TABLE_ITEMS WHERE $COL_HASH = ? AND $COL_CHAR_COUNT = ?",
-                arrayOf(hash, charCount.toString())
-            ).use { cursor ->
-                while (cursor.moveToNext()) {
-                    val dupId = cursor.getString(0)
-                    db.delete(TABLE_CHUNKS, "$COL_CHUNK_ITEM_ID = ?", arrayOf(dupId))
-                }
-            }
-            db.delete(
-                TABLE_ITEMS,
-                "$COL_HASH = ? AND $COL_CHAR_COUNT = ?",
-                arrayOf(hash, charCount.toString())
-            )
-
-            val itemValues = ContentValues().apply {
-                put(COL_ID, newId)
-                put(COL_PREVIEW, preview)
-                put(COL_CHAR_COUNT, charCount)
-                put(COL_HASH, hash)
-                put(COL_IS_CHUNKED, if (isChunked) 1 else 0)
-                put(COL_FULL_TEXT, if (isChunked) "" else cleaned)
-                put(COL_TIMESTAMP, nowMillis)
-            }
-            db.insertOrThrow(TABLE_ITEMS, null, itemValues)
-
-            if (isChunked) {
-                var pos = 0
-                var chunkIndex = 0
-                while (pos < cleaned.length) {
-                    val nextEnd = TextChunker.findSafeBreakIndex(cleaned, pos, DB_CHUNK_CHARS)
-                    val chunkValues = ContentValues().apply {
-                        put(COL_CHUNK_ITEM_ID, newId)
-                        put(COL_CHUNK_INDEX, chunkIndex++)
-                        put(COL_CHUNK_TEXT, cleaned.substring(pos, nextEnd))
-                    }
-                    db.insertOrThrow(TABLE_CHUNKS, null, chunkValues)
-                    pos = nextEnd
-                }
-            }
-
-            // Trim old entries beyond HISTORY_LIMIT
-            val idsToDelete = mutableListOf<String>()
-            db.rawQuery(
-                "SELECT $COL_ID FROM $TABLE_ITEMS ORDER BY $COL_TIMESTAMP DESC LIMIT -1 OFFSET ?",
-                arrayOf(HISTORY_LIMIT.toString())
-            ).use { cursor ->
-                while (cursor.moveToNext()) {
-                    idsToDelete.add(cursor.getString(0))
-                }
-            }
-            for (oldId in idsToDelete) {
-                db.delete(TABLE_CHUNKS, "$COL_CHUNK_ITEM_ID = ?", arrayOf(oldId))
-                db.delete(TABLE_ITEMS, "$COL_ID = ?", arrayOf(oldId))
-            }
-
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
-        }
-
-        return ClipboardItem(
-            id = newId,
-            preview = preview,
-            charCount = charCount,
-            timestampMillis = nowMillis,
-            contentHash = hash
-        )
-    }
-
-    override fun getPreviews(limit: Int): List<ClipboardItem> {
-        val db = readableDatabase
-        val result = ArrayList<ClipboardItem>(limit.coerceAtMost(HISTORY_LIMIT))
-        db.rawQuery(
-            "SELECT $COL_ID, $COL_PREVIEW, $COL_CHAR_COUNT, $COL_TIMESTAMP, $COL_HASH FROM $TABLE_ITEMS ORDER BY $COL_TIMESTAMP DESC LIMIT ?",
-            arrayOf(limit.toString())
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                result.add(
-                    ClipboardItem(
-                        id = cursor.getString(0),
-                        preview = cursor.getString(1),
-                        charCount = cursor.getInt(2),
-                        timestampMillis = cursor.getLong(3),
-                        contentHash = cursor.getString(4)
-                    )
-                )
-            }
-        }
-        return result
-    }
-
-    override fun getContentHash(id: String): String? {
-        if (id.isBlank()) return null
-        val db = readableDatabase
-        return db.rawQuery(
-            "SELECT $COL_CHAR_COUNT, $COL_HASH FROM $TABLE_ITEMS WHERE $COL_ID = ? LIMIT 1",
-            arrayOf(id)
-        ).use { cursor ->
-            if (cursor.moveToFirst()) {
-                "${cursor.getInt(0)}:${cursor.getString(1)}"
-            } else {
-                null
-            }
-        }
-    }
-
-    override fun getFullText(id: String): String? {
-        if (id.isBlank()) return null
-        val db = readableDatabase
-        var isChunked = 0
-        var inlineText = ""
-        var charCount = 0
-        var found = false
-
-        db.rawQuery(
-            "SELECT $COL_IS_CHUNKED, $COL_FULL_TEXT, $COL_CHAR_COUNT FROM $TABLE_ITEMS WHERE $COL_ID = ? LIMIT 1",
-            arrayOf(id)
-        ).use { cursor ->
-            if (cursor.moveToFirst()) {
-                found = true
-                isChunked = cursor.getInt(0)
-                inlineText = cursor.getString(1)
-                charCount = cursor.getInt(2)
-            }
-        }
-
-        if (!found) return null
-        if (isChunked == 0) return inlineText
-
-        val sb = StringBuilder(charCount.coerceAtLeast(64))
-        db.rawQuery(
-            "SELECT $COL_CHUNK_TEXT FROM $TABLE_CHUNKS WHERE $COL_CHUNK_ITEM_ID = ? ORDER BY $COL_CHUNK_INDEX ASC",
-            arrayOf(id)
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                sb.append(cursor.getString(0))
-            }
-        }
-        return sb.toString()
-    }
-
-    override fun getLatestFullText(): String? {
-        val db = readableDatabase
-        val latestId = db.rawQuery(
-            "SELECT $COL_ID FROM $TABLE_ITEMS ORDER BY $COL_TIMESTAMP DESC LIMIT 1",
-            null
-        ).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getString(0) else null
-        } ?: return null
-        return getFullText(latestId)
-    }
-
-    override fun isLatestSame(rawText: String): Boolean {
-        val (start, end) = TextChunker.trimmedBounds(rawText)
-        if (start >= end) return true
-        val charCount = end - start
-        val db = readableDatabase
-        var latestHash: String? = null
-        var latestCount = -1
-        db.rawQuery(
-            "SELECT $COL_HASH, $COL_CHAR_COUNT FROM $TABLE_ITEMS ORDER BY $COL_TIMESTAMP DESC LIMIT 1",
-            null
-        ).use { cursor ->
-            if (cursor.moveToFirst()) {
-                latestHash = cursor.getString(0)
-                latestCount = cursor.getInt(1)
-            }
-        }
-        if (latestHash == null || latestCount != charCount) return false
-        val hash = TextChunker.sha256OfSlice(rawText, start, end)
-        return hash == latestHash
-    }
-
-    override fun clearAll() {
-        val db = writableDatabase
-        db.beginTransaction()
-        try {
-            db.delete(TABLE_CHUNKS, null, null)
-            db.delete(TABLE_ITEMS, null, null)
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
-        }
-    }
-
-    companion object {
-        private const val DB_NAME = "ketikku_clipboard.db"
-        private const val DB_VERSION = 1
-        private const val TABLE_ITEMS = "clipboard_items"
-        private const val TABLE_CHUNKS = "clipboard_chunks"
-
-        private const val COL_ID = "id"
-        private const val COL_PREVIEW = "preview"
-        private const val COL_CHAR_COUNT = "char_count"
-        private const val COL_HASH = "content_hash"
-        private const val COL_IS_CHUNKED = "is_chunked"
-        private const val COL_FULL_TEXT = "full_text"
-        private const val COL_TIMESTAMP = "timestamp_millis"
-
-        private const val COL_CHUNK_ITEM_ID = "item_id"
-        private const val COL_CHUNK_INDEX = "chunk_index"
-        private const val COL_CHUNK_TEXT = "chunk_text"
-
-        const val HISTORY_LIMIT = 25
-        private const val INLINE_MAX_CHARS = 250_000
-        private const val DB_CHUNK_CHARS = 100_000
-    }
+object ClipboardMemory {
+    const val HISTORY_LIMIT = 25
+    val store: ClipboardBackingStore by lazy { InMemoryClipboardBackingStore() }
 }

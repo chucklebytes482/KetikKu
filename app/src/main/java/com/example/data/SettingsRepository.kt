@@ -32,13 +32,15 @@ val Context.ketikKuDataStore: DataStore<Preferences> by preferencesDataStore(nam
 
 class SettingsRepository(
     private val dataStore: DataStore<Preferences>,
-    private val clipboardStore: ClipboardBackingStore = InMemoryClipboardBackingStore()
+    private val clipboardStore: ClipboardBackingStore = ClipboardMemory.store
 ) {
 
     constructor(context: Context) : this(
-        dataStore = context.applicationContext.ketikKuDataStore,
-        clipboardStore = ClipboardDatabaseHelper(context.applicationContext)
-    )
+        dataStore = context.applicationContext.ketikKuDataStore
+    ) {
+        // Versi lama menyimpan papan klip ke SQLite. Hapus sisa berkasnya.
+        runCatching { context.applicationContext.deleteDatabase(LEGACY_CLIPBOARD_DB_NAME) }
+    }
 
     private val moshi: Moshi = Moshi.Builder().build()
 
@@ -142,7 +144,7 @@ class SettingsRepository(
         .distinctUntilChanged()
         .map {
             withContext(Dispatchers.IO) {
-                runCatching { clipboardStore.getPreviews(ClipboardDatabaseHelper.HISTORY_LIMIT) }
+                runCatching { clipboardStore.getPreviews(ClipboardMemory.HISTORY_LIMIT) }
                     .getOrDefault(emptyList())
             }
         }
@@ -862,16 +864,6 @@ class SettingsRepository(
         }
     }
 
-    suspend fun syncSystemClipboardIfChanged(text: String): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
-            val (start, end) = TextChunker.trimmedBounds(text)
-            if (start >= end) return@runCatching
-            if (!clipboardStore.isLatestSame(text)) {
-                addClipboardText(text).getOrThrow()
-            }
-        }
-    }
-
     suspend fun getClipboardFullText(clipboardId: String): Result<String?> = withContext(Dispatchers.IO) {
         runCatching {
             clipboardStore.getFullText(clipboardId)
@@ -947,6 +939,7 @@ class SettingsRepository(
 
     companion object {
         private const val PERSONALITY_MAX_ENTRIES = 600
+        private const val LEGACY_CLIPBOARD_DB_NAME = "ketikku_clipboard.db"
         /** Folder gm sudah dihapus. Kodenya hanya dipakai untuk migrasi entri lama dan tidak bisa dibuat lagi. */
         private const val FOLDER_GMAIL_DIHAPUS = "gm"
         const val FOLDER_NOMOR = "num"

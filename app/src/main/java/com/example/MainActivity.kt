@@ -148,11 +148,9 @@ private fun KetikKuMainScaffold(
 
     DisposableEffect(lifecycleOwner) {
         mainViewModel.refreshImeStatus(context)
-        mainViewModel.syncSystemClipboardFromDevice(context)
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 mainViewModel.refreshImeStatus(context)
-                mainViewModel.syncSystemClipboardFromDevice(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
