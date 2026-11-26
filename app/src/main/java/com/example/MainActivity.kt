@@ -19,6 +19,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -49,13 +51,13 @@ import androidx.navigation.compose.rememberNavController
 import com.example.data.AndroidDeviceBackupStorage
 import com.example.data.DeviceDictionaryBackupManager
 import com.example.data.SettingsRepository
-import com.example.ui.DeviceSyncUiState
 import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.screens.DeviceBackupSheetContent
 import com.example.ui.screens.DictionaryScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.KetikKuTheme
+import kotlinx.coroutines.flow.collectLatest
 
 const val ROUTE_SETTINGS = "settings"
 const val ROUTE_DICTIONARY = "dictionary"
@@ -139,16 +141,18 @@ private fun KetikKuMainScaffold(
     val imeStatus by mainViewModel.imeStatus.collectAsStateWithLifecycle()
 
     var showDeviceBackupSheet by remember { mutableStateOf(false) }
+    val backupSnackbar = remember { SnackbarHostState() }
+    LaunchedEffect(mainViewModel) {
+        mainViewModel.uiMessages.collectLatest { backupSnackbar.showSnackbar(it) }
+    }
 
     DisposableEffect(lifecycleOwner) {
         mainViewModel.refreshImeStatus(context)
         mainViewModel.syncSystemClipboardFromDevice(context)
-        mainViewModel.syncDictionaryWithDevice(force = false)
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 mainViewModel.refreshImeStatus(context)
                 mainViewModel.syncSystemClipboardFromDevice(context)
-                mainViewModel.syncDictionaryWithDevice(force = false)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -184,6 +188,7 @@ private fun KetikKuMainScaffold(
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
+        snackbarHost = { if (!showDeviceBackupSheet) SnackbarHost(backupSnackbar) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -228,8 +233,6 @@ private fun KetikKuMainScaffold(
                 settings = settings,
                 dictionary = dictionary,
                 folders = folders,
-                syncLocalState = syncLocalState,
-                deviceSyncUiState = deviceSyncUiState,
                 imeStatus = imeStatus
             )
         }
@@ -243,15 +246,14 @@ private fun KetikKuMainScaffold(
             containerColor = MaterialTheme.colorScheme.surface
         ) {
             DeviceBackupSheetContent(
-                dictionary = dictionary,
-                syncLocalState = syncLocalState,
-                deviceSyncUiState = deviceSyncUiState,
-                onFolderAuthorized = { uriString ->
-                    mainViewModel.onDeviceBackupFolderGranted(uriString)
-                },
-                onResetFolderToDefault = {
-                    mainViewModel.resetDeviceBackupFolderToDefault()
-                }
+                folderUri = syncLocalState.deviceBackupTreeUri,
+                state = deviceSyncUiState,
+                snackbarState = backupSnackbar,
+                onFolderAuthorized = mainViewModel::onDeviceBackupFolderGranted,
+                onUnlock = mainViewModel::unlockDeviceBackup,
+                onSync = { mainViewModel.syncDictionaryWithDevice(notify = true) },
+                onLock = mainViewModel::lockDeviceBackup,
+                onMessage = mainViewModel::showBackupMessage
             )
         }
     }
@@ -265,8 +267,6 @@ private fun KetikKuNavHost(
     settings: com.example.model.KeyboardSettings,
     dictionary: List<com.example.model.PersonalDictionaryEntry>,
     folders: List<String>,
-    syncLocalState: com.example.model.SyncLocalState,
-    deviceSyncUiState: DeviceSyncUiState,
     imeStatus: ImeActivationStatus
 ) {
     NavHost(
@@ -284,9 +284,7 @@ private fun KetikKuNavHost(
                         launchSingleTop = true
                     }
                 },
-                onOpenDeviceBackupSheet = onOpenDeviceBackupSheet,
-                syncLocalState = syncLocalState,
-                deviceSyncUiState = deviceSyncUiState
+                onOpenDeviceBackupSheet = onOpenDeviceBackupSheet
             )
         }
 

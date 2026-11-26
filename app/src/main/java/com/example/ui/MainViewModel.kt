@@ -14,8 +14,6 @@ import com.example.data.DeviceSyncResult
 import com.example.data.SettingsRepository
 import com.example.data.DictionaryEngine
 import com.example.data.SecretVault
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.example.ime.KeyboardController
 import com.example.ime.TextFieldImeTarget
 import com.example.model.ClipboardItem
@@ -23,6 +21,12 @@ import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
 import com.example.model.WordPersonalityStat
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,12 +40,7 @@ enum class ImeActivationStatus {
     ACTIVE_DEFAULT
 }
 
-sealed interface DeviceSyncUiState {
-    data object Idle : DeviceSyncUiState
-    data object Syncing : DeviceSyncUiState
-    data class NeedsFolderAccess(val message: String) : DeviceSyncUiState
-    data class Error(val message: String) : DeviceSyncUiState
-}
+enum class DeviceSyncUiState { Locked, Syncing, Unlocked }
 
 class MainViewModel(
     private val settingsRepository: SettingsRepository,
@@ -72,11 +71,21 @@ class MainViewModel(
     val syncLocalState: StateFlow<SyncLocalState> = settingsRepository.syncLocalStateFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000L), SyncLocalState())
 
-    private val _deviceSyncUiState = MutableStateFlow<DeviceSyncUiState>(DeviceSyncUiState.Idle)
+    private val _deviceSyncUiState = MutableStateFlow<DeviceSyncUiState>(DeviceSyncUiState.Locked)
     val deviceSyncUiState: StateFlow<DeviceSyncUiState> = _deviceSyncUiState.asStateFlow()
 
-    @Volatile
-    private var lastAutoSyncTriggerMillis: Long = 0L
+    private val messages = Channel<String>(Channel.CONFLATED)
+    val uiMessages = messages.receiveAsFlow()
+
+    init {
+        viewModelScope.launch {
+            combine(settingsRepository.syncLocalStateFlow, deviceSyncUiState) { local, state ->
+                local.pendingChanges && state == DeviceSyncUiState.Unlocked
+            }.distinctUntilChanged().collect { pending ->
+                if (pending) syncDictionaryWithDevice()
+            }
+        }
+    }
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -200,9 +209,8 @@ class MainViewModel(
                     email = email,
                     website = website
                 )
-                pushLocalChangesToDevice()
             }.onFailure {
-                _deviceSyncUiState.value = DeviceSyncUiState.Error(it.message ?: "Entri tidak disimpan")
+                messages.trySend(it.message ?: "Entri tidak disimpan")
             }
         }
     }
@@ -210,10 +218,9 @@ class MainViewModel(
     fun regenerateDictionaryShortcuts() {
         viewModelScope.launch {
             runCatching {
-                val changed = settingsRepository.regenerateAutoShortcuts()
-                if (changed > 0) pushLocalChangesToDevice()
+                settingsRepository.regenerateAutoShortcuts()
             }.onFailure {
-                _deviceSyncUiState.value = DeviceSyncUiState.Error(it.message ?: "Gagal generate ulang pintasan")
+                messages.trySend(it.message ?: "Gagal membuat ulang pintasan")
             }
         }
     }
@@ -221,17 +228,15 @@ class MainViewModel(
     fun restoreDictionaryEntries(entryIds: Set<String>) {
         viewModelScope.launch {
             settingsRepository.restoreFromTrash(entryIds)
-            pushLocalChangesToDevice()
         }
     }
 
     fun permanentlyDeleteDictionaryEntries(entryIds: Set<String>) {
         viewModelScope.launch {
             runCatching {
-                val removed = settingsRepository.permanentlyDeleteDuplicates(entryIds)
-                if (removed > 0) pushLocalChangesToDevice()
+                settingsRepository.permanentlyDeleteDuplicates(entryIds)
             }.onFailure {
-                _deviceSyncUiState.value = DeviceSyncUiState.Error(it.message ?: "Gagal menghapus permanen")
+                messages.trySend(it.message ?: "Gagal menghapus permanen")
             }
         }
     }
@@ -239,21 +244,18 @@ class MainViewModel(
     fun createDictionaryFolder(folderPath: String) {
         viewModelScope.launch {
             settingsRepository.createFolder(folderPath)
-            pushLocalChangesToDevice()
         }
     }
 
     fun renameDictionaryFolder(oldPath: String, newName: String) {
         viewModelScope.launch {
             settingsRepository.renameFolder(oldPath, newName)
-            pushLocalChangesToDevice()
         }
     }
 
     fun deleteDictionaryItems(entryIds: Set<String>, folderPaths: Set<String>) {
         viewModelScope.launch {
             settingsRepository.deleteEntriesAndFolders(entryIds, folderPaths)
-            pushLocalChangesToDevice()
         }
     }
 
@@ -310,107 +312,47 @@ class MainViewModel(
         }
     }
 
-    suspend fun buildFullBackupJson(): String {
-        val currentSettings = settingsRepository.getCurrentSettings()
-        val currentDict = settingsRepository.getCurrentDictionary()
-        val currentFolders = settingsRepository.getCurrentFolders()
-        return settingsRepository.encodeFullBackupJson(currentSettings, currentDict, folders = currentFolders)
+    fun unlockDeviceBackup(password: String) = runBackupAction(notify = true) { it.unlockAndSync(password) }
+
+    fun lockDeviceBackup() = runBackupAction(notify = false) {
+        it.lock()
+        DeviceSyncResult.Locked
     }
 
-    fun importLocalBackupJson(rawJson: String, onComplete: (Result<String>) -> Unit) {
-        viewModelScope.launch {
-            val result = settingsRepository.importLocalBackupJson(rawJson)
-            if (result.isSuccess) {
-                pushLocalChangesToDevice()
-            }
-            onComplete(result)
-        }
-    }
-
-    private suspend fun pushLocalChangesToDevice() {
-        val manager = deviceBackupManager ?: return
-        lastAutoSyncTriggerMillis = System.currentTimeMillis()
-        _deviceSyncUiState.value = DeviceSyncUiState.Syncing
-        val result = try {
-            manager.pushLocalToDevice()
-        } catch (t: Throwable) {
-            DeviceSyncResult.Error(t.localizedMessage ?: "Gagal memperbarui cadangan kamus ke perangkat.")
-        }
-        _deviceSyncUiState.value = when (result) {
-            is DeviceSyncResult.Synced -> DeviceSyncUiState.Idle
-            is DeviceSyncResult.NeedsFolderAccess -> DeviceSyncUiState.NeedsFolderAccess(result.message)
-            is DeviceSyncResult.Error -> DeviceSyncUiState.Error(result.message)
-        }
-    }
-
-    /** Gabungkan: tambah id yang belum ada di kedua arah. Tidak menimpa, tidak menghapus. */
-    fun gabungkanCadangan() = runDeviceSync { it.gabungkan() }
-
-    private fun runDeviceSync(block: suspend (DeviceDictionaryBackupManager) -> DeviceSyncResult) {
-        val manager = deviceBackupManager ?: return
-        if (_deviceSyncUiState.value is DeviceSyncUiState.Syncing) return
-        lastAutoSyncTriggerMillis = System.currentTimeMillis()
-        _deviceSyncUiState.value = DeviceSyncUiState.Syncing
-        viewModelScope.launch {
-            val result = try {
-                block(manager)
-            } catch (t: Throwable) {
-                DeviceSyncResult.Error(t.localizedMessage ?: "Gagal menyinkronkan kamus pribadi ke perangkat.")
-            }
-            _deviceSyncUiState.value = when (result) {
-                is DeviceSyncResult.Synced -> DeviceSyncUiState.Idle
-                is DeviceSyncResult.NeedsFolderAccess -> DeviceSyncUiState.NeedsFolderAccess(result.message)
-                is DeviceSyncResult.Error -> DeviceSyncUiState.Error(result.message)
-            }
-        }
-    }
-
-    fun syncDictionaryWithDevice(force: Boolean = false) {
-        val manager = deviceBackupManager ?: return
-        val now = System.currentTimeMillis()
-        if (!force) {
-            if (_deviceSyncUiState.value is DeviceSyncUiState.Syncing) return
-            if (lastAutoSyncTriggerMillis > 0L &&
-                !syncLocalState.value.pendingChanges &&
-                (now - lastAutoSyncTriggerMillis) < 3_000L
-            ) {
-                return
-            }
-        }
-        lastAutoSyncTriggerMillis = now
-        _deviceSyncUiState.value = DeviceSyncUiState.Syncing
-        viewModelScope.launch {
-            val result = try {
-                manager.syncNow()
-            } catch (t: Throwable) {
-                DeviceSyncResult.Error(t.localizedMessage ?: "Gagal menyinkronkan kamus pribadi ke perangkat.")
-            }
-            _deviceSyncUiState.value = when (result) {
-                is DeviceSyncResult.Synced -> DeviceSyncUiState.Idle
-                is DeviceSyncResult.NeedsFolderAccess -> DeviceSyncUiState.NeedsFolderAccess(result.message)
-                is DeviceSyncResult.Error -> DeviceSyncUiState.Error(result.message)
-            }
-        }
+    fun syncDictionaryWithDevice(notify: Boolean = false) {
+        if (_deviceSyncUiState.value == DeviceSyncUiState.Unlocked) runBackupAction(notify) { it.syncNow() }
     }
 
     fun onDeviceBackupFolderGranted(treeUri: String) {
-        if (treeUri.isBlank()) return
-        if (!DeviceDictionaryBackupManager.isValidDocumentsTreeUri(treeUri)) {
-            _deviceSyncUiState.value = DeviceSyncUiState.Error(
-                "Pilih folder di dalam /storage/emulated/0/Documents/"
-            )
-            return
-        }
         viewModelScope.launch {
-            settingsRepository.saveDeviceBackupTreeUri(treeUri)
-            syncDictionaryWithDevice(force = true)
+            deviceSyncUiState.first { it != DeviceSyncUiState.Syncing }
+            runBackupAction(notify = false) {
+                it.selectFolder(treeUri)
+                DeviceSyncResult.Locked
+            }
         }
     }
 
-    fun resetDeviceBackupFolderToDefault() {
+    fun showBackupMessage(message: String) { messages.trySend(message) }
+
+    private fun runBackupAction(notify: Boolean, action: suspend (DeviceDictionaryBackupManager) -> DeviceSyncResult) {
+        val manager = deviceBackupManager ?: return
+        if (_deviceSyncUiState.value == DeviceSyncUiState.Syncing) return
+        _deviceSyncUiState.value = DeviceSyncUiState.Syncing
         viewModelScope.launch {
-            settingsRepository.saveDeviceBackupTreeUri("")
-            syncDictionaryWithDevice(force = true)
+            val result = try {
+                action(manager)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                DeviceSyncResult.Error("Cadangan tidak dapat diproses. Coba lagi.")
+            }
+            _deviceSyncUiState.value = if (result is DeviceSyncResult.Synced) DeviceSyncUiState.Unlocked else DeviceSyncUiState.Locked
+            when (result) {
+                is DeviceSyncResult.Error -> messages.trySend(result.message)
+                is DeviceSyncResult.Synced -> if (notify) messages.trySend(result.message) else Unit
+                DeviceSyncResult.Locked -> Unit
+            }
         }
     }
 }

@@ -50,38 +50,10 @@ data class PersonalDictionaryEntry(
     @param:Json(ignore = true) val language: String = KeyboardLanguage.INDONESIAN.code,
     val updatedAtMillis: Long = 0L,
     val deleted: Boolean = false,
-    // Seed TOTP terenkripsi per perangkat (AES-GCM, Android Keystore). Format: k2:base64(iv):base64(ciphertext); cadangan A2F memakai Base64 (bukan enkripsi).
+    // Seed TOTP terenkripsi per perangkat (AES-GCM, Android Keystore). Format: k2:base64(iv):base64(ciphertext); cadangan portabel memakai VXENC.
     val secretCipher: String = "",
     // Folder asal saat entri dipindah ke Sampah; kosong jika tidak di Sampah.
     val trashedFrom: String = ""
-)
-
-@Immutable
-@JsonClass(generateAdapter = true)
-data class DictionaryBackupEnvelope(
-    val schemaVersion: Int = 1,
-    val updatedAtMillis: Long = 0L,
-    val folders: List<String> = emptyList(),
-    val entries: List<PersonalDictionaryEntry> = emptyList()
-)
-
-@Immutable
-@JsonClass(generateAdapter = true)
-data class SettingsBackupEnvelope(
-    val schemaVersion: Int = 1,
-    val updatedAtMillis: Long = 0L,
-    val settings: KeyboardSettings = KeyboardSettings()
-)
-
-@Immutable
-@JsonClass(generateAdapter = true)
-data class FullBackupEnvelope(
-    val schemaVersion: Int = 1,
-    val appName: String = "KetikKu",
-    val exportedAtMillis: Long = 0L,
-    val settings: KeyboardSettings = KeyboardSettings(),
-    val folders: List<String> = emptyList(),
-    val dictionary: List<PersonalDictionaryEntry> = emptyList()
 )
 
 @Immutable

@@ -555,19 +555,19 @@
     <section id="sinkronisasi-perangkat" class="card">
       <h2>5. Sinkronisasi Otomatis Kamus Pribadi ke Perangkat</h2>
       <p class="section-desc">
-        KetikKu bekerja <strong>100% luring tanpa izin internet</strong> sehingga seluruh ketikan dan kata sandi tetap aman di perangkat Anda. Cadangan otomatis dipecah jadi 5 berkas di <code>/storage/emulated/0/Documents/</code> <strong>tanpa membuat folder otomatis</strong>: <code>umum.json</code>, <code>pw.json</code>, <code>kred.json</code>, <code>aut.json</code>, dan <code>aut_otomatis.json</code>. Anda bebas memilih subfolder lain di dalam Documents kapan saja. Sinkron hanya ke folder perangkat (timpa atas/bawah), tanpa Drive dan tanpa GitHub. Setiap perubahan <strong>langsung menimpa</strong> berkas terkait agar folder yang dihapus tidak kembali lagi. Seed A2F lokal dilindungi Android Keystore dan tidak ikut sinkron otomatis. Setiap berkas cadangan berisi JSON dalam Base64 satu baris. Base64 hanya pengkodean, <strong>bukan enkripsi</strong>: siapa pun yang bisa membuka folder Documents bisa membaca isinya, termasuk seed A2F. Cadangan A2F ikut sinkron otomatis; ekspor/impor A2F manual sudah dihapus. Berkas .vx2 dari versi lama yang terenkripsi tidak dibaca dan tidak dimigrasi. Data A2F lama tetap dibaca di perangkat; berkas cadangan versi lama dengan awalan <code>ketikku_</code> tidak dibaca lagi dan tetap tidak aman sampai Anda menghapusnya sendiri. Kode SHA-1 6 digit/30 detik muncul saat pintasan diketik dan dihitung ulang saat disentuh, tanpa format atau spasi tambahan. Pintasan A2F berformat <code>aut</code> + domain utama website, misalnya <code>autgoogle</code> untuk <code>myaccount.google.com</code>; akun dengan domain sama berbagi pintasan. Saat pintasan diketik, bilah saran menampilkan satu kolom per akun: kode 6 digit di atas dan email kecil di bawahnya. Kolom dapat digeser ke kiri. Entri A2F tanpa website tidak memiliki pintasan.
+        KetikKu membuat satu berkas terenkripsi <code>ketikku.vxenc</code> yang berisi kamus pribadi, folder, dan akun A2F. Cadangan bekerja 100% luring di folder yang Anda pilih di dalam <code>Documents</code>; papan klip dan setelan tidak ikut.
       </p>
       <div class="grid-2">
         <div class="subcard">
-          <h3>5 Berkas &amp; Jalur Bebas di Documents</h3>
+          <h3>Buat atau pulihkan cadangan</h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Masing-masing jenis punya berkasnya sendiri. Berkas kamus berisi daftar <code>"folders"</code> serta array <code>"entries"</code> dengan 6 field seragam (<code>id</code>, <code>word</code>, <code>shortcut</code>, <code>folder</code>, <code>updatedAtMillis</code>, <code>deleted</code>) tanpa field <code>"language"</code>. Anda bebas memilih folder mana saja di dalam <code>Documents/</code> atau kembali ke bawaan kapan saja.
+            Untuk pemulihan, letakkan <code>ketikku.vxenc</code> di <code>Documents</code> atau subfoldernya. Buka <strong>Setelan → Cadangan Perangkat</strong>, pilih folder tersebut, masukkan kata sandi yang sama, lalu ketuk <strong>Buka &amp; sinkronkan</strong>. Spasi pada kata sandi diabaikan. Jika belum ada berkas, KetikKu akan membuatnya.
           </p>
         </div>
         <div class="subcard">
-          <h3>Pemulihan Otomatis &amp; Pengaman Entri Terbanyak</h3>
+          <h3>Sinkronkan atau kunci akses</h3>
           <p style="margin:0 0 8px;font-size:14px;">
-            Saat aplikasi dibuka, KetikKu memulihkan penuh bila kamus lokal kosong atau bila berkas cadangan di folder <code>Documents</code> pilihan Anda lebih baru dengan entri lengkap (misalnya setelah berkas diganti dari luar aplikasi). Berkas kosong atau terpotong dengan entri lebih sedikit <strong>tidak akan pernah menimpa kamus lokal</strong> — entri lokal tetap diselamatkan melalui penggabungan aman.
+            Entri digabungkan tanpa menghapus entri lokal yang tidak tercantum. Seed A2F yang dipulihkan disimpan ulang dengan Android Keystore. Sinkronisasi otomatis berjalan selama sesi cadangan terbuka; ketuk <strong>Kunci cadangan</strong> untuk menghentikannya. Berkas lama tidak dihapus otomatis.
           </p>
         </div>
       </div>

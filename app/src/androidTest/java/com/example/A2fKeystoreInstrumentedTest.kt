@@ -1,7 +1,9 @@
 package com.example
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.data.A2fBackup
+import com.example.data.BackupCodec
+import com.example.data.PortableBackupEntry
+import com.example.data.VxencBackupPayload
 import com.example.data.SecretVault
 import com.example.data.SettingsRepository
 import com.example.model.PersonalDictionaryEntry
@@ -21,11 +23,15 @@ class A2fKeystoreInstrumentedTest {
         assertNotEquals(local, SecretVault.encrypt(seed))
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         assertNull(store.getKey("ketikku.a2f.v2", null).encoded)
-        val entry = PersonalDictionaryEntry(id = "test-only", shortcut = "testotp",
+        val entry = PersonalDictionaryEntry(id = "test-only", word = "synthetic@example.test", shortcut = "autexample",
             folder = SettingsRepository.FOLDER_A2F, secretCipher = local)
-        val payload = A2fBackup.payloadJson(listOf(entry))
-        val restored = A2fBackup.entriesFromPayloadJson(payload).single()
-        assertEquals(seed, SecretVault.decryptOrNull(restored.secretCipher))
-        assertNotEquals(local, restored.secretCipher)
+        val payload = VxencBackupPayload(1, emptyList(), listOf(PortableBackupEntry.fromLocal(entry)))
+        val password = "test-only-password".toByteArray()
+        val file = BackupCodec.encode(payload.encode(), password)
+        val restored = VxencBackupPayload.decode(BackupCodec.decode(file, password)).entries.single()
+        assertEquals("", restored.entry.secretCipher)
+        val restoredCipher = SecretVault.encrypt(requireNotNull(restored.seed))
+        assertEquals(seed, SecretVault.decryptOrNull(restoredCipher))
+        assertNotEquals(local, restoredCipher)
     }
 }

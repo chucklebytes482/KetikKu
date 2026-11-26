@@ -29,7 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
@@ -59,11 +59,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.data.DeviceDictionaryBackupManager
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
-import com.example.model.SyncLocalState
-import com.example.ui.DeviceSyncUiState
 import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.theme.GoogleYellow700
@@ -79,8 +76,6 @@ fun SettingsScreen(
     imeStatus: ImeActivationStatus,
     onOpenDictionary: () -> Unit,
     onOpenDeviceBackupSheet: () -> Unit = {},
-    syncLocalState: SyncLocalState = SyncLocalState(),
-    deviceSyncUiState: DeviceSyncUiState = DeviceSyncUiState.Idle,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -111,26 +106,13 @@ fun SettingsScreen(
         ) {
             // 1. Paling atas: Cadangan Perangkat Otomatis (ModalBottomSheet)
             item {
-                val activeFolderLabel = remember(syncLocalState.deviceBackupTreeUri) {
-                    DeviceDictionaryBackupManager.formatBackupShortFolder(syncLocalState.deviceBackupTreeUri)
-                }
-                val backupSubtitle = when (deviceSyncUiState) {
-                    is DeviceSyncUiState.Syncing -> "$activeFolderLabel • Menyinkronkan..."
-                    is DeviceSyncUiState.NeedsFolderAccess -> "$activeFolderLabel • Perlu izin folder"
-                    is DeviceSyncUiState.Error -> "$activeFolderLabel • Gagal sinkronisasi"
-                    is DeviceSyncUiState.Idle -> if (syncLocalState.lastSyncedAtMillis > 0L) {
-                        "$activeFolderLabel • Tersinkronisasi"
-                    } else {
-                        "$activeFolderLabel • Otomatis saat dibuka"
-                    }
-                }
                 Surface(
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surface,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(18.dp))
-                        .clip(RoundedCornerShape(18.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .clickable(onClick = onOpenDeviceBackupSheet)
                         .testTag("open_device_backup_sheet_button")
                 ) {
@@ -147,8 +129,8 @@ fun SettingsScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Folder,
-                                contentDescription = "Cadangan Perangkat",
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
                             )
@@ -160,7 +142,7 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = backupSubtitle,
+                                text = "Berkas VXENC terenkripsi",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -169,7 +151,7 @@ fun SettingsScreen(
                         }
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Buka Cadangan Perangkat",
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }

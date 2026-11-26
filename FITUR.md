@@ -65,7 +65,7 @@ Catatan:
 - Bilah A2F menampilkan **satu kolom per akun**.
 - Kode TOTP: SHA-1, 6 digit, periode 30 detik.
 - Seed A2F dilindungi Android Keystore.
-- Seed A2F tidak ikut sinkron cadangan perangkat. Cadangan A2F ditulis sebagai Base64 (bukan enkripsi; lihat bagian 12).
+- Seed A2F ikut dalam cadangan VXENC terenkripsi. Saat dipulihkan, seed dienkripsi ulang dengan Android Keystore perangkat tujuan.
 
 ## 6. Saran kata
 
@@ -120,18 +120,11 @@ Catatan:
 
 ## 12. Cadangan perangkat
 
-- Sinkron otomatis saat layar Cadangan dibuka dan saat kamus berubah.
-- Hanya kamus pribadi yang disinkron. Tidak ada Google Drive dan tidak ada GitHub.
-- Folder tujuan bebas dipilih. Default: `/storage/emulated/0/Documents/`.
-- Format berkas: JSON dalam Base64 satu baris, tanpa enkripsi dan tanpa passphrase. Siapa pun yang bisa membuka folder Documents bisa membaca isinya.
-- Berkas:
-  - `umum.json` (entri umum)
-  - `pw.json` (kata sandi)
-  - `kred.json` (kredensial)
-  - `aut.json` (A2F)
-  - `aut_otomatis.json` (A2F otomatis, Base64 satu baris, bukan enkripsi)
-- Pemulihan otomatis saat berkas ditemukan.
-- Pengaman: jika berkas kosong atau terpotong, data lokal tidak ditimpa. Pengaman juga memilih sumber dengan entri terbanyak.
+- Kamus pribadi, folder, dan akun A2F dicadangkan ke satu berkas `ketikku.vxenc` (VaultExplorer VXENC v1, AES-256-GCM tanpa keyfile). Papan klip dan setelan tidak ikut.
+- Pilih folder `Documents` atau subfoldernya di **Setelan → Cadangan Perangkat**. Ketik kata sandi (spasi diabaikan), lalu pilih **Buka & sinkronkan**. Jika belum ada berkas, KetikKu membuatnya.
+- Untuk memulihkan, letakkan `ketikku.vxenc` di folder tersebut dan gunakan kata sandi yang sama. Entri digabungkan menurut ID dan waktu perubahan; entri lokal yang tidak tercantum tetap disimpan. Berkas yang gagal diautentikasi tidak dipakai atau ditimpa.
+- Perubahan kamus disinkronkan otomatis selama sesi cadangan terbuka. **Kunci cadangan** mengakhiri sesi; kata sandi tidak disimpan permanen.
+- Berkas JSON, Base64, atau cadangan lama lain tidak dibaca maupun dihapus. Penyimpanan dilakukan secara luring tanpa Google Drive atau GitHub.
 
 ## 13. Pengaturan tersimpan (`KeyboardSettings`)
 
@@ -149,7 +142,7 @@ Catatan:
 ## 14. Izin
 
 - `VIBRATE`: untuk getar tombol.
-- `READ_EXTERNAL_STORAGE` dan `WRITE_EXTERNAL_STORAGE`: hanya sampai SDK 28, untuk cadangan lama.
+- Izin baca/tulis untuk folder cadangan tertentu diberikan lewat pemilih folder Android (Storage Access Framework).
 - Tidak ada `INTERNET`. Tidak ada `ACCESS_NETWORK_STATE`.
 - Aplikasi 100% luring. Dicek oleh `scripts/check_offline.py`.
 

@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasTestTag
@@ -30,6 +31,12 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import kotlin.math.abs
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.BackupCodec
+import com.example.data.DeviceBackupStorage
+import com.example.data.DeviceDictionaryBackupManager
+import com.example.data.DeviceSyncResult
+import com.example.data.PortableBackupEntry
+import com.example.data.VxencBackupPayload
 import com.example.data.FontStyleConverter
 import com.example.data.SettingsRepository
 import com.example.ime.KetikKuKeyboardView
@@ -40,6 +47,7 @@ import com.example.model.KeyboardHeightPreset
 import com.example.model.KeyboardLanguage
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
+import com.example.ui.DeviceSyncUiState
 import com.example.ui.ImeActivationStatus
 import com.example.ui.MainViewModel
 import com.example.ui.screens.DictionaryScreen
@@ -67,87 +75,17 @@ class ExampleRobolectricTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun readAppNameAndSerializeLocalBackupJson() = runTest {
+    fun readAppNameAndSerializeVxencPayload() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val appName = context.getString(R.string.app_name)
-        assertEquals("KetikKu", appName)
-
+        assertEquals("KetikKu", context.getString(R.string.app_name))
         assertEquals(listOf("Normal"), KeyboardHeightPreset.entries.map { it.label })
         assertEquals(KeyboardHeightPreset.NORMAL, KeyboardHeightPreset.fromName("SHORT"))
         assertEquals(KeyboardHeightPreset.NORMAL, KeyboardHeightPreset.fromName("TALL"))
-
-        val repo = SettingsRepository(context)
-        val original = KeyboardSettings(
-            heightPreset = KeyboardHeightPreset.NORMAL.name,
-            floatingModeEnabled = true,
-            floatingPosX = 0.35f,
-            floatingPosY = 0.60f,
-            updatedAtMillis = 1794843619202L
-        )
-        val json = repo.encodeSettingsBackupJson(original)
-        assertFalse(json.contains("\"language\""))
-        assertFalse(json.contains("\"schemaVersion\""))
-        val decoded = repo.decodeSettingsBackupJson(json)
-        assertNotNull(decoded)
-        assertEquals(original.heightPreset, decoded?.settings?.heightPreset)
-        assertEquals(original.updatedAtMillis, decoded?.updatedAtMillis)
-        assertEquals(original.floatingModeEnabled, decoded?.settings?.floatingModeEnabled)
-
-        val entries = listOf(
-            PersonalDictionaryEntry(
-                id = "local_1",
-                word = "KetikKu Offline",
-                shortcut = "kko",
-                folder = "Kerja/CS",
-                updatedAtMillis = 999L
-            )
-        )
-        val dictJson = repo.encodeDictionaryBackupJson(
-            entries = entries,
-            updatedAtMillis = 999L,
-            folders = listOf("prib", "num", "Kerja/CS")
-        )
-        assertFalse(dictJson.contains("\"language\""))
-        assertFalse(dictJson.contains("\"schemaVersion\""))
-        val dictObj = org.json.JSONObject(dictJson)
-        assertTrue(dictObj.has("folders"))
-        val firstEntryJson = dictObj.getJSONArray("entries").getJSONObject(0)
-        assertEquals(
-            setOf("id", "word", "shortcut", "folder", "updatedAtMillis", "deleted"),
-            firstEntryJson.keys().asSequence().toSet()
-        )
-        // Subfolder paths with '/' are flattened to single-level folder names
-        assertEquals("Kerja CS", firstEntryJson.getString("folder"))
-        assertEquals(false, firstEntryJson.getBoolean("deleted"))
-        val decodedDict = repo.decodeDictionaryBackupJson(dictJson)
-        assertEquals(1, decodedDict?.entries?.size)
-        assertEquals("KetikKu Offline", decodedDict?.entries?.first()?.word)
-        assertEquals("Kerja CS", decodedDict?.entries?.first()?.folder)
-        assertTrue(decodedDict?.folders?.contains("Kerja CS") == true)
-
-        // Tolerant decode for AI-edited JSON missing id / updatedAtMillis / language
-        val aiEditedJson = """
-            {
-              "entries": [
-                { "word": "Mohon tunggu sebentar", "shortcut": "mts", "folder": "Kerja" },
-                { "word": "Terima kasih banyak", "shortcut": "" }
-              ]
-            }
-        """.trimIndent()
-        val decodedAi = repo.decodeDictionaryBackupJson(aiEditedJson)
-        assertNotNull(decodedAi)
-        assertEquals(2, decodedAi?.entries?.size)
-        assertTrue(decodedAi?.entries?.all { it.id.startsWith("ai_") && it.updatedAtMillis > 0L } == true)
-        assertEquals("Kerja", decodedAi?.entries?.first()?.folder)
-
-        val fullJson = repo.encodeFullBackupJson(original, entries, exportedAtMillis = 123456L)
-        assertFalse(fullJson.contains("\"language\""))
-        val decodedFull = repo.decodeFullBackupJson(fullJson)
-        assertNotNull(decodedFull)
-        assertEquals("KetikKu", decodedFull?.appName)
-        assertEquals(1, decodedFull?.dictionary?.size)
-        val importResult = repo.importLocalBackupJson(fullJson)
-        assertTrue(importResult.isSuccess)
+        val entry = PersonalDictionaryEntry(id = "local_1", word = "KetikKu Offline", shortcut = "kko",
+            folder = "Kerja CS", updatedAtMillis = 999L)
+        val payload = VxencBackupPayload(999L, listOf("Kerja CS"), listOf(PortableBackupEntry(entry)))
+        assertFalse(payload.encode().contains("\"language\""))
+        assertEquals(payload, VxencBackupPayload.decode(payload.encode()))
     }
 
     @Test
@@ -767,7 +705,7 @@ class ExampleRobolectricTest {
         // Tapping Device Backup card opens ModalBottomSheet showing status, single-file path, and Sync Now
         composeRule.onNodeWithTag("open_device_backup_sheet_button").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
+        composeRule.onNodeWithTag("device_sync_button").assertIsNotEnabled()
         composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
         assertTrue(composeRule.onAllNodesWithTag("drive_connect_google_button").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithTag("local_export_json_button").fetchSemanticsNodes().isEmpty())
@@ -860,218 +798,82 @@ class ExampleRobolectricTest {
         )
     }
 
-    @Test
-    fun deviceDictionaryBackupManager_twoWaySyncsOnlyDictionaryAndAlwaysReplacesSingleFile() = runTest {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val repo = SettingsRepository(context)
-        val tempDir = java.io.File(context.cacheDir, "ketikku_backup_test_${System.nanoTime()}").apply {
-            mkdirs()
+    private class MemoryBackup : DeviceBackupStorage {
+        var file: ByteArray? = null
+        var reads = 0
+        var writes = 0
+        override fun read(folderUri: String): ByteArray? {
+            reads++
+            return file?.copyOf()
         }
-        try {
-            val storage = com.example.data.DirectoryDeviceBackupStorage(tempDir)
-            val manager = com.example.data.DeviceDictionaryBackupManager(repo, storage)
-
-            // 1. Seed local dictionary + custom folder + clipboard + settings change
-            repo.replaceDictionaryAndFolders(emptyList(), emptyList())
-            repo.updateSettings { it.copy(floatingModeEnabled = true, hapticEnabled = false) }
-            repo.addClipboardText("Teks rahasia clipboard")
-            repo.createFolder("Kerja")
-            repo.upsertDictionaryEntry("Halo Perangkat", "hp", KeyboardLanguage.INDONESIAN.code, existingId = "local_1", folder = "Kerja")
-
-            val firstSync = manager.syncNow()
-            assertTrue("Expected Synced result, got $firstSync", firstSync is com.example.data.DeviceSyncResult.Synced)
-            val filesAfterFirst = tempDir.listFiles()?.toList().orEmpty()
-            assertEquals("Exactly 3 automatic backup files must exist", 3, filesAfterFirst.size)
-            assertFalse(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_A2F).exists())
-            assertTrue(filesAfterFirst.any { it.name == com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM })
-
-            val firstContent = com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8))
-            val firstJson = org.json.JSONObject(firstContent)
-            assertTrue(firstJson.has("entries"))
-            assertTrue(firstJson.has("folders"))
-            // Only Personal Dictionary is backed up (no settings, no clipboard, no language)
-            assertFalse(firstJson.has("settings"))
-            assertFalse(firstJson.has("clipboard"))
-            assertFalse(firstContent.contains("Teks rahasia clipboard"))
-            assertFalse(firstContent.contains("floatingModeEnabled"))
-            assertFalse(firstContent.contains("\"language\""))
-
-            // 2. Edit dictionary locally & sync again -> strictly overwrites the exact same single file
-            repo.upsertDictionaryEntry("Balasan Cepat Baru", "bcb", KeyboardLanguage.INDONESIAN.code, existingId = "local_2", folder = SettingsRepository.FOLDER_BALASAN_CEPAT)
-            val secondSync = manager.syncNow()
-            assertTrue(secondSync is com.example.data.DeviceSyncResult.Synced)
-            val filesAfterSecond = tempDir.listFiles()?.toList().orEmpty()
-            assertEquals("Re-sync must overwrite in-place without duplicates", 3, filesAfterSecond.size)
-            val secondContent = com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8))
-            assertTrue(secondContent.contains("Halo Perangkat"))
-            assertTrue(secondContent.contains("Balasan Cepat Baru"))
-
-            // 3. External edit to umum.json (newer timestamp, no local pending edits) -> auto-pulls on sync
-            val futureTs = System.currentTimeMillis() + 60_000L
-            val externalJson = repo.encodeDictionaryBackupJson(
-                entries = listOf(
-                    PersonalDictionaryEntry(id = "local_1", word = "Halo Perangkat", shortcut = "hp", folder = "Kerja", updatedAtMillis = futureTs - 10L),
-                    PersonalDictionaryEntry(id = "ext_ai_1", word = "Template AI Terbaru", shortcut = "ai", folder = "AI", updatedAtMillis = futureTs)
-                ),
-                updatedAtMillis = futureTs,
-                folders = listOf("Kerja", "AI")
-            )
-            storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).writeText(externalJson, Charsets.UTF_8)
-            storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).setLastModified(futureTs)
-
-            val thirdSync = manager.syncNow()
-            assertTrue(thirdSync is com.example.data.DeviceSyncResult.Synced)
-            assertTrue((thirdSync as com.example.data.DeviceSyncResult.Synced).restoredFromFile)
-            val dictAfterPull = repo.getCurrentDictionary()
-            assertTrue(dictAfterPull.any { !it.deleted && it.word == "Template AI Terbaru" && it.folder == "AI" })
-            assertTrue(repo.getCurrentFolders().contains("AI"))
-            assertEquals(3, tempDir.listFiles()?.size ?: 0)
-
-            // 4. Empty local dictionary (simulating reinstall) -> auto-restores from existing file
-            repo.replaceDictionaryAndFolders(emptyList(), emptyList())
-            assertTrue(repo.getCurrentDictionary().isEmpty())
-            val restoreSync = manager.syncNow()
-            assertTrue(restoreSync is com.example.data.DeviceSyncResult.Synced)
-            assertTrue((restoreSync as com.example.data.DeviceSyncResult.Synced).restoredFromFile)
-            val restoredEntries = repo.getCurrentDictionary()
-            assertTrue(restoredEntries.any { !it.deleted && it.word == "Template AI Terbaru" })
-            assertEquals(3, tempDir.listFiles()?.size ?: 0)
-
-            // Existing A2F exports are never overwritten or deleted by ordinary sync.
-            val protectedA2f = storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_A2F)
-            protectedA2f.writeText("password-backup-sentinel")
-            repo.upsertDictionaryEntry("Ordinary update", "ou", KeyboardLanguage.INDONESIAN.code, existingId = "ordinary_update")
-            assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
-            assertEquals("password-backup-sentinel", protectedA2f.readText())
-        } finally {
-            tempDir.deleteRecursively()
+        override fun replace(folderUri: String, bytes: ByteArray, expected: ByteArray?) {
+            check(if (expected == null) file == null else file?.contentEquals(expected) == true)
+            writes++
+            file = bytes.copyOf()
         }
     }
 
     @Test
-    fun deviceDictionaryBackupManager_deleteAndRenameFolderImmediatelyReplacesAndNeverResurrects() = runTest {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val repo = SettingsRepository(context)
-        val tempDir = java.io.File(context.cacheDir, "ketikku_folder_del_test_${System.nanoTime()}").apply {
-            mkdirs()
-        }
-        try {
-            val storage = com.example.data.DirectoryDeviceBackupStorage(tempDir)
-            val manager = com.example.data.DeviceDictionaryBackupManager(repo, storage)
-
-            // Seed 2 custom folders + entries & initial sync
-            repo.replaceDictionaryAndFolders(emptyList(), emptyList())
-            repo.createFolder("Kerja")
-            repo.createFolder("Sementara")
-            repo.upsertDictionaryEntry("Salam Kerja", "sk", KeyboardLanguage.INDONESIAN.code, existingId = "w1", folder = "Kerja")
-            repo.upsertDictionaryEntry("Catatan Lama", "cl", KeyboardLanguage.INDONESIAN.code, existingId = "w2", folder = "Sementara")
-            assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
-            assertTrue(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)).contains("Sementara"))
-
-            // 1. Delete folder "Sementara" -> immediate pushLocalToDevice must remove it from device file
-            repo.deleteEntriesAndFolders(emptySet(), setOf("Sementara"))
-            val pushDel = manager.pushLocalToDevice()
-            assertTrue(pushDel is com.example.data.DeviceSyncResult.Synced)
-            val afterDelDecoded = repo.decodeDictionaryBackupJson(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)))!!
-            assertFalse("Deleted folder must be gone from device file immediately", afterDelDecoded.folders.contains("Sementara"))
-
-            // Re-running syncNow() (simulating app reopen) must NOT resurrect deleted folder
-            assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
-            assertFalse("Deleted folder must NOT resurrect after syncNow", repo.getCurrentFolders().contains("Sementara"))
-            val afterReopenDecoded = repo.decodeDictionaryBackupJson(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)))!!
-            assertFalse(afterReopenDecoded.folders.contains("Sementara"))
-
-            // 2. Rename folder "Kerja" -> "Kantor" & push -> old name must disappear and stay gone
-            repo.renameFolder("Kerja", "Kantor")
-            assertTrue(manager.pushLocalToDevice() is com.example.data.DeviceSyncResult.Synced)
-            assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
-            val afterRenameFolders = repo.getCurrentFolders()
-            assertTrue(afterRenameFolders.contains("Kantor"))
-            assertFalse("Old folder name must NOT return after rename", afterRenameFolders.contains("Kerja"))
-
-            // 3. Pending deletion (without immediate push) -> syncNow() must respect local pending delete & not union old fileFolders
-            repo.createFolder("Arsip")
-            assertTrue(manager.pushLocalToDevice() is com.example.data.DeviceSyncResult.Synced)
-            assertTrue(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)).contains("Arsip"))
-            repo.deleteEntriesAndFolders(emptySet(), setOf("Arsip"))
-            assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
-            assertFalse("Pending folder delete must NOT be resurrected by syncNow", repo.getCurrentFolders().contains("Arsip"))
-            val finalDecoded = repo.decodeDictionaryBackupJson(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)))!!
-            assertFalse(finalDecoded.folders.contains("Arsip"))
-        } finally {
-            tempDir.deleteRecursively()
-        }
+    fun deviceBackup_requiresUnlockAndNeverRewritesAnUnchangedFile() = runTest {
+        val repo = SettingsRepository(ApplicationProvider.getApplicationContext<Context>())
+        repo.replaceDictionaryAndFolders(emptyList(), emptyList())
+        repo.updateSettings { it.copy(floatingModeEnabled = true) }
+        repo.addClipboardText("Klip uji")
+        repo.createFolder("Kerja")
+        repo.upsertDictionaryEntry("Kata uji", "ku", KeyboardLanguage.INDONESIAN.code, "local", "Kerja")
+        val storage = MemoryBackup()
+        val manager = DeviceDictionaryBackupManager(repo, storage)
+        val password = "sandi-uji"
+        assertEquals(DeviceSyncResult.Locked, manager.syncNow())
+        assertEquals(0, storage.reads)
+        assertTrue(manager.unlockAndSync(password) is DeviceSyncResult.Synced)
+        val bytes = requireNotNull(storage.file)
+        assertEquals("VXENC", bytes.copyOfRange(0, 5).decodeToString())
+        val json = BackupCodec.decode(bytes, password.toByteArray())
+        assertFalse(json.contains("Klip uji"))
+        assertFalse(json.contains("floatingMode"))
+        val payload = VxencBackupPayload.decode(json)
+        assertEquals("Kata uji", payload.entries.single().entry.word)
+        assertTrue("Kerja" in payload.folders)
+        assertTrue(manager.syncNow() is DeviceSyncResult.Synced)
+        assertEquals(1, storage.writes)
+        manager.lock()
+        assertEquals(DeviceSyncResult.Locked, manager.syncNow())
+        assertTrue(manager.unlockAndSync("salah") is DeviceSyncResult.Error)
+        assertEquals(1, storage.writes)
+        assertEquals("Kata uji", repo.getCurrentDictionary().single().word)
+        assertTrue(repo.settingsFlow.first().floatingModeEnabled)
     }
 
     @Test
-    fun deviceDictionaryBackupManager_protectsMoreEntriesAgainstEmptyTruncatedOrFreshInstallOverwrite() = runTest {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val repo = SettingsRepository(context)
-        val tempDir = java.io.File(context.cacheDir, "ketikku_protect_test_${System.nanoTime()}").apply {
-            mkdirs()
-        }
-        try {
-            val storage = com.example.data.DirectoryDeviceBackupStorage(tempDir)
-            val manager = com.example.data.DeviceDictionaryBackupManager(repo, storage)
-
-            // Seed 4 active entries locally and complete initial sync
-            repo.replaceDictionaryAndFolders(emptyList(), emptyList())
-            val baseTs = System.currentTimeMillis()
-            for (i in 1..4) {
-                repo.upsertDictionaryEntry("Entri Penting $i", "e$i", KeyboardLanguage.INDONESIAN.code, existingId = "id_$i", folder = "prib")
-            }
-            assertTrue(manager.syncNow(baseTs) is com.example.data.DeviceSyncResult.Synced)
-
-            // Guard 1: External file overwritten with EMPTY entries & newer timestamp -> must NOT wipe local, must restore device file
-            val emptyTs = baseTs + 10_000L
-            storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).writeText(
-                repo.encodeDictionaryBackupJson(entries = emptyList(), updatedAtMillis = emptyTs, folders = emptyList()),
-                Charsets.UTF_8
-            )
-            storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).setLastModified(emptyTs)
-
-            val afterEmptySync = manager.syncNow(emptyTs + 500L)
-            assertTrue(afterEmptySync is com.example.data.DeviceSyncResult.Synced)
-            assertEquals("Local 4 entries must stay safe against empty file", 4, repo.getCurrentDictionary().count { !it.deleted })
-            val restoredAfterEmpty = repo.decodeDictionaryBackupJson(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)))!!
-            assertEquals("Device file must be restored from local entries", 4, restoredAfterEmpty.entries.count { !it.deleted })
-
-            // Guard 2: External file is newer but TRUNCATED (only 1 old + 1 new = 2 active < 4 local) ->
-            // must merge preserving all 4 local entries + adding the 1 new external entry (= 5 active)
-            val truncatedTs = emptyTs + 20_000L
-            val truncatedJson = repo.encodeDictionaryBackupJson(
-                entries = listOf(
-                    PersonalDictionaryEntry(id = "id_1", word = "Entri Penting 1", shortcut = "e1", folder = "prib", updatedAtMillis = truncatedTs),
-                    PersonalDictionaryEntry(id = "ai_new", word = "Tambahan AI", shortcut = "ain", folder = "Kerja", updatedAtMillis = truncatedTs)
-                ),
-                updatedAtMillis = truncatedTs,
-                folders = listOf("prib", "Kerja")
-            )
-            storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).writeText(truncatedJson, Charsets.UTF_8)
-            storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).setLastModified(truncatedTs)
-
-            val afterTruncSync = manager.syncNow(truncatedTs + 500L)
-            assertTrue(afterTruncSync is com.example.data.DeviceSyncResult.Synced)
-            val mergedActive = repo.getCurrentDictionary().filter { !it.deleted }
-            assertEquals("All 4 local entries + 1 new external entry must survive", 5, mergedActive.size)
-            assertTrue(mergedActive.any { it.id == "id_4" })
-            assertTrue(mergedActive.any { it.id == "ai_new" })
-
-            // Guard 3: Fresh install (lastSyncedAtMillis == 0L) where user adds 1 entry quickly before initial sync,
-            // while device file already holds 5 entries -> pushLocalToDevice must NOT overwrite the 5 entries with 1 entry!
-            repo.replaceDictionaryAndFolders(emptyList(), emptyList())
-            repo.updateSyncState(lastSyncedAtMillis = 0L, message = "Belum pernah disinkronkan", pendingChanges = false)
-            repo.upsertDictionaryEntry("Catatan Baru Instal", "cbi", KeyboardLanguage.INDONESIAN.code, existingId = "fresh_1", folder = "prib")
-
-            val freshPush = manager.pushLocalToDevice(truncatedTs + 40_000L)
-            assertTrue(freshPush is com.example.data.DeviceSyncResult.Synced)
-            val savedActive = repo.getCurrentDictionary().filter { !it.deleted }
-            assertEquals("Fresh install push must preserve all 5 device entries + 1 new local entry", 6, savedActive.size)
-            val deviceDecodedAfterFresh = repo.decodeDictionaryBackupJson(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)))!!
-            assertEquals(6, deviceDecodedAfterFresh.entries.count { !it.deleted })
-        } finally {
-            tempDir.deleteRecursively()
-        }
+    fun deviceBackup_mergesNewerEntriesAndTombstonesWithoutDroppingUnlistedEntries() = runTest {
+        val repo = SettingsRepository(ApplicationProvider.getApplicationContext<Context>())
+        repo.replaceDictionaryAndFolders(emptyList(), emptyList())
+        repo.upsertDictionaryEntry("Pertama", "a", KeyboardLanguage.INDONESIAN.code, "one")
+        repo.upsertDictionaryEntry("Kedua", "b", KeyboardLanguage.INDONESIAN.code, "two")
+        val rows = repo.getCurrentDictionary().associateBy { it.id }
+        val deleted = rows.getValue("one").copy(deleted = true)
+        val at = rows.values.maxOf { it.updatedAtMillis } + 1
+        val added = PersonalDictionaryEntry(id = "three", word = "Ketiga", shortcut = "c", updatedAtMillis = at)
+        val storage = MemoryBackup()
+        val password = "sandi-uji"
+        storage.file = BackupCodec.encode(VxencBackupPayload(at, emptyList(), listOf(
+            PortableBackupEntry(deleted), PortableBackupEntry(added)
+        )).encode(), password.toByteArray())
+        val manager = DeviceDictionaryBackupManager(repo, storage)
+        assertTrue(manager.unlockAndSync(password) is DeviceSyncResult.Synced)
+        val merged = repo.getCurrentDictionary().associateBy { it.id }
+        assertTrue(merged.getValue("one").deleted)
+        assertEquals("Kedua", merged.getValue("two").word)
+        assertEquals("Ketiga", merged.getValue("three").word)
+        assertEquals(1, storage.writes)
+        val restored = VxencBackupPayload.decode(BackupCodec.decode(requireNotNull(storage.file), password.toByteArray()))
+        assertEquals(3, restored.entries.size)
+        storage.file = BackupCodec.encode("{}", password.toByteArray())
+        assertTrue(manager.syncNow() is DeviceSyncResult.Error)
+        assertEquals(1, storage.writes)
+        assertEquals(merged, repo.getCurrentDictionary().associateBy { it.id })
+        assertEquals(DeviceSyncResult.Locked, manager.syncNow())
     }
 
     @Test
@@ -1559,57 +1361,27 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun deviceBackupSheetBody_rendersStatusPathSyncAndConditionalFolderAccessButton() {
-        var folderClicks = 0
-        var resetClicks = 0
-        var needsAccess by mutableStateOf(false)
-        var hasCustomFolder by mutableStateOf(false)
-        var customPath by mutableStateOf(com.example.data.DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH)
-
+    fun deviceBackupSheetBody_requiresFolderAndSubmitsPasswordWithoutWhitespace() {
+        var folder by mutableStateOf<String?>(null)
+        var submitted: String? = null
         composeRule.setContent {
             KetikKuTheme(darkTheme = false) {
                 com.example.ui.screens.DeviceBackupSheetBody(
-                    activeWordCount = 12,
-                    statusHeadline = "Tersinkronisasi • Baru saja",
-                    statusDotColor = androidx.compose.material3.MaterialTheme.colorScheme.secondary,
-                    isSyncing = false,
-                    needsFolderAccess = needsAccess,
-                    backupDisplayPath = customPath,
-                    hasCustomFolder = hasCustomFolder,
-                    onRequestFolderAccess = { folderClicks++ },
-                    onResetFolderToDefault = { resetClicks++ }
+                    folder = folder,
+                    state = DeviceSyncUiState.Locked,
+                    onRequestFolderAccess = { folder = "Documents/Catatan" },
+                    onUnlock = { submitted = it },
+                    onSync = {},
+                    onLock = {}
                 )
             }
         }
-
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
-        composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
-        composeRule.onNodeWithText(
-            "/storage/emulated/0/Documents",
-            substring = true
-        ).assertIsDisplayed()
-
-        // Folder picker button is always available (consistent layout) so user can pick any subfolder inside Documents/
+        composeRule.onNodeWithTag("device_sync_button").assertIsNotEnabled()
         composeRule.onNodeWithTag("device_grant_folder_button").assertIsDisplayed().performClick()
-        composeRule.waitForIdle()
-        assertEquals(1, folderClicks)
-
-        // No Google Drive login / disconnect / background schedule clutter
-        assertTrue(composeRule.onAllNodesWithTag("drive_disconnect_button").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithTag("drive_connect_google_button").fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Google Drive", substring = true).fetchSemanticsNodes().isEmpty())
-        assertTrue(composeRule.onAllNodesWithText("Jadwal Sinkronisasi").fetchSemanticsNodes().isEmpty())
-
-        // Custom subfolder displays dynamically and offers reset button to return to Documents/ root
-        hasCustomFolder = true
-        customPath = "/storage/emulated/0/Documents/Catatan/umum.json"
-        needsAccess = true
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(customPath, substring = true).assertIsDisplayed()
-        composeRule.onNodeWithTag("device_reset_folder_button").assertIsDisplayed().performClick()
-        composeRule.waitForIdle()
-        assertEquals(1, resetClicks)
+        composeRule.onNodeWithTag("device_backup_path_text").assertTextEquals("Documents/Catatan/ketikku.vxenc")
+        composeRule.onNodeWithTag("device_backup_password").performScrollTo().performTextInput(" sa ndi ")
+        composeRule.onNodeWithTag("device_sync_button").performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals("sandi", submitted) }
     }
 
     @Test
@@ -2188,30 +1960,6 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun settingsRepository_decodesLegacySettingsJsonIgnoringRemovedSyncInterval() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val repo = SettingsRepository(context)
-
-        val encoded = repo.encodeSettingsBackupJson(KeyboardSettings(floatingModeEnabled = true))
-        assertFalse("Encoded settings JSON should not contain removed syncIntervalMinutes", encoded.contains("syncIntervalMinutes"))
-
-        val legacyJson = """
-            {
-              "updatedAtMillis": 1700000000000,
-              "settings": {
-                "floatingModeEnabled": true,
-                "hapticEnabled": false,
-                "syncIntervalMinutes": 240
-              }
-            }
-        """.trimIndent()
-        val decoded = repo.decodeSettingsBackupJson(legacyJson)
-        assertNotNull(decoded)
-        assertEquals(true, decoded?.settings?.floatingModeEnabled)
-        assertEquals(false, decoded?.settings?.hapticEnabled)
-    }
-
-    @Test
     fun inputConnectionImeTarget_jsonCodeEditorSilentNoOpFallsBackToKeycodeDel() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dummyView = android.view.View(context)
@@ -2252,20 +2000,6 @@ class ExampleRobolectricTest {
 
     @Test
     fun deviceDictionaryBackup_validatesFreeDocumentsPathsWithoutAutoKetikKuSubfolder() {
-        // Default path goes directly into Documents/ without auto-creating KetikKu/ subfolder
-        assertEquals(
-            "Documents",
-            com.example.data.DeviceDictionaryBackupManager.BACKUP_RELATIVE_PATH
-        )
-        assertEquals(
-            "/storage/emulated/0/Documents",
-            com.example.data.DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH
-        )
-        assertEquals(
-            "/storage/emulated/0/Documents",
-            com.example.data.DeviceDictionaryBackupManager.formatBackupDisplayPath(null)
-        )
-
         val docsRootUri = "content://com.android.externalstorage.documents/tree/primary%3ADocuments"
         val customSubUri = "content://com.android.externalstorage.documents/tree/primary%3ADocuments%2FCatatan%2FKamus"
         val outsideDownloadUri = "content://com.android.externalstorage.documents/tree/primary%3ADownload"
@@ -2278,14 +2012,8 @@ class ExampleRobolectricTest {
         assertFalse(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(traversalUri))
         assertFalse(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(wrongProviderUri))
 
-        assertEquals(
-            "Documents/Catatan/Kamus",
-            com.example.data.DeviceDictionaryBackupManager.formatBackupShortFolder(customSubUri)
-        )
-        assertEquals(
-            "/storage/emulated/0/Documents/Catatan/Kamus",
-            com.example.data.DeviceDictionaryBackupManager.formatBackupDisplayPath(customSubUri)
-        )
+        assertEquals("Documents", DeviceDictionaryBackupManager.documentsFolder(docsRootUri))
+        assertEquals("Documents/Catatan/Kamus", DeviceDictionaryBackupManager.documentsFolder(customSubUri))
     }
 
     @Test

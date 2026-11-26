@@ -10,13 +10,10 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.model.ClipboardItem
-import com.example.model.DictionaryBackupEnvelope
-import com.example.model.FullBackupEnvelope
 import com.example.model.KeyboardHeightPreset
 import com.example.model.KeyboardLanguage
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
-import com.example.model.SettingsBackupEnvelope
 import com.example.model.SyncLocalState
 import com.example.model.WordPersonalityStat
 import com.squareup.moshi.Moshi
@@ -29,10 +26,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-import org.json.JSONTokener
-import java.security.MessageDigest
 import java.util.UUID
 
 val Context.ketikKuDataStore: DataStore<Preferences> by preferencesDataStore(name = "ketikku_prefs")
@@ -49,10 +42,6 @@ class SettingsRepository(
 
     private val moshi: Moshi = Moshi.Builder().build()
 
-    private val settingsEnvelopeAdapter = moshi.adapter(SettingsBackupEnvelope::class.java)
-    private val fullBackupAdapter = moshi.adapter(FullBackupEnvelope::class.java)
-    private val settingsAdapter = moshi.adapter(KeyboardSettings::class.java)
-    private val dictEnvelopeAdapter = moshi.adapter(DictionaryBackupEnvelope::class.java)
     private val dictListType = Types.newParameterizedType(List::class.java, PersonalDictionaryEntry::class.java)
     private val dictListAdapter = moshi.adapter<List<PersonalDictionaryEntry>>(dictListType)
     private val personalityMapType = Types.newParameterizedType(
@@ -87,8 +76,8 @@ class SettingsRepository(
         val DISMISSED_CLIPBOARD_ID = stringPreferencesKey("dismissed_clipboard_id")
         val DISMISSED_CLIPBOARD_SIGNATURE = stringPreferencesKey("dismissed_clipboard_signature")
 
-        val LAST_SYNCED_AT = longPreferencesKey("last_synced_at")
-        val LAST_SYNC_MESSAGE = stringPreferencesKey("last_sync_message")
+        val LAST_SYNCED_AT = longPreferencesKey("vxenc_last_synced_at")
+        val LAST_SYNC_MESSAGE = stringPreferencesKey("vxenc_last_sync_message")
         val DEVICE_BACKUP_TREE_URI = stringPreferencesKey("device_backup_tree_uri")
         val PENDING_CHANGES = booleanPreferencesKey("pending_changes")
     }
@@ -377,13 +366,6 @@ class SettingsRepository(
             writeSettingsToPrefs(prefs, updated)
         }
         return result
-    }
-
-    suspend fun applyRemoteSettings(remote: KeyboardSettings) {
-        dataStore.edit { prefs ->
-            writeSettingsToPrefs(prefs, remote)
-            prefs[Keys.PENDING_CHANGES] = false
-        }
     }
 
     suspend fun upsertDictionaryEntry(
@@ -704,78 +686,56 @@ class SettingsRepository(
         }
     }
 
-    suspend fun mergeRemoteDictionary(
-        remoteEntries: List<PersonalDictionaryEntry>,
-        remoteFolders: List<String> = emptyList()
-    ): List<PersonalDictionaryEntry> {
-        var mergedResult = emptyList<PersonalDictionaryEntry>()
-        dataStore.edit { prefs ->
-            val local = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
-            val safeRemote = remoteEntries.map(::migrateRetiredFolderEntry).map { entry ->
-                if (!DictionaryEngine.isA2fEntry(entry)) entry else {
-                    val seed = SecretVault.decryptOrNull(entry.secretCipher)
-                        ?: error("Cadangan A2F terkunci untuk perangkat lain; seed tidak dapat dipulihkan di sini")
-                    entry.copy(secretCipher = if (SecretVault.isDeviceCipher(entry.secretCipher)) entry.secretCipher else SecretVault.encrypt(seed))
-                }
-            }
-            require(safeRemote.map { it.id }.distinct().size == safeRemote.size) { "ID cadangan duplikat" }
-            safeRemote.forEach { incoming ->
-                val existing = local.firstOrNull { it.id == incoming.id }
-                if (existing != null && (DictionaryEngine.isA2fEntry(existing) || DictionaryEngine.isA2fEntry(incoming))) {
-                    require(DictionaryEngine.isA2fEntry(existing) && DictionaryEngine.isA2fEntry(incoming) &&
-                        SecretVault.decryptOrNull(existing.secretCipher) == SecretVault.decryptOrNull(incoming.secretCipher)) {
-                        "Akun A2F bentrok; data tidak diubah"
+    internal suspend fun mergeVxencBackup(remote: VxencBackupPayload?): LocalBackupSnapshot {
+        fun snapshot(prefs: androidx.datastore.preferences.core.Preferences): LocalBackupSnapshot {
+            val entriesRaw = prefs[Keys.DICTIONARY_JSON]
+            val foldersRaw = prefs[Keys.FOLDERS_JSON]
+            val entries = parseDictionaryList(entriesRaw)
+            return LocalBackupSnapshot(entries, normalizeOrderedFolders(parseFolderList(foldersRaw), entries),
+                prefs[Keys.LAST_SYNCED_AT] ?: 0L, entriesRaw, foldersRaw)
+        }
+        if (remote == null) return snapshot(dataStore.data.first())
+        return snapshot(dataStore.edit { prefs ->
+            val local = snapshot(prefs)
+            val entries = local.entries.associateByTo(linkedMapOf()) { it.id }
+            for (record in remote.entries) {
+                val incoming = migrateRetiredFolderEntry(record.entry)
+                val existing = entries[incoming.id]
+                if (existing != null && !existing.deleted && !incoming.deleted) {
+                    require(PortableBackupEntry.isTwoFactor(existing) == PortableBackupEntry.isTwoFactor(incoming)) {
+                        "ID cadangan bentrok dengan akun A2F. Data tidak diubah."
                     }
                 }
+                if (shouldUseBackupEntry(existing, incoming)) {
+                    val localCipher = existing?.secretCipher.orEmpty().takeIf {
+                        record.seed != null && SecretVault.decryptOrNull(it) == record.seed && SecretVault.isDeviceCipher(it)
+                    }
+                    val cipher = record.seed?.let { localCipher ?: SecretVault.encrypt(it) }.orEmpty()
+                    entries[incoming.id] = incoming.copy(secretCipher = cipher)
+                }
             }
-            mergedResult = mergeDictionaryLists(local, safeRemote)
-            val activeA2f = mergedResult.filter { DictionaryEngine.isA2fEntry(it) && !it.deleted }
-            require(activeA2f.all { it.shortcut.isNotBlank() && it.shortcut.length <= 30 && it.shortcut.all { c -> c.isLetterOrDigit() || c == '.' } }) { "Pintasan A2F tidak valid" }
-            val localFolders = parseFolderList(prefs[Keys.FOLDERS_JSON])
-            val mergedFolders = prependFoldersToStorage(
-                existingFolders = localFolders,
-                newFolderPaths = remoteFolders,
-                entries = mergedResult
-            )
-            prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(mergedResult)
-            prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(mergedFolders)
-        }
-        return mergedResult
-    }
-
-    /**
-     * Cadangan A2F otomatis hanya MENAMBAH akun yang id-nya belum ada lokal (termasuk yang sudah dihapus lokal,
-     * agar tidak bangkit lagi). Pintasan yang bentrok dengan akun aktif lokal dilewati. Tidak pernah menghapus.
-     */
-    suspend fun addMissingA2fAccounts(incoming: List<PersonalDictionaryEntry>): Int {
-        var added = 0
-        dataStore.edit { prefs ->
-            val local = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
-            val localIds = local.map { it.id }.toSet()
-            val activeShortcuts = local
-                .filter { DictionaryEngine.isA2fEntry(it) && !it.deleted }
-                .map { it.shortcut.lowercase(Locale.ROOT) }
-                .toMutableSet()
-            val toAdd = mutableListOf<PersonalDictionaryEntry>()
-            for (entry in incoming) {
-                if (entry.id in localIds || entry.id.isBlank()) continue
-                val shortcut = entry.shortcut.lowercase(Locale.ROOT)
-                if (!activeShortcuts.add(shortcut)) continue
-                toAdd += entry.copy(folder = FOLDER_A2F)
+            val merged = entries.values.toList()
+            val baseFolders = when {
+                prefs[Keys.PENDING_CHANGES] == true -> local.folders
+                local.lastSyncedAt == 0L -> local.folders + remote.folders
+                remote.updatedAtMillis > local.lastSyncedAt && remote.entries.isNotEmpty() -> remote.folders
+                else -> local.folders
             }
-            if (toAdd.isNotEmpty()) {
-                val merged = local + toAdd
-                val folders = prependFoldersToStorage(
-                    existingFolders = parseFolderList(prefs[Keys.FOLDERS_JSON]),
-                    newFolderPaths = listOf(FOLDER_A2F),
-                    entries = merged
-                )
+            val folders = normalizeOrderedFolders(baseFolders, merged)
+            if (merged != local.entries || folders != local.folders) {
                 prefs[Keys.DICTIONARY_JSON] = dictListAdapter.toJson(merged)
                 prefs[Keys.FOLDERS_JSON] = stringListAdapter.toJson(folders)
-                added = toAdd.size
             }
+        })
+    }
+
+    internal suspend fun markVxencSynced(snapshot: LocalBackupSnapshot, at: Long, message: String) {
+        dataStore.edit { prefs ->
+            prefs[Keys.LAST_SYNCED_AT] = at
+            prefs[Keys.LAST_SYNC_MESSAGE] = message
+            prefs[Keys.PENDING_CHANGES] = (prefs[Keys.DICTIONARY_JSON] != snapshot.entriesRevision ||
+                prefs[Keys.FOLDERS_JSON] != snapshot.foldersRevision)
         }
-        return added
     }
 
     suspend fun replaceDictionaryAndFolders(
@@ -950,259 +910,14 @@ class SettingsRepository(
         }
     }
 
-    suspend fun updateSyncState(
-        lastSyncedAtMillis: Long,
-        message: String,
-        pendingChanges: Boolean = false
-    ) {
-        dataStore.edit { prefs ->
-            prefs[Keys.LAST_SYNCED_AT] = lastSyncedAtMillis
-            prefs[Keys.LAST_SYNC_MESSAGE] = message
-            prefs[Keys.PENDING_CHANGES] = pendingChanges
-        }
-    }
-
     suspend fun saveDeviceBackupTreeUri(treeUri: String) {
         dataStore.edit { prefs ->
-            prefs[Keys.DEVICE_BACKUP_TREE_URI] = treeUri.trim()
-        }
-    }
-
-    fun encodeSettingsBackupJson(settings: KeyboardSettings): String {
-        val settingsObj = JSONObject().apply {
-            put("floatingModeEnabled", settings.floatingModeEnabled)
-            put("floatingPosX", settings.floatingPosX.toDouble())
-            put("floatingPosY", settings.floatingPosY.toDouble())
-            put("hapticEnabled", settings.hapticEnabled)
-            put("clipboardHistoryEnabled", settings.clipboardHistoryEnabled)
-            put("serifMiringEnabled", settings.serifMiringEnabled)
-            put("swapPeriodCommaEnabled", settings.swapPeriodCommaEnabled)
-            put("swapSymbolPanelsEnabled", settings.swapSymbolPanelsEnabled)
-        }
-        return JSONObject().apply {
-            put("updatedAtMillis", settings.updatedAtMillis)
-            put("settings", settingsObj)
-        }.toString(2)
-    }
-
-    fun encodeCompactSettingsJson(settings: KeyboardSettings): String = settingsAdapter.toJson(settings)
-
-    fun decodeSettingsBackupJson(json: String): SettingsBackupEnvelope? {
-        runCatching {
-            val trimmed = json.trim()
-            if (trimmed.isEmpty()) return@runCatching null
-            val root = JSONObject(trimmed)
-            val sObj = root.optJSONObject("settings")
-                ?: if (root.has("floatingModeEnabled") ||
-                    root.has("hapticEnabled") ||
-                    root.has("swapPeriodCommaEnabled") ||
-                    root.has("swapSymbolPanelsEnabled")
-                ) {
-                    root
-                } else {
-                    return@runCatching null
-                }
-            val topUpdatedAt = root.optLong("updatedAtMillis", 0L)
-            val innerUpdatedAt = sObj.optLong("updatedAtMillis", 0L)
-            val effectiveUpdatedAt = maxOf(topUpdatedAt, innerUpdatedAt)
-            val decodedSettings = KeyboardSettings(
-                heightPreset = KeyboardHeightPreset.fromName(sObj.optString("heightPreset", KeyboardHeightPreset.NORMAL.name)).name,
-                floatingModeEnabled = sObj.optBoolean("floatingModeEnabled", false),
-                floatingPosX = sObj.optDouble("floatingPosX", 0.5).toFloat().coerceIn(0f, 1f),
-                floatingPosY = sObj.optDouble("floatingPosY", 0.85).toFloat().coerceIn(0f, 1f),
-                hapticEnabled = sObj.optBoolean("hapticEnabled", true),
-                clipboardHistoryEnabled = sObj.optBoolean("clipboardHistoryEnabled", true),
-                arialItalicEnabled = sObj.optBoolean("arialItalicEnabled", false),
-                serifMiringEnabled = sObj.optBoolean("serifMiringEnabled", false),
-                swapPeriodCommaEnabled = sObj.optBoolean("swapPeriodCommaEnabled", false),
-                swapSymbolPanelsEnabled = sObj.optBoolean("swapSymbolPanelsEnabled", false),
-                updatedAtMillis = effectiveUpdatedAt
-            )
-            SettingsBackupEnvelope(
-                schemaVersion = root.optInt("schemaVersion", 1),
-                updatedAtMillis = effectiveUpdatedAt,
-                settings = decodedSettings
-            )
-        }.getOrNull()?.let { return it }
-
-        return runCatching { settingsEnvelopeAdapter.fromJson(json) }.getOrNull()
-    }
-
-    fun encodeDictionaryBackupJson(
-        entries: List<PersonalDictionaryEntry>,
-        updatedAtMillis: Long,
-        folders: List<String> = emptyList()
-    ): String {
-        val effectiveFolders = normalizeOrderedFolders(folders, entries)
-        val foldersArr = JSONArray().apply {
-            effectiveFolders.forEach { put(it) }
-        }
-        val array = JSONArray().apply {
-            entries.forEach { entry ->
-                put(JSONObject().apply {
-                    put("id", entry.id)
-                    put("word", entry.word)
-                    put("shortcut", entry.shortcut)
-                    put("folder", normalizeFolderPath(entry.folder))
-                    put("updatedAtMillis", entry.updatedAtMillis)
-                    put("deleted", entry.deleted)
-                    if (entry.secretCipher.isNotBlank()) put("secretCipher", entry.secretCipher)
-                    if (entry.trashedFrom.isNotBlank()) put("trashedFrom", normalizeFolderPath(entry.trashedFrom))
-                })
+            if (prefs[Keys.DEVICE_BACKUP_TREE_URI] != treeUri) {
+                prefs[Keys.DEVICE_BACKUP_TREE_URI] = treeUri
+                prefs.remove(Keys.LAST_SYNCED_AT)
+                prefs.remove(Keys.LAST_SYNC_MESSAGE)
             }
         }
-        return JSONObject().apply {
-            put("updatedAtMillis", updatedAtMillis)
-            put("folders", foldersArr)
-            put("entries", array)
-        }.toString(2)
-    }
-
-    fun decodeDictionaryBackupJson(json: String): DictionaryBackupEnvelope? {
-        runCatching {
-            val trimmed = json.trim()
-            if (trimmed.isEmpty()) return@runCatching null
-            val fallbackNow = System.currentTimeMillis()
-            val parsed = JSONTokener(trimmed).nextValue()
-            val rootUpdatedAt: Long
-            val arr: JSONArray
-            val rawFolders = mutableListOf<String>()
-            when (parsed) {
-                is JSONObject -> {
-                    rootUpdatedAt = parsed.optLong("updatedAtMillis", 0L)
-                    val foldersJson = parsed.optJSONArray("folders")
-                    if (foldersJson != null) {
-                        for (i in 0 until foldersJson.length()) {
-                            val rawFolder = foldersJson.optString(i, "").trim()
-                            val norm = normalizeFolderPath(rawFolder)
-                            if (norm.isNotEmpty()) rawFolders.add(norm)
-                        }
-                    }
-                    arr = parsed.optJSONArray("entries")
-                        ?: parsed.optJSONArray("dictionary")
-                        ?: return@runCatching null
-                }
-                is JSONArray -> {
-                    rootUpdatedAt = 0L
-                    arr = parsed
-                }
-                else -> return@runCatching null
-            }
-            val fallbackEntryTs = if (rootUpdatedAt > 0L) rootUpdatedAt else fallbackNow
-            val seenIds = HashSet<String>()
-            val entries = buildList {
-                for (i in 0 until arr.length()) {
-                    val obj = arr.optJSONObject(i) ?: continue
-                    val word = obj.optString("word", "").trim()
-                    val deleted = obj.optBoolean("deleted", false)
-                    // Penanda hapus permanen tidak punya isi; tetap dibaca supaya menang saat digabung.
-                    if (word.isEmpty() && !deleted) continue
-                    val shortcut = obj.optString("shortcut", "").trim().lowercase(Locale.ROOT)
-                    val folder = normalizeFolderPath(obj.optString("folder", ""))
-                    var id = obj.optString("id", "").trim().ifEmpty {
-                        stableEntryId(word, shortcut)
-                    }
-                    if (!seenIds.add(id)) {
-                        id = "${id}_$i"
-                        seenIds.add(id)
-                    }
-                    val rawEntryTs = obj.optLong("updatedAtMillis", 0L)
-                    val entryTs = if (rawEntryTs > 0L) rawEntryTs else fallbackEntryTs
-                    val secretCipher = obj.optString("secretCipher", "")
-                    add(
-                        PersonalDictionaryEntry(
-                            id = id,
-                            word = word,
-                            shortcut = shortcut,
-                            folder = folder,
-                            updatedAtMillis = entryTs,
-                            deleted = deleted,
-                            secretCipher = secretCipher,
-                            trashedFrom = normalizeFolderPath(obj.optString("trashedFrom", ""))
-                        )
-                    )
-                }
-            }
-            val normalizedFolders = normalizeOrderedFolders(rawFolders, entries)
-            DictionaryBackupEnvelope(
-                schemaVersion = 1,
-                updatedAtMillis = rootUpdatedAt,
-                folders = normalizedFolders,
-                entries = entries
-            )
-        }.getOrNull()?.let { return it }
-
-        return runCatching { dictEnvelopeAdapter.fromJson(json) }.getOrNull()
-    }
-
-    fun encodeFullBackupJson(
-        settings: KeyboardSettings,
-        entries: List<PersonalDictionaryEntry>,
-        exportedAtMillis: Long = System.currentTimeMillis(),
-        folders: List<String> = emptyList()
-    ): String {
-        val settingsObj = JSONObject(encodeSettingsBackupJson(settings)).getJSONObject("settings")
-        val dictRoot = JSONObject(encodeDictionaryBackupJson(
-            entries.filterNot { DictionaryEngine.isA2fEntry(it) }, exportedAtMillis,
-            folders.filterNot { normalizeFolderPath(it) == FOLDER_A2F }
-        ))
-        return JSONObject().apply {
-            put("appName", "KetikKu")
-            put("exportedAtMillis", exportedAtMillis)
-            put("settings", settingsObj)
-            put("folders", dictRoot.getJSONArray("folders"))
-            put("dictionary", dictRoot.getJSONArray("entries"))
-        }.toString(2)
-    }
-
-    fun decodeFullBackupJson(json: String): FullBackupEnvelope? =
-        runCatching { fullBackupAdapter.fromJson(json) }.getOrNull()
-
-    private fun stableEntryId(word: String, shortcut: String): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest("$word|$shortcut".lowercase(Locale.ROOT).toByteArray(Charsets.UTF_8))
-        return "ai_" + digest.take(6).joinToString("") { "%02x".format(it) }
-    }
-
-    suspend fun importLocalBackupJson(rawJson: String): Result<String> {
-        val full = decodeFullBackupJson(rawJson)
-        if (full != null && full.appName.isNotBlank()) {
-            if (full.dictionary.any { DictionaryEngine.isA2fEntry(it) }) {
-                return Result.failure(IllegalArgumentException("Berkas ini berisi seed A2F dan tidak dapat dipulihkan di sini; setelan tidak diubah"))
-            }
-            val now = System.currentTimeMillis()
-            applyRemoteSettings(full.settings.copy(updatedAtMillis = maxOf(full.settings.updatedAtMillis, now)))
-            val merged = mergeRemoteDictionary(full.dictionary, full.folders)
-            updateSyncState(
-                lastSyncedAtMillis = now,
-                message = "Dipulihkan dari berkas JSON lokal",
-                pendingChanges = false
-            )
-            return Result.success("Setelan & ${merged.count { !it.deleted }} kata kamus dipulihkan dari JSON lokal.")
-        }
-
-        val settingsOnly = decodeSettingsBackupJson(rawJson)
-        if (settingsOnly != null) {
-            val now = System.currentTimeMillis()
-            applyRemoteSettings(settingsOnly.settings.copy(updatedAtMillis = maxOf(settingsOnly.settings.updatedAtMillis, now)))
-            updateSyncState(
-                lastSyncedAtMillis = now,
-                message = "Setelan dipulihkan dari berkas JSON lokal",
-                pendingChanges = false
-            )
-            return Result.success("Setelan keyboard berhasil dipulihkan dari JSON lokal.")
-        }
-
-        val dictOnly = decodeDictionaryBackupJson(rawJson)
-        if (dictOnly != null) {
-            if (dictOnly.entries.any { DictionaryEngine.isA2fEntry(it) }) {
-                return Result.failure(IllegalArgumentException("Berkas ini berisi seed A2F dan tidak dapat dipulihkan di sini"))
-            }
-            val merged = mergeRemoteDictionary(dictOnly.entries, dictOnly.folders)
-            return Result.success("${merged.count { !it.deleted }} kata kamus berhasil digabungkan dari JSON lokal.")
-        }
-
-        return Result.failure(IllegalArgumentException("Format berkas JSON cadangan KetikKu tidak valid."))
     }
 
     private fun writeSettingsToPrefs(
@@ -1241,15 +956,6 @@ class SettingsRepository(
         /** Folder umum yang semua fieldnya (termasuk kata) boleh diubah setelah disimpan. */
         val OPEN_FIELD_FOLDERS = setOf(FOLDER_NOMOR, FOLDER_PRIBADI, FOLDER_BALASAN_CEPAT)
         private val EMAIL_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
-
-        /** Jenis berkas cadangan untuk entri pada folder ini (satu berkas per jenis). */
-        fun backupKindFor(folder: String): String =
-            when (normalizeFolderPath(folder).substringBefore('/')) {
-                FOLDER_KATA_SANDI -> "pw"
-                FOLDER_KREDENSIAL -> "kred"
-                FOLDER_A2F -> "aut"
-                else -> "umum"
-            }
 
         val PRIMARY_FOLDERS: List<String> = listOf(
             FOLDER_A2F,
@@ -1553,12 +1259,16 @@ class SettingsRepository(
             }
             for (remoteItem in remote) {
                 val existing = byId[remoteItem.id]
-                if (existing == null || remoteItem.updatedAtMillis >= existing.updatedAtMillis) {
+                if (shouldUseBackupEntry(existing, remoteItem)) {
                     byId[remoteItem.id] = remoteItem
                 }
             }
             return byId.values.toList()
         }
+
+        private fun shouldUseBackupEntry(local: PersonalDictionaryEntry?, incoming: PersonalDictionaryEntry): Boolean =
+            local == null || incoming.updatedAtMillis > local.updatedAtMillis ||
+                (incoming.updatedAtMillis == local.updatedAtMillis && incoming.deleted && !local.deleted)
 
         private fun defaultDictionaryEntries(): List<PersonalDictionaryEntry> = listOf(
             PersonalDictionaryEntry(

@@ -9,8 +9,4 @@
     <string name="ime_status_disabled">Belum Diaktifkan di Sistem</string>
     <string name="action_enable_ime">Aktifkan di Setelan</string>
     <string name="action_select_ime">Pilih KetikKu</string>
-
-    <string name="device_backup_title">Cadangan Perangkat</string>
-    <string name="device_backup_desc">Sinkronisasi otomatis kamus pribadi ke berkas umum.json, pw.json, kred.json, dan aut_otomatis.json di /storage/emulated/0/Documents atau folder pilihan Anda di dalam Documents. Isinya JSON dalam Base64 satu baris, bukan enkripsi.</string>
-    <string name="device_backup_sync_now">Sinkron Sekarang</string>
 </resources>
