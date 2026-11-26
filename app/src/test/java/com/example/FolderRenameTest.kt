@@ -28,6 +28,6 @@ class FolderRenameTest {
         assertEquals("ketikku_pw.json", DeviceDictionaryBackupManager.BACKUP_FILE_KATA_SANDI)
         assertEquals("ketikku_kred.json", DeviceDictionaryBackupManager.BACKUP_FILE_KREDENSIAL)
         assertEquals("ketikku_aut.json", DeviceDictionaryBackupManager.BACKUP_FILE_A2F)
-        assertEquals("ketikku_aut_terenkripsi.vx2", DeviceDictionaryBackupManager.BACKUP_FILE_A2F_AUTO)
+        assertEquals("ketikku_aut_otomatis.json", DeviceDictionaryBackupManager.BACKUP_FILE_A2F_AUTO)
     }
 }

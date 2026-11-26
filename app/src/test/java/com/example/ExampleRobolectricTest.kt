@@ -885,7 +885,7 @@ class ExampleRobolectricTest {
             assertFalse(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_A2F).exists())
             assertTrue(filesAfterFirst.any { it.name == com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM })
 
-            val firstContent = storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)
+            val firstContent = com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8))
             val firstJson = org.json.JSONObject(firstContent)
             assertTrue(firstJson.has("entries"))
             assertTrue(firstJson.has("folders"))
@@ -902,7 +902,7 @@ class ExampleRobolectricTest {
             assertTrue(secondSync is com.example.data.DeviceSyncResult.Synced)
             val filesAfterSecond = tempDir.listFiles()?.toList().orEmpty()
             assertEquals("Re-sync must overwrite in-place without duplicates", 3, filesAfterSecond.size)
-            val secondContent = storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)
+            val secondContent = com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8))
             assertTrue(secondContent.contains("Halo Perangkat"))
             assertTrue(secondContent.contains("Balasan Cepat Baru"))
 
@@ -966,19 +966,19 @@ class ExampleRobolectricTest {
             repo.upsertDictionaryEntry("Salam Kerja", "sk", KeyboardLanguage.INDONESIAN.code, existingId = "w1", folder = "Kerja")
             repo.upsertDictionaryEntry("Catatan Lama", "cl", KeyboardLanguage.INDONESIAN.code, existingId = "w2", folder = "Sementara")
             assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
-            assertTrue(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8).contains("Sementara"))
+            assertTrue(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)).contains("Sementara"))
 
             // 1. Delete folder "Sementara" -> immediate pushLocalToDevice must remove it from device file
             repo.deleteEntriesAndFolders(emptySet(), setOf("Sementara"))
             val pushDel = manager.pushLocalToDevice()
             assertTrue(pushDel is com.example.data.DeviceSyncResult.Synced)
-            val afterDelDecoded = repo.decodeDictionaryBackupJson(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8))!!
+            val afterDelDecoded = repo.decodeDictionaryBackupJson(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)))!!
             assertFalse("Deleted folder must be gone from device file immediately", afterDelDecoded.folders.contains("Sementara"))
 
             // Re-running syncNow() (simulating app reopen) must NOT resurrect deleted folder
             assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
             assertFalse("Deleted folder must NOT resurrect after syncNow", repo.getCurrentFolders().contains("Sementara"))
-            val afterReopenDecoded = repo.decodeDictionaryBackupJson(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8))!!
+            val afterReopenDecoded = repo.decodeDictionaryBackupJson(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)))!!
             assertFalse(afterReopenDecoded.folders.contains("Sementara"))
 
             // 2. Rename folder "Kerja" -> "Kantor" & push -> old name must disappear and stay gone
@@ -992,11 +992,11 @@ class ExampleRobolectricTest {
             // 3. Pending deletion (without immediate push) -> syncNow() must respect local pending delete & not union old fileFolders
             repo.createFolder("Arsip")
             assertTrue(manager.pushLocalToDevice() is com.example.data.DeviceSyncResult.Synced)
-            assertTrue(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8).contains("Arsip"))
+            assertTrue(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)).contains("Arsip"))
             repo.deleteEntriesAndFolders(emptySet(), setOf("Arsip"))
             assertTrue(manager.syncNow() is com.example.data.DeviceSyncResult.Synced)
             assertFalse("Pending folder delete must NOT be resurrected by syncNow", repo.getCurrentFolders().contains("Arsip"))
-            val finalDecoded = repo.decodeDictionaryBackupJson(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8))!!
+            val finalDecoded = repo.decodeDictionaryBackupJson(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)))!!
             assertFalse(finalDecoded.folders.contains("Arsip"))
         } finally {
             tempDir.deleteRecursively()
@@ -1033,7 +1033,7 @@ class ExampleRobolectricTest {
             val afterEmptySync = manager.syncNow(emptyTs + 500L)
             assertTrue(afterEmptySync is com.example.data.DeviceSyncResult.Synced)
             assertEquals("Local 4 entries must stay safe against empty file", 4, repo.getCurrentDictionary().count { !it.deleted })
-            val restoredAfterEmpty = repo.decodeDictionaryBackupJson(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8))!!
+            val restoredAfterEmpty = repo.decodeDictionaryBackupJson(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)))!!
             assertEquals("Device file must be restored from local entries", 4, restoredAfterEmpty.entries.count { !it.deleted })
 
             // Guard 2: External file is newer but TRUNCATED (only 1 old + 1 new = 2 active < 4 local) ->
@@ -1067,7 +1067,7 @@ class ExampleRobolectricTest {
             assertTrue(freshPush is com.example.data.DeviceSyncResult.Synced)
             val savedActive = repo.getCurrentDictionary().filter { !it.deleted }
             assertEquals("Fresh install push must preserve all 5 device entries + 1 new local entry", 6, savedActive.size)
-            val deviceDecodedAfterFresh = repo.decodeDictionaryBackupJson(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8))!!
+            val deviceDecodedAfterFresh = repo.decodeDictionaryBackupJson(com.example.data.BackupCodec.decode(storage.fileFor(com.example.data.DeviceDictionaryBackupManager.BACKUP_FILE_UMUM).readText(Charsets.UTF_8)))!!
             assertEquals(6, deviceDecodedAfterFresh.entries.count { !it.deleted })
         } finally {
             tempDir.deleteRecursively()

@@ -65,7 +65,7 @@ Catatan:
 - Bilah A2F menampilkan **satu kolom per akun**.
 - Kode TOTP: SHA-1, 6 digit, periode 30 detik.
 - Seed A2F dilindungi Android Keystore.
-- Seed A2F tidak ikut sinkron cadangan perangkat. Cadangan A2F dienkripsi dengan passphrase (lihat bagian 12).
+- Seed A2F tidak ikut sinkron cadangan perangkat. Cadangan A2F ditulis sebagai Base64 (bukan enkripsi; lihat bagian 12).
 
 ## 6. Saran kata
 
@@ -123,12 +123,13 @@ Catatan:
 - Sinkron otomatis saat layar Cadangan dibuka dan saat kamus berubah.
 - Hanya kamus pribadi yang disinkron. Tidak ada Google Drive dan tidak ada GitHub.
 - Folder tujuan bebas dipilih. Default: `/storage/emulated/0/Documents/`.
+- Format berkas: JSON dalam Base64 satu baris, tanpa enkripsi dan tanpa passphrase. Siapa pun yang bisa membuka folder Documents bisa membaca isinya.
 - Berkas:
   - `ketikku_umum.json` (entri umum)
   - `ketikku_pw.json` (kata sandi)
   - `ketikku_kred.json` (kredensial)
   - `ketikku_aut.json` (A2F)
-  - `ketikku_aut_terenkripsi.json` (A2F terenkripsi, dengan passphrase)
+  - `ketikku_aut_otomatis.json` (A2F otomatis, Base64 satu baris, bukan enkripsi)
 - Pemulihan otomatis saat berkas ditemukan.
 - Pengaman: jika berkas kosong atau terpotong, data lokal tidak ditimpa. Pengaman juga memilih sumber dengan entri terbanyak.
 

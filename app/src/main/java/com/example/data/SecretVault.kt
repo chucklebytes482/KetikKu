@@ -51,32 +51,6 @@ object SecretVault {
             ":" + Base64.encodeToString(cipherBytes, Base64.NO_WRAP)
     }
 
-    /** Membungkus teks (mis. passphrase cadangan) dengan kunci Keystore. Format: w1:base64(iv):base64(ciphertext). */
-    fun wrapText(plain: String): String {
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, deviceKey())
-        val cipherBytes = cipher.doFinal(plain.toByteArray(Charsets.UTF_8))
-        return "w1:" + Base64.encodeToString(cipher.iv, Base64.NO_WRAP) +
-            ":" + Base64.encodeToString(cipherBytes, Base64.NO_WRAP)
-    }
-
-    /** Null jika format tidak cocok atau kunci Keystore tidak lagi tersedia. */
-    fun unwrapTextOrNull(value: String): String? {
-        if (!value.startsWith("w1:")) return null
-        return try {
-            val parts = value.removePrefix("w1:").split(':')
-            if (parts.size != 2) return null
-            val iv = Base64.decode(parts[0], Base64.NO_WRAP)
-            val bytes = Base64.decode(parts[1], Base64.NO_WRAP)
-            if (iv.size != IV_BYTES || bytes.size < 16) return null
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.DECRYPT_MODE, deviceKey(), GCMParameterSpec(GCM_TAG_BITS, iv))
-            String(cipher.doFinal(bytes), Charsets.UTF_8)
-        } catch (_: Exception) {
-            null
-        }
-    }
-
     /** Null jika kosong atau format/kunci tidak cocok. */
     fun decryptOrNull(cipherText: String): String? {
         if (cipherText.isBlank()) return null

@@ -27,22 +27,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,7 +44,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.DeviceDictionaryBackupManager
@@ -64,16 +56,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private const val MIN_PASSPHRASE_LENGTH = 12
-
 @Composable
 fun DeviceBackupSheetContent(
     dictionary: List<PersonalDictionaryEntry>,
     syncLocalState: SyncLocalState,
     deviceSyncUiState: DeviceSyncUiState,
     onFolderAuthorized: (String) -> Unit,
-    encryptionConfigured: Boolean,
-    onEnableEncryption: (CharArray, (Result<String>) -> Unit) -> Unit,
     onResetFolderToDefault: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -133,8 +121,6 @@ fun DeviceBackupSheetContent(
         statusDotColor = statusDotColor,
         isSyncing = isSyncing,
         needsFolderAccess = needsFolderAccess,
-        encryptionConfigured = encryptionConfigured,
-        onEnableEncryption = onEnableEncryption,
         onRequestFolderAccess = {
             val initialUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 DeviceDictionaryBackupManager.INITIAL_DOCUMENTS_URI
@@ -149,10 +135,8 @@ fun DeviceBackupSheetContent(
 }
 
 /**
- * Kartu cadangan dengan tiga langkah:
- * 1. Passphrase (sekali, untuk semua cadangan terenkripsi)
- * 2. Pilih folder di dalam Documents
- * 3. ↓ Timpa ke bawah (aplikasi -> perangkat) dan ↑ Timpa ke atas (perangkat -> aplikasi)
+ * Kartu cadangan dengan satu langkah: pilih folder di dalam Documents.
+ * Cadangan berjalan otomatis; tidak ada passphrase.
  */
 @Composable
 internal fun DeviceBackupSheetBody(
@@ -165,17 +149,8 @@ internal fun DeviceBackupSheetBody(
     backupDisplayPath: String = DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH,
     hasCustomFolder: Boolean = false,
     onResetFolderToDefault: () -> Unit = {},
-    encryptionConfigured: Boolean = false,
-    onEnableEncryption: (CharArray, (Result<String>) -> Unit) -> Unit = { chars, done ->
-        chars.fill('\u0000')
-        done(Result.failure(IllegalStateException("Cadangan perangkat tidak tersedia")))
-    },
     modifier: Modifier = Modifier
 ) {
-    var showPassphraseDialog by remember { mutableStateOf(false) }
-    var encryptionOn by remember(encryptionConfigured) { mutableStateOf(encryptionConfigured) }
-    var passphraseStatus by remember { mutableStateOf("") }
-    var passphraseBusy by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -256,47 +231,8 @@ internal fun DeviceBackupSheetBody(
             }
         }
 
-        // Langkah 1: passphrase
-        StepCard(number = "1", title = "Atur passphrase", testTag = "device_step_passphrase") {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = when {
-                        encryptionOn -> "Terenkripsi • aktif"
-                        else -> "Belum diatur"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (encryptionOn) GoogleGreen700 else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f).testTag("device_passphrase_status")
-                )
-                TextButton(
-                    onClick = { showPassphraseDialog = true },
-                    enabled = !isSyncing && !passphraseBusy,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                    modifier = Modifier.heightIn(min = 32.dp).testTag("device_passphrase_button")
-                ) {
-                    Text(
-                        text = if (encryptionOn) "Ubah" else "Atur",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-            if (passphraseStatus.isNotBlank()) {
-                Text(
-                    text = passphraseStatus,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag("device_passphrase_message")
-                )
-            }
-        }
-
-        // Langkah 2: folder di Documents
-        StepCard(number = "2", title = "Pilih folder di Documents", testTag = "device_backup_path_card") {
+        // Langkah 1: folder di Documents
+        StepCard(number = "1", title = "Pilih folder di Documents", testTag = "device_backup_path_card") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -358,27 +294,6 @@ internal fun DeviceBackupSheetBody(
             }
         }
     }
-
-    if (showPassphraseDialog) {
-        PassphraseDialog(
-            isChanging = encryptionOn,
-            onDismiss = { showPassphraseDialog = false },
-            onConfirm = { chars ->
-                showPassphraseDialog = false
-                passphraseBusy = true
-                passphraseStatus = ""
-                onEnableEncryption(chars) { result ->
-                    passphraseBusy = false
-                    result.onSuccess {
-                        encryptionOn = true
-                        passphraseStatus = "Passphrase disimpan"
-                    }.onFailure {
-                        passphraseStatus = "Gagal: ${it.message.orEmpty()}"
-                    }
-                }
-            }
-        )
-    }
 }
 
 @Composable
@@ -430,69 +345,6 @@ private fun StepCard(
             content()
         }
     }
-}
-
-@Composable
-private fun PassphraseDialog(
-    isChanging: Boolean,
-    onDismiss: () -> Unit,
-    onConfirm: (CharArray) -> Unit
-) {
-    var passphrase by remember { mutableStateOf("") }
-    var confirmation by remember { mutableStateOf("") }
-    val valid = passphrase.length >= MIN_PASSPHRASE_LENGTH && passphrase == confirmation
-
-    AlertDialog(
-        onDismissRequest = {
-            passphrase = ""
-            confirmation = ""
-            onDismiss()
-        },
-        title = { Text(if (isChanging) "Ubah passphrase" else "Atur passphrase") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Satu passphrase untuk semua cadangan terenkripsi (kamus, pw, kred, aut). " +
-                        "Minimal $MIN_PASSPHRASE_LENGTH karakter. Dibutuhkan untuk memulihkan di HP baru; tidak bisa dipulihkan jika lupa."
-                )
-                OutlinedTextField(
-                    value = passphrase,
-                    onValueChange = { passphrase = it },
-                    singleLine = true,
-                    label = { Text("Passphrase") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.testTag("device_passphrase_input")
-                )
-                OutlinedTextField(
-                    value = confirmation,
-                    onValueChange = { confirmation = it },
-                    singleLine = true,
-                    label = { Text("Ulangi passphrase") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.testTag("device_passphrase_confirm_input")
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                enabled = valid,
-                onClick = {
-                    val chars = passphrase.toCharArray()
-                    passphrase = ""
-                    confirmation = ""
-                    onConfirm(chars)
-                },
-                modifier = Modifier.testTag("device_passphrase_save_button")
-            ) { Text("Simpan") }
-        },
-        dismissButton = {
-            TextButton(onClick = {
-                passphrase = ""
-                confirmation = ""
-                onDismiss()
-            }) { Text("Batal") }
-        }
-    )
 }
 
 private fun formatRelativeTime(timestampMillis: Long): String {

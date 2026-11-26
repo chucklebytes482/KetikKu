@@ -5,7 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Payload A2F untuk cadangan otomatis. Enkripsi dilakukan oleh BackupCrypto (AES-GCM, kunci SHA-256 passphrase).
+ * Payload A2F untuk cadangan otomatis. Dibungkus Base64 oleh BackupCodec (bukan enkripsi).
  * Tidak ada ekspor/impor berpassword terpisah.
  */
 object A2fBackup {

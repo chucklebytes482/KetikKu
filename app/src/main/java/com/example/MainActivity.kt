@@ -48,7 +48,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.data.AndroidDeviceBackupStorage
 import com.example.data.DeviceDictionaryBackupManager
-import com.example.data.BackupCipher
 import com.example.data.SettingsRepository
 import com.example.ui.DeviceSyncUiState
 import com.example.ui.ImeActivationStatus
@@ -122,8 +121,7 @@ private fun KetikKuMainScaffold(
                 val repo = SettingsRepository(app)
                 val backupManager = DeviceDictionaryBackupManager(
                     settingsRepository = repo,
-                    storage = AndroidDeviceBackupStorage(app),
-                    cipher = BackupCipher(app)
+                    storage = AndroidDeviceBackupStorage(app)
                 )
                 MainViewModel(
                     settingsRepository = repo,
@@ -251,8 +249,6 @@ private fun KetikKuMainScaffold(
                 onFolderAuthorized = { uriString ->
                     mainViewModel.onDeviceBackupFolderGranted(uriString)
                 },
-                encryptionConfigured = mainViewModel.isBackupEncryptionConfigured(),
-                onEnableEncryption = { chars, done -> mainViewModel.enableBackupEncryption(chars, done) },
                 onResetFolderToDefault = {
                     mainViewModel.resetDeviceBackupFolderToDefault()
                 }
