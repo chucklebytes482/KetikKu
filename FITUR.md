@@ -95,6 +95,7 @@ Catatan:
 ## 8. Keyboard
 
 - Baris bawah: tombol Ω, Ctrl, Spasi, titik/koma, Enter.
+- Umpan balik tekan: tombol mengecil ke 92% dan warna tekan lebih kontras di tema terang maupun gelap. Tidak ada pengaturan untuk mematikannya.
 - Tombol Hapus: ketuk untuk menghapus satu karakter. Tahan untuk menghapus terus-menerus. Hapus terverifikasi (mengecek teks yang benar-benar terhapus).
 - Tombol `,` ditahan untuk titik/koma tambahan.
 - Geser tombol Spasi untuk memindahkan kursor.

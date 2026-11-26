@@ -80,6 +80,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerId
@@ -443,6 +444,15 @@ private fun rememberRegisteredKeySlot(
     return slot
 }
 
+/** Skala tekan tombol: tombol mengecil sedikit saat ditekan untuk memperjelas umpan balik. */
+private const val KEY_PRESS_SCALE = 0.92f
+
+private fun Modifier.keyPressScale(isPressed: () -> Boolean): Modifier = graphicsLayer {
+    val scale = if (isPressed()) KEY_PRESS_SCALE else 1f
+    scaleX = scale
+    scaleY = scale
+}
+
 @Immutable
 private data class KeyboardPalette(
     val boardBg: Color,
@@ -464,7 +474,7 @@ private fun defaultKeyboardPalette(darkTheme: Boolean): KeyboardPalette = if (da
         boardBg = Color(0xFF202124),
         stripBg = Color(0xFF292A2D),
         keyBg = Color(0xFF3C4043),
-        keyPressedBg = Color(0xFF5F6368),
+        keyPressedBg = Color(0xFF80868B),
         specialKeyBg = Color(0xFF303134),
         accentBg = Color(0xFF8AB4F8),
         accentContent = Color(0xFF062E6F),
@@ -479,7 +489,7 @@ private fun defaultKeyboardPalette(darkTheme: Boolean): KeyboardPalette = if (da
         boardBg = Color(0xFFF1F3F4),
         stripBg = Color(0xFFF8F9FA),
         keyBg = Color(0xFFFFFFFF),
-        keyPressedBg = Color(0xFFE8EAED),
+        keyPressedBg = Color(0xFFBDC1C6),
         specialKeyBg = Color(0xFFDADCE0),
         accentBg = Color(0xFF1A73E8),
         accentContent = Color(0xFFFFFFFF),
@@ -2193,6 +2203,7 @@ private fun CtrlKey(
     Box(
         modifier = modifier
             .height(height)
+            .keyPressScale { (pointerTracker?.pressedCounts?.get(slotId) ?: 0) > 0 }
             .clip(shape)
             .drawBehind {
                 val isPressed = (pointerTracker?.pressedCounts?.get(slotId) ?: 0) > 0
@@ -2283,6 +2294,7 @@ private fun CharKey(
     Box(
         modifier = modifier
             .height(height)
+            .keyPressScale { if (pointerTracker != null) (pointerTracker.pressedCounts[slotId] ?: 0) > 0 else pressedState.value }
             .clip(shape)
             .drawBehind {
                 // Draw-phase read prevents full-key recomposition on every press/release
@@ -2374,6 +2386,7 @@ private fun SpecialActionKey(
     Box(
         modifier = modifier
             .height(height)
+            .keyPressScale { if (pointerTracker != null) (pointerTracker.pressedCounts[slotId] ?: 0) > 0 else pressedState.value }
             .clip(shape)
             .drawBehind {
                 val isPressed = if (pointerTracker != null) {
@@ -2382,7 +2395,7 @@ private fun SpecialActionKey(
                     pressedState.value
                 }
                 val bg = when {
-                    currentAccentFill -> if (isPressed) currentPalette.accentBg.copy(alpha = 0.82f) else currentPalette.accentBg
+                    currentAccentFill -> if (isPressed) currentPalette.accentBg.copy(alpha = 0.6f) else currentPalette.accentBg
                     isPressed -> currentPalette.keyPressedBg
                     currentHighlighted -> currentPalette.chipHighlightBg
                     else -> currentPalette.specialKeyBg
@@ -2448,6 +2461,7 @@ private fun BackspaceKey(
     Box(
         modifier = modifier
             .height(height)
+            .keyPressScale { if (pointerTracker != null) (pointerTracker.pressedCounts[slotId] ?: 0) > 0 else pressedState.value }
             .clip(shape)
             .drawBehind {
                 val isPressed = if (pointerTracker != null) {
@@ -2571,6 +2585,7 @@ private fun SpacebarTrackpadKey(
     Box(
         modifier = modifier
             .height(height)
+            .keyPressScale { pressedState.value }
             .clip(shape)
             .drawBehind {
                 drawRoundRect(
