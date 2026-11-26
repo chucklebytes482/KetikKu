@@ -557,7 +557,9 @@ class KeyboardController(
         onCopyResult: (String) -> Unit = {},
         onPasteRequest: (() -> Unit)? = null
     ) {
-        if (ctrlState != CtrlState.OFF && rawChar.length == 1 && rawChar[0].isLetter()) {
+        if (ctrlState != CtrlState.OFF && rawChar.length == 1 && rawChar[0].isLetter() &&
+            rawChar[0].lowercaseChar() !in CTRL_REMOVED_LETTERS
+        ) {
             val lower = rawChar[0].lowercaseChar()
             runCatching {
                 when (lower) {
@@ -1163,6 +1165,8 @@ class KeyboardController(
         private val HABIT_WORD_REGEX = Regex("^\\p{L}+$")
         const val MAX_LIVE_PREVIEW_CHARS = 120
         const val CTRL_STICKY_CHAR_LIMIT = 1
+        /** Ctrl+B, I, U, F tidak lagi dikirim ke aplikasi; huruf diketik seperti biasa. */
+        val CTRL_REMOVED_LETTERS = setOf('b', 'i', 'u', 'f')
         private const val MAX_ACTIVE_WORD_READ_UTF16 = 60
         private val BOUNDARY_PUNCTUATION = charArrayOf('.', ',', '!', '?', ';', ':')
 

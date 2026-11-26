@@ -106,7 +106,7 @@ Catatan:
 
 - Ketuk Ctrl sekali untuk satu kombinasi berikutnya.
 - Kombinasi yang dikirim sebagai aksi: Ctrl+A (pilih semua), Ctrl+C (salin), Ctrl+X (potong), Ctrl+V (tempel), Ctrl+Z (batal), Ctrl+Y (ulang).
-- Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+F diteruskan ke aplikasi.
+- Ctrl+B, Ctrl+I, Ctrl+U, Ctrl+F dihapus: tidak dikirim ke aplikasi, huruf diketik biasa.
 - Ctrl mati otomatis setelah satu huruf, hapus, spasi, atau enter.
 
 ## 10. Panel simbol
