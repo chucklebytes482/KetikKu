@@ -25,9 +25,9 @@ class FolderRenameTest {
 
     @Test
     fun backupFileNamesUseNewPattern() {
-        assertEquals("ketikku_pw.json", DeviceDictionaryBackupManager.BACKUP_FILE_KATA_SANDI)
-        assertEquals("ketikku_kred.json", DeviceDictionaryBackupManager.BACKUP_FILE_KREDENSIAL)
-        assertEquals("ketikku_aut.json", DeviceDictionaryBackupManager.BACKUP_FILE_A2F)
-        assertEquals("ketikku_aut_otomatis.json", DeviceDictionaryBackupManager.BACKUP_FILE_A2F_AUTO)
+        assertEquals("pw.json", DeviceDictionaryBackupManager.BACKUP_FILE_KATA_SANDI)
+        assertEquals("kred.json", DeviceDictionaryBackupManager.BACKUP_FILE_KREDENSIAL)
+        assertEquals("aut.json", DeviceDictionaryBackupManager.BACKUP_FILE_A2F)
+        assertEquals("aut_otomatis.json", DeviceDictionaryBackupManager.BACKUP_FILE_A2F_AUTO)
     }
 }

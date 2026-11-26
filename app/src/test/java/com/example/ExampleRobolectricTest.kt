@@ -906,7 +906,7 @@ class ExampleRobolectricTest {
             assertTrue(secondContent.contains("Halo Perangkat"))
             assertTrue(secondContent.contains("Balasan Cepat Baru"))
 
-            // 3. External edit to ketikku_umum.json (newer timestamp, no local pending edits) -> auto-pulls on sync
+            // 3. External edit to umum.json (newer timestamp, no local pending edits) -> auto-pulls on sync
             val futureTs = System.currentTimeMillis() + 60_000L
             val externalJson = repo.encodeDictionaryBackupJson(
                 entries = listOf(
@@ -1586,7 +1586,7 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("device_sync_status_card").assertIsDisplayed()
         composeRule.onNodeWithTag("device_backup_path_card").assertIsDisplayed()
         composeRule.onNodeWithText(
-            "/storage/emulated/0/Documents/ketikku_*",
+            "/storage/emulated/0/Documents",
             substring = true
         ).assertIsDisplayed()
 
@@ -1603,7 +1603,7 @@ class ExampleRobolectricTest {
 
         // Custom subfolder displays dynamically and offers reset button to return to Documents/ root
         hasCustomFolder = true
-        customPath = "/storage/emulated/0/Documents/Catatan/ketikku_umum.json"
+        customPath = "/storage/emulated/0/Documents/Catatan/umum.json"
         needsAccess = true
         composeRule.waitForIdle()
         composeRule.onNodeWithText(customPath, substring = true).assertIsDisplayed()
@@ -2258,11 +2258,11 @@ class ExampleRobolectricTest {
             com.example.data.DeviceDictionaryBackupManager.BACKUP_RELATIVE_PATH
         )
         assertEquals(
-            "/storage/emulated/0/Documents/ketikku_*",
+            "/storage/emulated/0/Documents",
             com.example.data.DeviceDictionaryBackupManager.BACKUP_DISPLAY_PATH
         )
         assertEquals(
-            "/storage/emulated/0/Documents/ketikku_*",
+            "/storage/emulated/0/Documents",
             com.example.data.DeviceDictionaryBackupManager.formatBackupDisplayPath(null)
         )
 
@@ -2283,7 +2283,7 @@ class ExampleRobolectricTest {
             com.example.data.DeviceDictionaryBackupManager.formatBackupShortFolder(customSubUri)
         )
         assertEquals(
-            "/storage/emulated/0/Documents/Catatan/Kamus/ketikku_*",
+            "/storage/emulated/0/Documents/Catatan/Kamus",
             com.example.data.DeviceDictionaryBackupManager.formatBackupDisplayPath(customSubUri)
         )
     }

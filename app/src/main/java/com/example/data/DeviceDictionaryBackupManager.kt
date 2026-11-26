@@ -40,11 +40,6 @@ interface DeviceBackupStorage {
     fun deleteBackup(fileName: String, persistedTreeUri: String?): BackupWriteResult
 }
 
-/** Semua berkas cadangan berupa teks ASCII (Base64 satu baris) dalam UTF-8. */
-internal fun charsetFor(@Suppress("UNUSED_PARAMETER") fileName: String): java.nio.charset.Charset = Charsets.UTF_8
-
-internal fun mimeTypeFor(@Suppress("UNUSED_PARAMETER") fileName: String): String = "application/json"
-
 sealed interface DeviceSyncResult {
     data class Synced(
         val activeEntryCount: Int,
@@ -75,7 +70,7 @@ class DirectoryDeviceBackupStorage(
             }
             BackupReadResult.Found(
                 StoredBackupFile(
-                    content = file.readText(charsetFor(fileName)),
+                    content = file.readText(Charsets.UTF_8),
                     lastModifiedMillis = file.lastModified().coerceAtLeast(0L)
                 )
             )
@@ -103,7 +98,7 @@ class DirectoryDeviceBackupStorage(
             }
             val file = fileFor(fileName)
             // Overwrite the exact same file in-place so strictly 1 backup file exists.
-            file.writeText(json, charsetFor(fileName))
+            file.writeText(json, Charsets.UTF_8)
             BackupWriteResult.Success(file.lastModified().coerceAtLeast(System.currentTimeMillis()))
         }.getOrElse { err ->
             BackupWriteResult.Error("Gagal menulis file cadangan: ${err.message.orEmpty()}")
@@ -184,7 +179,7 @@ class AndroidDeviceBackupStorage(
         return runCatching {
             val matches = querySafMatchingFiles(treeUri, fileName)
             val target = matches.maxByOrNull { it.lastModifiedMillis } ?: return BackupReadResult.NotFound
-            val text = resolver.openInputStream(target.uri)?.bufferedReader(charsetFor(fileName))?.use { it.readText() }
+            val text = resolver.openInputStream(target.uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
                 ?: return BackupReadResult.Error("Gagal membuka file cadangan dari folder terpilih.")
             BackupReadResult.Found(StoredBackupFile(text, target.lastModifiedMillis))
         }.getOrElse { err ->
@@ -217,12 +212,12 @@ class AndroidDeviceBackupStorage(
                 DocumentsContract.createDocument(
                     resolver,
                     parentDocUri,
-                    mimeTypeFor(fileName),
+                    "application/json",
                     fileName
                 ) ?: return BackupWriteResult.Error("Gagal membuat file $fileName di folder terpilih.")
             }
 
-            writeTextTruncating(targetUri, json, charsetFor(fileName))
+            writeTextTruncating(targetUri, json, Charsets.UTF_8)
             BackupWriteResult.Success(System.currentTimeMillis())
         }.getOrElse { err ->
             if (err is SecurityException) {
@@ -305,7 +300,7 @@ class AndroidDeviceBackupStorage(
             val matches = queryMediaStoreMatches(fileName)
             if (matches.isNotEmpty()) {
                 val latest = matches.first()
-                val text = resolver.openInputStream(latest.uri)?.bufferedReader(charsetFor(fileName))?.use { it.readText() }
+                val text = resolver.openInputStream(latest.uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
                     ?: return BackupReadResult.NeedsFolderAccess(
                         "File cadangan lama ditemukan. Pilih folder di dalam Documents sekali untuk sinkronisasi penuh."
                     )
@@ -318,7 +313,7 @@ class AndroidDeviceBackupStorage(
                 return if (diskFile.canRead()) {
                     BackupReadResult.Found(
                         StoredBackupFile(
-                            content = diskFile.readText(charsetFor(fileName)),
+                            content = diskFile.readText(Charsets.UTF_8),
                             lastModifiedMillis = diskFile.lastModified().coerceAtLeast(0L)
                         )
                     )
@@ -352,15 +347,15 @@ class AndroidDeviceBackupStorage(
                 matches.drop(1).forEach { extra ->
                     runCatching { resolver.delete(extra.uri, null, null) }
                 }
-                writeTextTruncating(primary, json, charsetFor(fileName))
+                writeTextTruncating(primary, json, Charsets.UTF_8)
                 return BackupWriteResult.Success(System.currentTimeMillis())
             }
 
-            // Guard against MediaStore auto-renaming to "ketikku_dictionary (1).json" if a pre-existing foreign file exists on disk
+            // Guard against MediaStore auto-renaming (mis. "pw (1).json") if a pre-existing foreign file exists on disk
             val diskFile = legacyPublicBackupFile(fileName)
             if (diskFile.exists()) {
                 return if (diskFile.canWrite()) {
-                    diskFile.writeText(json, charsetFor(fileName))
+                    diskFile.writeText(json, Charsets.UTF_8)
                     BackupWriteResult.Success(diskFile.lastModified().coerceAtLeast(System.currentTimeMillis()))
                 } else {
                     BackupWriteResult.NeedsFolderAccess(
@@ -372,14 +367,14 @@ class AndroidDeviceBackupStorage(
             val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                put(MediaStore.MediaColumns.MIME_TYPE, mimeTypeFor(fileName))
+                put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
                 put(MediaStore.MediaColumns.RELATIVE_PATH, DeviceDictionaryBackupManager.BACKUP_RELATIVE_PATH)
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
             val insertedUri = resolver.insert(collection, values)
                 ?: return BackupWriteResult.Error("Gagal membuat file di Documents.")
             try {
-                writeTextTruncating(insertedUri, json, charsetFor(fileName))
+                writeTextTruncating(insertedUri, json, Charsets.UTF_8)
                 val ready = ContentValues().apply {
                     put(MediaStore.MediaColumns.IS_PENDING, 0)
                 }
@@ -411,7 +406,7 @@ class AndroidDeviceBackupStorage(
             }
             BackupReadResult.Found(
                 StoredBackupFile(
-                    content = file.readText(charsetFor(fileName)),
+                    content = file.readText(Charsets.UTF_8),
                     lastModifiedMillis = file.lastModified().coerceAtLeast(0L)
                 )
             )
@@ -432,7 +427,7 @@ class AndroidDeviceBackupStorage(
             file.parentFile?.let { parent ->
                 if (!parent.exists()) parent.mkdirs()
             }
-            file.writeText(json, charsetFor(fileName))
+            file.writeText(json, Charsets.UTF_8)
             BackupWriteResult.Success(file.lastModified().coerceAtLeast(System.currentTimeMillis()))
         }.getOrElse { err ->
             if (err is SecurityException) {
@@ -516,7 +511,7 @@ class DeviceDictionaryBackupManager(
 
     /**
      * Dipanggil seketika setiap kali ada perubahan kamus atau folder di dalam aplikasi
-     * agar berkas cadangan ketikku_*.json di perangkat langsung ter-replace bersih
+     * agar berkas cadangan di perangkat langsung ter-replace bersih
      * (folder yang dihapus/diubah nama tidak pernah kembali lagi).
      *
      * Pengaman anti-timpa: jika aplikasi belum pernah sinkron sama sekali (lastSyncedAtMillis == 0L)
@@ -1228,18 +1223,16 @@ class DeviceDictionaryBackupManager(
 
     companion object {
         const val BACKUP_RELATIVE_PATH = "Documents"
-        const val KIND_UMUM = "umum"
         const val KIND_PW = "pw"
         const val KIND_KRED = "kred"
         /** Nama berkas cadangan per jenis. Isi berkas: JSON dalam Base64 satu baris. */
-        const val BACKUP_FILE_UMUM = "ketikku_umum.json"
-        const val BACKUP_FILE_KATA_SANDI = "ketikku_pw.json"
-        const val BACKUP_FILE_KREDENSIAL = "ketikku_kred.json"
-        const val BACKUP_FILE_A2F = "ketikku_aut.json"
-        /** Cadangan otomatis A2F (Base64, bukan enkripsi). Berkas `ketikku_aut.json` tetap hanya untuk impor manual. */
-        const val BACKUP_FILE_A2F_AUTO = "ketikku_aut_otomatis.json"
-        const val BACKUP_SHORT_PATH = "Documents/ketikku_*"
-        const val BACKUP_DISPLAY_PATH = "/storage/emulated/0/Documents/ketikku_*"
+        const val BACKUP_FILE_UMUM = "umum.json"
+        const val BACKUP_FILE_KATA_SANDI = "pw.json"
+        const val BACKUP_FILE_KREDENSIAL = "kred.json"
+        const val BACKUP_FILE_A2F = "aut.json"
+        /** Cadangan otomatis A2F (Base64, bukan enkripsi). Berkas `aut.json` tetap hanya untuk impor manual. */
+        const val BACKUP_FILE_A2F_AUTO = "aut_otomatis.json"
+        const val BACKUP_DISPLAY_PATH = "/storage/emulated/0/Documents"
         val BACKUP_KINDS = listOf("umum", "pw", "kred", "aut")
 
         /** Nama berkas satu jenis. */
@@ -1250,7 +1243,6 @@ class DeviceDictionaryBackupManager(
             else -> BACKUP_FILE_UMUM
         }
         private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
-        private const val PRIMARY_DOCUMENTS_PREFIX = "primary:Documents"
 
         /** Lazy agar `Uri.parse` tidak dipanggil saat companion diinisialisasi (tes JVM biasa tanpa Android). */
         val INITIAL_DOCUMENTS_URI: Uri by lazy {
@@ -1306,10 +1298,7 @@ class DeviceDictionaryBackupManager(
         fun formatBackupShortFolder(treeUriString: String?): String =
             extractDocumentsRelativeFolder(treeUriString) ?: BACKUP_RELATIVE_PATH
 
-        fun formatBackupShortFilePath(treeUriString: String?): String =
-            "${formatBackupShortFolder(treeUriString)}/ketikku_*"
-
         fun formatBackupDisplayPath(treeUriString: String?): String =
-            "/storage/emulated/0/${formatBackupShortFilePath(treeUriString)}"
+            "/storage/emulated/0/${formatBackupShortFolder(treeUriString)}"
     }
 }

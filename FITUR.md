@@ -125,11 +125,11 @@ Catatan:
 - Folder tujuan bebas dipilih. Default: `/storage/emulated/0/Documents/`.
 - Format berkas: JSON dalam Base64 satu baris, tanpa enkripsi dan tanpa passphrase. Siapa pun yang bisa membuka folder Documents bisa membaca isinya.
 - Berkas:
-  - `ketikku_umum.json` (entri umum)
-  - `ketikku_pw.json` (kata sandi)
-  - `ketikku_kred.json` (kredensial)
-  - `ketikku_aut.json` (A2F)
-  - `ketikku_aut_otomatis.json` (A2F otomatis, Base64 satu baris, bukan enkripsi)
+  - `umum.json` (entri umum)
+  - `pw.json` (kata sandi)
+  - `kred.json` (kredensial)
+  - `aut.json` (A2F)
+  - `aut_otomatis.json` (A2F otomatis, Base64 satu baris, bukan enkripsi)
 - Pemulihan otomatis saat berkas ditemukan.
 - Pengaman: jika berkas kosong atau terpotong, data lokal tidak ditimpa. Pengaman juga memilih sumber dengan entri terbanyak.
 
