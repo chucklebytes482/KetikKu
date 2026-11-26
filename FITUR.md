@@ -33,7 +33,7 @@ Keterangan status:
 - Di layar Kamus, nama folder tampil apa adanya dari kode di atas (misalnya `pw`, `num`).
 - Urutan: 7 folder utama selalu di atas sesuai tabel. Folder kustom (jika ada) di bawahnya (`normalizeOrderedFolders`).
 - Nama folder tidak bisa diubah. Folder tidak bisa dihapus. Entri tidak bisa dipindah folder.
-- Hapus entri berarti memindahkannya ke **Sampah**. Dari Sampah entri bisa dipulihkan (`restoreDictionaryEntries`) atau dihapus permanen (`deleteDictionaryItems`).
+- Hapus entri berarti memindahkannya ke **Sampah**. Dari Sampah entri bisa dipulihkan (`restoreDictionaryEntries`) atau dihapus permanen (`deleteDictionaryItems`). Akun A2F di Sampah hanya bisa dipulihkan.
 - Di layar Kamus tersedia pencarian, mode pilih (multi-pilih) untuk aksi massal, dan opsi folder (`DictionaryScreen.kt`, `DictionaryDialogs.kt`).
 - Urutan entri di dalam folder: entri yang punya pintasan dulu. Lalu entri A2F dan Kredensial yang punya website, diurutkan menurut **domain utama tanpa TLD** (`SettingsRepository.mainDomainSortKey`): `google.com` dan `myaccount.google.com` masuk ke urutan "google", bukan "com". `bbc.co.uk` masuk ke "bbc". Entri tanpa website diletakkan setelahnya. Sisanya diurutkan menurut kata.
 - Bilah saran `kred` menampilkan semua entri aktif. Urutannya: yang paling sering dipakai dulu, lalu yang paling baru diubah.
@@ -171,4 +171,4 @@ Catatan:
 - Pemicu `kred` hanya saat kata utuh `kred`.
 - Kredensial lama tanpa website tetap ada tanpa pintasan.
 - Pintasan kredensial boleh sama untuk domain yang sama.
-- Tafsir folder Sampah untuk A2F belum dikonfirmasi.
+- Aturan hapus permanen dari Sampah: entri asal `aut` (A2F) tidak pernah bisa dihapus permanen. Entri asal `pw` dan `kred` hanya bisa jika ada duplikat aktif. Entri lain boleh.

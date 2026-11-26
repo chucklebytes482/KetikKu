@@ -1085,10 +1085,8 @@ class SettingsRepository(
             // Awalan folder: kata yang sama di folder berbeda bukan duplikat (cek per folder).
             val norm = normalizeFolderPath(folder)
             return when (norm) {
-                FOLDER_A2F -> SecretVault.decryptOrNull(entry.secretCipher)
-                    ?.let { TotpGenerator.normalizeBase32(it) }
-                    ?.takeIf { it.isNotEmpty() }
-                    ?.let { "$norm:seed:$it" }
+                // A2F tidak pernah dicek duplikatnya (seed hanya bisa dibuka lewat Keystore), jadi tidak punya kunci.
+                FOLDER_A2F -> null
                 FOLDER_KATA_SANDI, FOLDER_KREDENSIAL -> entry.word.split('\n').firstOrNull()
                     ?.trim()?.lowercase(Locale.ROOT)
                     ?.takeIf { it.isNotEmpty() }
@@ -1128,11 +1126,11 @@ class SettingsRepository(
         }
 
         /** Folder asal yang entri Sampahnya hanya boleh dihapus permanen jika duplikat. */
-        private val TRASH_DUPLICATE_ONLY_ORIGINS = setOf(FOLDER_A2F, FOLDER_KATA_SANDI, FOLDER_KREDENSIAL)
+        private val TRASH_DUPLICATE_ONLY_ORIGINS = setOf(FOLDER_KATA_SANDI, FOLDER_KREDENSIAL)
 
         /**
-         * Entri Sampah yang boleh dihapus permanen. Semua entri boleh, kecuali yang asalnya
-         * aut, pw, atau kred: itu hanya boleh jika duplikat aktif.
+         * Entri Sampah yang boleh dihapus permanen. Semua entri boleh, kecuali asal aut (tidak pernah),
+         * dan pw atau kred (hanya jika duplikat aktif).
          */
         fun canPermanentlyDeleteFromTrash(
             entry: PersonalDictionaryEntry,
@@ -1140,6 +1138,8 @@ class SettingsRepository(
             activeKeys: Set<String>? = null
         ): Boolean {
             if (entry.deleted || normalizeFolderPath(entry.folder) != FOLDER_SAMPAH) return false
+            // Akun A2F di Sampah tidak pernah bisa dihapus permanen.
+            if (normalizeFolderPath(entry.trashedFrom) == FOLDER_A2F) return false
             if (normalizeFolderPath(entry.trashedFrom) in TRASH_DUPLICATE_ONLY_ORIGINS) {
                 return isDuplicateInTrash(entry, all, activeKeys)
             }

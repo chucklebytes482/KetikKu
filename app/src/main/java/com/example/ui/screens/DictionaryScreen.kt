@@ -273,7 +273,7 @@ fun DictionaryScreen(
                             if (eligible.isEmpty()) {
                                 Toast.makeText(
                                     context,
-                                    "Entri ini tidak bisa dihapus permanen. Akun A2F, pw, dan kred hanya jika duplikat",
+                                    "Entri ini tidak bisa dihapus permanen. Akun A2F tidak pernah bisa; pw dan kred hanya jika duplikat",
                                     Toast.LENGTH_LONG
                                 ).show()
                             } else {
@@ -281,7 +281,7 @@ fun DictionaryScreen(
                                 if (skipped > 0) {
                                     Toast.makeText(
                                         context,
-                                        "$skipped entri dilewati (A2F, pw, atau kred tanpa duplikat)",
+                                        "$skipped entri dilewati (A2F, atau pw/kred tanpa duplikat)",
                                         Toast.LENGTH_LONG
                                     ).show()
                                 }
@@ -686,7 +686,7 @@ private fun SelectionActionBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.DeleteForever,
-                        contentDescription = "Hapus permanen item terpilih yang punya duplikat",
+                        contentDescription = "Hapus permanen item terpilih yang memenuhi syarat",
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
