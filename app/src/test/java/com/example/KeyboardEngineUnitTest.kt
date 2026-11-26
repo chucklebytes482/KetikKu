@@ -185,9 +185,11 @@ class KeyboardEngineUnitTest {
         "dunia".forEach { ch -> controller.onCharacterTap(ch.toString(), settings, emptyList()) }
         assertEquals("halo dunia", tf.text)
 
-        // Ctrl+Z undoes last keystroke
+        // Ctrl+Z undoes last keystroke; retype the letter to get back to "halo dunia"
         controller.onCtrlUndo(settings, emptyList())
         assertEquals("halo duni", tf.text)
+        controller.onCharacterTap("a", settings, emptyList())
+        assertEquals("halo dunia", tf.text)
 
         // Ctrl+A selects all text, Ctrl+C copies without mutating
         controller.onCtrlSelectAll()

@@ -685,6 +685,11 @@ class ExampleRobolectricTest {
                 .fetchSemanticsNodes().isEmpty()
         )
 
+        // Retype the letter (Ctrl is OFF) to restore "Halo a"
+        composeRule.onNodeWithTag("key_a").performClick()
+        composeRule.waitForIdle()
+        assertEquals("Halo a", value.text)
+
         // Single tap Ctrl -> Ctrl+A (1/1, auto-OFF), then re-tap Ctrl for Ctrl+C
         composeRule.onNodeWithTag("key_ctrl").performClick()
         composeRule.waitForIdle()
