@@ -263,9 +263,11 @@ fun DictionaryScreen(
                             selectedEntryIds = visibleEntries.map { it.id }.toSet()
                         },
                         onPermanentDeleteSelected = {
+                            val byId = dictionary.associateBy { it.id }
+                            val activeKeys = SettingsRepository.activeTrashMatchKeys(dictionary)
                             val eligible = selectedEntryIds.filter { id ->
-                                val entry = dictionary.firstOrNull { it.id == id }
-                                entry != null && SettingsRepository.canPermanentlyDeleteFromTrash(entry, dictionary)
+                                val entry = byId[id]
+                                entry != null && SettingsRepository.canPermanentlyDeleteFromTrash(entry, dictionary, activeKeys)
                             }.toSet()
                             val skipped = selectedEntryIds.size - eligible.size
                             if (eligible.isEmpty()) {

@@ -543,7 +543,8 @@ class SettingsRepository(
         var removed = 0
         dataStore.edit { prefs ->
             val current = parseDictionaryList(prefs[Keys.DICTIONARY_JSON])
-            val targets = current.filter { it.id in entryIds && canPermanentlyDeleteFromTrash(it, current) }
+            val activeKeys = activeTrashMatchKeys(current)
+            val targets = current.filter { it.id in entryIds && canPermanentlyDeleteFromTrash(it, current, activeKeys) }
                 .map { it.id }
                 .toSet()
             if (targets.isEmpty()) return@edit
@@ -1102,15 +1103,28 @@ class SettingsRepository(
          * Entri di Sampah yang seed (aut) atau kata/frasa (pw, kred, lainnya) sama dengan entri aktif.
          * Hanya entri seperti ini yang boleh dihapus permanen untuk asal aut, pw, dan kred.
          */
-        fun isDuplicateInTrash(entry: PersonalDictionaryEntry, all: List<PersonalDictionaryEntry>): Boolean {
+        fun isDuplicateInTrash(
+            entry: PersonalDictionaryEntry,
+            all: List<PersonalDictionaryEntry>,
+            activeKeys: Set<String>? = null
+        ): Boolean {
             if (entry.deleted || normalizeFolderPath(entry.folder) != FOLDER_SAMPAH) return false
             val origin = normalizeFolderPath(entry.trashedFrom)
             val key = trashMatchKey(entry, origin) ?: return false
-            return all.any { other ->
-                other.id != entry.id && !other.deleted &&
-                    normalizeFolderPath(other.folder) != FOLDER_SAMPAH &&
-                    trashMatchKey(other, other.folder) == key
+            return key in (activeKeys ?: activeTrashMatchKeys(all))
+        }
+
+        /**
+         * Kunci pencocokan semua entri aktif (bukan Sampah). Dihitung sekali per aksi:
+         * dekripsi seed A2F memakai Keystore, jadi jangan diulang untuk setiap entri Sampah.
+         */
+        fun activeTrashMatchKeys(all: List<PersonalDictionaryEntry>): Set<String> {
+            val keys = HashSet<String>()
+            for (other in all) {
+                if (other.deleted || normalizeFolderPath(other.folder) == FOLDER_SAMPAH) continue
+                trashMatchKey(other, other.folder)?.let { keys.add(it) }
             }
+            return keys
         }
 
         /** Folder asal yang entri Sampahnya hanya boleh dihapus permanen jika duplikat. */
@@ -1120,10 +1134,14 @@ class SettingsRepository(
          * Entri Sampah yang boleh dihapus permanen. Semua entri boleh, kecuali yang asalnya
          * aut, pw, atau kred: itu hanya boleh jika duplikat aktif.
          */
-        fun canPermanentlyDeleteFromTrash(entry: PersonalDictionaryEntry, all: List<PersonalDictionaryEntry>): Boolean {
+        fun canPermanentlyDeleteFromTrash(
+            entry: PersonalDictionaryEntry,
+            all: List<PersonalDictionaryEntry>,
+            activeKeys: Set<String>? = null
+        ): Boolean {
             if (entry.deleted || normalizeFolderPath(entry.folder) != FOLDER_SAMPAH) return false
             if (normalizeFolderPath(entry.trashedFrom) in TRASH_DUPLICATE_ONLY_ORIGINS) {
-                return isDuplicateInTrash(entry, all)
+                return isDuplicateInTrash(entry, all, activeKeys)
             }
             return true
         }
