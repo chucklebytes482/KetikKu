@@ -285,7 +285,6 @@ class KetikKuImeService : InputMethodService() {
         val inputType = info?.inputType ?: 0
         val typeClass = inputType and InputType.TYPE_MASK_CLASS
         val variation = inputType and InputType.TYPE_MASK_VARIATION
-        val isNumeric = typeClass == InputType.TYPE_CLASS_NUMBER || typeClass == InputType.TYPE_CLASS_PHONE
         val isPassword = (typeClass == InputType.TYPE_CLASS_TEXT && (
             variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
                 variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
@@ -320,7 +319,6 @@ class KetikKuImeService : InputMethodService() {
             newSelEnd = info?.initialSelEnd ?: -1
         )
         controller.configureForEditor(
-            isNumeric = isNumeric,
             isPassword = isPassword,
             actionType = action,
             settings = latestSettings,

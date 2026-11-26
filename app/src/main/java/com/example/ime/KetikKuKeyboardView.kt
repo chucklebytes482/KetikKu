@@ -1116,18 +1116,6 @@ private fun KeyboardBodyContent(
                         onClearPopup = onClearPopup
                     )
                 }
-                KeyboardPage.NUMPAD -> {
-                    NumpadKeyboardGrid(
-                        controller = controller,
-                        settings = settings,
-                        personalEntries = personalEntries,
-                        palette = palette,
-                        keyFontFamily = keyFontFamily,
-                        keyFontStyle = keyFontStyle,
-                        isFloating = isFloating,
-                        onFeedback = onFeedback
-                    )
-                }
             }
         }
     }
@@ -1593,13 +1581,6 @@ private val SYMBOLS_2_ROWS = listOf(
     listOf("`", "…", "🔥", "😂", "😍", "👍", "🙏")
 )
 
-private val NUMPAD_ROWS = listOf(
-    listOf("1", "2", "3", "-"),
-    listOf("4", "5", "6", ","),
-    listOf("7", "8", "9", "."),
-    listOf("ABC", "0", "⌫", "↵")
-)
-
 @Composable
 private fun QwertyKeyboardGrid(
     controller: KeyboardController,
@@ -2012,117 +1993,6 @@ private fun SymbolsKeyboardGrid(
             onKeyPopupRelease = onKeyPopupRelease,
             onClearPopup = onClearPopup
         )
-    }
-}
-
-@Composable
-private fun NumpadKeyboardGrid(
-    controller: KeyboardController,
-    settings: KeyboardSettings,
-    personalEntries: List<PersonalDictionaryEntry>,
-    palette: KeyboardPalette,
-    keyFontFamily: FontFamily,
-    keyFontStyle: FontStyle,
-    isFloating: Boolean,
-    onFeedback: () -> Unit
-) {
-    val keyHeight = (settings.heightEnum.keyHeightDp + 4f).dp
-    val gridPad = if (isFloating) 4.dp else 6.dp
-    val keyFontSize = if (isFloating) 16.sp else 18.sp
-    val pointerTracker = rememberKeyPointersTracker()
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .keyPointersSurface(pointerTracker)
-            .padding(horizontal = gridPad, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(gridPad)
-    ) {
-        NUMPAD_ROWS.forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(gridPad)
-            ) {
-                row.forEach { cell ->
-                    when (cell) {
-                        "ABC" -> SpecialActionKey(
-                            height = keyHeight,
-                            palette = palette,
-                            bordered = true,
-                            highlighted = false,
-                            contentDescription = "Kembali ke Huruf",
-                            pointerTracker = pointerTracker,
-                            slotId = "numpad_abc",
-                            onTap = {
-                                onFeedback()
-                                controller.setPage(KeyboardPage.QWERTY)
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "ABC",
-                                color = palette.keyText,
-                                fontSize = if (isFloating) 12.sp else 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                fontFamily = keyFontFamily,
-                                fontStyle = keyFontStyle
-                            )
-                        }
-                        "⌫" -> BackspaceKey(
-                            height = keyHeight,
-                            palette = palette,
-                            bordered = true,
-                            isFloating = isFloating,
-                            pointerTracker = pointerTracker,
-                            slotId = "numpad_backspace",
-                            onFeedback = onFeedback,
-                            onDelete = {
-                                controller.onBackspaceTap(settings, personalEntries)
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                        "↵" -> SpecialActionKey(
-                            height = keyHeight,
-                            palette = palette,
-                            bordered = false,
-                            highlighted = true,
-                            useAccentFill = true,
-                            contentDescription = controller.enterActionType.label,
-                            pointerTracker = pointerTracker,
-                            slotId = "numpad_enter",
-                            onTap = {
-                                onFeedback()
-                                controller.onEnterTap(settings, personalEntries)
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardReturn,
-                                contentDescription = "Enter",
-                                tint = palette.accentContent
-                            )
-                        }
-                        else -> CharKey(
-                            label = cell,
-                            hint = null,
-                            height = keyHeight,
-                            palette = palette,
-                            bordered = true,
-                            fontFamily = keyFontFamily,
-                            fontStyle = keyFontStyle,
-                            fontSize = keyFontSize,
-                            pointerTracker = pointerTracker,
-                            slotId = "numpad_$cell",
-                            onTap = {
-                                onFeedback()
-                                controller.onCharacterTap(cell, settings, personalEntries)
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 

@@ -1072,7 +1072,6 @@ class ExampleRobolectricTest {
 
         // Hide suggestions (e.g. password field) and verify right toolbar stays at exact same coordinates
         controller.configureForEditor(
-            isNumeric = false,
             isPassword = true,
             actionType = com.example.ime.EnterActionType.ENTER,
             settings = KeyboardSettings(),
@@ -1707,7 +1706,6 @@ class ExampleRobolectricTest {
         )
         val controller = KeyboardController(maskedPasswordTarget)
         controller.configureForEditor(
-            isNumeric = false,
             isPassword = true,
             actionType = com.example.ime.EnterActionType.DONE,
             settings = KeyboardSettings(),
@@ -2089,7 +2087,6 @@ class ExampleRobolectricTest {
             )
         )
         controller.configureForEditor(
-            isNumeric = false,
             isPassword = true,
             actionType = com.example.ime.EnterActionType.DONE,
             settings = settings,

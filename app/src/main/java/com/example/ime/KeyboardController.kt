@@ -35,8 +35,7 @@ data class A2fChip(
 enum class KeyboardPage {
     QWERTY,
     SYMBOLS_1,
-    SYMBOLS_2,
-    NUMPAD
+    SYMBOLS_2
 }
 
 enum class UtilityPanel {
@@ -358,7 +357,6 @@ class KeyboardController(
     private val livePreviewBuffer = StringBuilder(64)
 
     fun configureForEditor(
-        isNumeric: Boolean,
         isPassword: Boolean,
         actionType: EnterActionType,
         settings: KeyboardSettings,
@@ -366,7 +364,7 @@ class KeyboardController(
     ) {
         isPasswordField = isPassword
         enterActionType = actionType
-        currentPage = if (isNumeric) KeyboardPage.NUMPAD else KeyboardPage.QWERTY
+        currentPage = KeyboardPage.QWERTY
         utilityPanel = UtilityPanel.NONE
         resetCtrlMode()
         clipboardStatusMessage = null

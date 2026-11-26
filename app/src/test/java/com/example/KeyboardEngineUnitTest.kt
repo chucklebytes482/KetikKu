@@ -236,7 +236,6 @@ class KeyboardEngineUnitTest {
         val settings = KeyboardSettings()
         val controller = KeyboardController(countingTarget)
         controller.configureForEditor(
-            isNumeric = false,
             isPassword = false,
             actionType = com.example.ime.EnterActionType.ENTER,
             settings = settings,
@@ -387,7 +386,6 @@ class KeyboardEngineUnitTest {
         controller.onCtrlTap()
         assertEquals(com.example.ime.CtrlState.ARMED, controller.ctrlState)
         controller.configureForEditor(
-            isNumeric = false,
             isPassword = false,
             actionType = com.example.ime.EnterActionType.ENTER,
             settings = settings,
@@ -925,7 +923,6 @@ class KeyboardEngineUnitTest {
 
         // 1. Password field with hidden getTextBeforeCursor()
         controller.configureForEditor(
-            isNumeric = false,
             isPassword = true,
             actionType = com.example.ime.EnterActionType.DONE,
             settings = settings,
@@ -942,7 +939,6 @@ class KeyboardEngineUnitTest {
         // 2. Non-password WebView/masked field (empty getTextBeforeCursor) + symbol-prefixed shortcut ";em"
         committedText = ""
         controller.configureForEditor(
-            isNumeric = false,
             isPassword = false,
             actionType = com.example.ime.EnterActionType.SEARCH,
             settings = settings,
