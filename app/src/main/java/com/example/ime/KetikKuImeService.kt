@@ -638,17 +638,6 @@ class KetikKuImeService : InputMethodService() {
             ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, meta))
         }
 
-        override fun sendCtrlKey(letter: Char): Boolean {
-            val ic = icProvider() ?: return false
-            val lower = letter.lowercaseChar()
-            if (lower !in 'a'..'z') return false
-            val keyCode = KeyEvent.KEYCODE_A + (lower - 'a')
-            return runCatching {
-                sendCtrlKey(ic, keyCode)
-                true
-            }.getOrDefault(false)
-        }
-
         override fun selectAll() {
             val ic = icProvider() ?: return
             runCatching {
@@ -664,17 +653,6 @@ class KetikKuImeService : InputMethodService() {
             return runCatching {
                 if (!ic.performContextMenuAction(android.R.id.undo)) {
                     sendCtrlKey(ic, KeyEvent.KEYCODE_Z)
-                }
-                true
-            }.getOrDefault(false)
-        }
-
-        override fun redo(): Boolean {
-            val ic = icProvider() ?: return false
-            markSelfEdit()
-            return runCatching {
-                if (!ic.performContextMenuAction(android.R.id.redo)) {
-                    sendCtrlKey(ic, KeyEvent.KEYCODE_Y)
                 }
                 true
             }.getOrDefault(false)

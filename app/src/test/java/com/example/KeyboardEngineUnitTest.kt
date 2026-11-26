@@ -185,11 +185,9 @@ class KeyboardEngineUnitTest {
         "dunia".forEach { ch -> controller.onCharacterTap(ch.toString(), settings, emptyList()) }
         assertEquals("halo dunia", tf.text)
 
-        // Ctrl+Z undoes last keystroke, Ctrl+Y redoes it
+        // Ctrl+Z undoes last keystroke
         controller.onCtrlUndo(settings, emptyList())
         assertEquals("halo duni", tf.text)
-        controller.onCtrlRedo(settings, emptyList())
-        assertEquals("halo dunia", tf.text)
 
         // Ctrl+A selects all text, Ctrl+C copies without mutating
         controller.onCtrlSelectAll()
@@ -377,10 +375,10 @@ class KeyboardEngineUnitTest {
         controller.onEnterTap(settings, emptyList())
         assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
 
-        // Generic Ctrl+letter sends combo and turns OFF immediately; switching editor resets armed Ctrl cleanly
+        // Ctrl+B tidak didukung: Ctrl mati dan huruf diketik biasa; switching editor resets armed Ctrl cleanly
         controller.onCtrlTap()
         controller.onCharacterTap("b", settings, emptyList())
-        assertEquals("Ctrl+B", targetRef.lastSentCtrlCombo)
+        assertNull(targetRef.lastSentCtrlCombo)
         assertEquals(com.example.ime.CtrlState.OFF, controller.ctrlState)
         assertEquals(0, controller.ctrlActionsRemaining)
 

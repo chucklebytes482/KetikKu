@@ -685,14 +685,6 @@ class ExampleRobolectricTest {
                 .fetchSemanticsNodes().isEmpty()
         )
 
-        // Redo needs its own Ctrl tap (1/1, auto-OFF)
-        composeRule.onNodeWithTag("key_ctrl").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("key_y").performClick()
-        composeRule.waitForIdle()
-        assertEquals("Halo a", value.text)
-        composeRule.onNodeWithContentDescription("Ctrl nonaktif").assertIsDisplayed()
-
         // Single tap Ctrl -> Ctrl+A (1/1, auto-OFF), then re-tap Ctrl for Ctrl+C
         composeRule.onNodeWithTag("key_ctrl").performClick()
         composeRule.waitForIdle()

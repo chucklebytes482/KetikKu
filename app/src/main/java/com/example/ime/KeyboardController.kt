@@ -76,7 +76,6 @@ interface ImeTarget {
     fun moveCursorToEdge(toStart: Boolean)
     fun selectAll()
     fun undo(): Boolean = false
-    fun redo(): Boolean = false
     fun copy(): String = getSelectedText()
     fun cut(): String = getSelectedText()
     fun paste(fallbackText: String): Boolean {
@@ -86,7 +85,6 @@ interface ImeTarget {
         }
         return false
     }
-    fun sendCtrlKey(letter: Char): Boolean = false
     fun insertNewline() = commitText("\n")
     fun performEnterAction(actionType: EnterActionType)
     fun openAppSettings() {}
@@ -117,7 +115,6 @@ class TextFieldImeTarget(
 ) : ImeTarget {
 
     private val undoStack = ArrayDeque<TextFieldValue>()
-    private val redoStack = ArrayDeque<TextFieldValue>()
     var lastSentCtrlCombo: String? = null
         private set
 
@@ -128,7 +125,6 @@ class TextFieldImeTarget(
             undoStack.removeFirst()
         }
         undoStack.addLast(current)
-        redoStack.clear()
     }
 
     override fun openAppSettings() {
@@ -235,25 +231,10 @@ class TextFieldImeTarget(
 
     override fun undo(): Boolean {
         val prev = if (undoStack.isNotEmpty()) undoStack.removeLast() else return false
-        val current = getValue()
-        if (redoStack.size >= 50) {
-            redoStack.removeFirst()
-        }
-        redoStack.addLast(current)
         setValue(prev)
         return true
     }
 
-    override fun redo(): Boolean {
-        val next = if (redoStack.isNotEmpty()) redoStack.removeLast() else return false
-        val current = getValue()
-        if (undoStack.size >= 50) {
-            undoStack.removeFirst()
-        }
-        undoStack.addLast(current)
-        setValue(next)
-        return true
-    }
 
     override fun copy(): String = getSelectedText()
 
@@ -263,13 +244,6 @@ class TextFieldImeTarget(
             deleteSingleCodePointBeforeCursor()
         }
         return selected
-    }
-
-    override fun sendCtrlKey(letter: Char): Boolean {
-        val lower = letter.lowercaseChar()
-        if (lower !in 'a'..'z') return false
-        lastSentCtrlCombo = "Ctrl+${lower.uppercaseChar()}"
-        return true
     }
 
     override fun performEnterAction(actionType: EnterActionType) {
@@ -557,43 +531,44 @@ class KeyboardController(
         onCopyResult: (String) -> Unit = {},
         onPasteRequest: (() -> Unit)? = null
     ) {
-        if (ctrlState != CtrlState.OFF && rawChar.length == 1 && rawChar[0].isLetter() &&
-            rawChar[0].lowercaseChar() !in CTRL_REMOVED_LETTERS
-        ) {
+        if (ctrlState != CtrlState.OFF && rawChar.length == 1 && rawChar[0].isLetter()) {
             val lower = rawChar[0].lowercaseChar()
-            runCatching {
-                when (lower) {
-                    'a' -> onCtrlSelectAll()
-                    'c' -> {
-                        val copied = onCtrlCopy()
-                        if (copied.isNotEmpty()) onCopyResult(copied)
-                    }
-                    'x' -> {
-                        val cut = onCtrlCut(settings, personalEntries)
-                        if (cut.isNotEmpty()) onCopyResult(cut)
-                    }
-                    'v' -> {
-                        if (onPasteRequest != null) {
-                            onPasteRequest()
-                        } else {
-                            onCtrlPaste("", settings, personalEntries)
-                        }
-                    }
-                    'z' -> onCtrlUndo(settings, personalEntries)
-                    'y' -> onCtrlRedo(settings, personalEntries)
-                    else -> target.sendCtrlKey(lower)
-                }
-            }.onFailure {
-                clipboardStatusMessage = "Gagal mengirim kombinasi Ctrl+${lower.uppercaseChar()}"
-            }
-            lastCtrlComboLabel = "Ctrl+${lower.uppercaseChar()}"
-            ctrlActionsCount++
-            if (ctrlActionsCount >= CTRL_STICKY_CHAR_LIMIT) {
+            if (lower !in CTRL_ALLOWED_LETTERS) {
+                // Ctrl+huruf selain A, C, X, V, Z tidak didukung: Ctrl mati, huruf diketik biasa.
                 resetCtrlMode()
             } else {
-                ctrlActionsRemaining = (CTRL_STICKY_CHAR_LIMIT - ctrlActionsCount).coerceAtLeast(0)
+                runCatching {
+                    when (lower) {
+                        'a' -> onCtrlSelectAll()
+                        'c' -> {
+                            val copied = onCtrlCopy()
+                            if (copied.isNotEmpty()) onCopyResult(copied)
+                        }
+                        'x' -> {
+                            val cut = onCtrlCut(settings, personalEntries)
+                            if (cut.isNotEmpty()) onCopyResult(cut)
+                        }
+                        'v' -> {
+                            if (onPasteRequest != null) {
+                                onPasteRequest()
+                            } else {
+                                onCtrlPaste("", settings, personalEntries)
+                            }
+                        }
+                        'z' -> onCtrlUndo(settings, personalEntries)
+                    }
+                }.onFailure {
+                    clipboardStatusMessage = "Gagal mengirim kombinasi Ctrl+${lower.uppercaseChar()}"
+                }
+                lastCtrlComboLabel = "Ctrl+${lower.uppercaseChar()}"
+                ctrlActionsCount++
+                if (ctrlActionsCount >= CTRL_STICKY_CHAR_LIMIT) {
+                    resetCtrlMode()
+                } else {
+                    ctrlActionsRemaining = (CTRL_STICKY_CHAR_LIMIT - ctrlActionsCount).coerceAtLeast(0)
+                }
+                return
             }
-            return
         }
 
         val letterTransformed = if (shiftState != ShiftState.OFF && rawChar.length == 1 && rawChar[0].isLetter()) {
@@ -845,15 +820,6 @@ class KeyboardController(
         personalEntries: List<PersonalDictionaryEntry>
     ) {
         target.undo()
-        invalidateLocalWordCache()
-        refreshState(settings, personalEntries)
-    }
-
-    fun onCtrlRedo(
-        settings: KeyboardSettings,
-        personalEntries: List<PersonalDictionaryEntry>
-    ) {
-        target.redo()
         invalidateLocalWordCache()
         refreshState(settings, personalEntries)
     }
@@ -1165,8 +1131,8 @@ class KeyboardController(
         private val HABIT_WORD_REGEX = Regex("^\\p{L}+$")
         const val MAX_LIVE_PREVIEW_CHARS = 120
         const val CTRL_STICKY_CHAR_LIMIT = 1
-        /** Ctrl+B, I, U, F tidak lagi dikirim ke aplikasi; huruf diketik seperti biasa. */
-        val CTRL_REMOVED_LETTERS = setOf('b', 'i', 'u', 'f')
+        /** Satu-satunya kombinasi Ctrl+huruf yang didukung. */
+        val CTRL_ALLOWED_LETTERS = setOf('a', 'c', 'x', 'v', 'z')
         private const val MAX_ACTIVE_WORD_READ_UTF16 = 60
         private val BOUNDARY_PUNCTUATION = charArrayOf('.', ',', '!', '?', ';', ':')
 
