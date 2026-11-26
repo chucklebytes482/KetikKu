@@ -2056,21 +2056,27 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun deviceDictionaryBackup_validatesFreeDocumentsPathsWithoutAutoKetikKuSubfolder() {
-        val docsRootUri = "content://com.android.externalstorage.documents/tree/primary%3ADocuments"
+    fun deviceDictionaryBackup_acceptsAnyDeviceFolderAndRejectsTraversal() {
+        val rootUri = "content://com.android.externalstorage.documents/tree/primary%3A"
+        val docsUri = "content://com.android.externalstorage.documents/tree/primary%3ADocuments"
         val customSubUri = "content://com.android.externalstorage.documents/tree/primary%3ADocuments%2FCatatan%2FKamus"
-        val outsideDownloadUri = "content://com.android.externalstorage.documents/tree/primary%3ADownload"
+        val downloadUri = "content://com.android.externalstorage.documents/tree/primary%3ADownload"
+        val sdUri = "content://com.android.externalstorage.documents/tree/1234-5678%3ABackup"
         val traversalUri = "content://com.android.externalstorage.documents/tree/primary%3ADocuments%2F..%2FDownload"
         val wrongProviderUri = "content://com.other.provider/tree/primary%3ADocuments"
 
-        assertTrue(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(docsRootUri))
-        assertTrue(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(customSubUri))
-        assertFalse(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(outsideDownloadUri))
-        assertFalse(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(traversalUri))
-        assertFalse(com.example.data.DeviceDictionaryBackupManager.isValidDocumentsTreeUri(wrongProviderUri))
+        assertTrue(com.example.data.DeviceDictionaryBackupManager.isValidFolderTreeUri(rootUri))
+        assertTrue(com.example.data.DeviceDictionaryBackupManager.isValidFolderTreeUri(docsUri))
+        assertTrue(com.example.data.DeviceDictionaryBackupManager.isValidFolderTreeUri(customSubUri))
+        assertTrue(com.example.data.DeviceDictionaryBackupManager.isValidFolderTreeUri(downloadUri))
+        assertTrue(com.example.data.DeviceDictionaryBackupManager.isValidFolderTreeUri(sdUri))
+        assertFalse(com.example.data.DeviceDictionaryBackupManager.isValidFolderTreeUri(traversalUri))
+        assertFalse(com.example.data.DeviceDictionaryBackupManager.isValidFolderTreeUri(wrongProviderUri))
 
-        assertEquals("Documents", DeviceDictionaryBackupManager.documentsFolder(docsRootUri))
-        assertEquals("Documents/Catatan/Kamus", DeviceDictionaryBackupManager.documentsFolder(customSubUri))
+        assertEquals("Penyimpanan internal", DeviceDictionaryBackupManager.folderPath(rootUri))
+        assertEquals("Documents", DeviceDictionaryBackupManager.folderPath(docsUri))
+        assertEquals("Documents/Catatan/Kamus", DeviceDictionaryBackupManager.folderPath(customSubUri))
+        assertEquals("Kartu SD (1234-5678)/Backup", DeviceDictionaryBackupManager.folderPath(sdUri))
     }
 
     @Test

@@ -1,7 +1,6 @@
 package com.example.ui.screens
 
 import android.content.Intent
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -65,8 +64,8 @@ fun DeviceBackupSheetContent(
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             val chosen = uri.toString()
-            if (!DeviceDictionaryBackupManager.isValidDocumentsTreeUri(chosen)) {
-                onMessage("Pilih folder di dalam Documents.")
+            if (!DeviceDictionaryBackupManager.isValidFolderTreeUri(chosen)) {
+                onMessage("Pilih folder di penyimpanan perangkat.")
             } else {
                 try {
                     resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
@@ -79,10 +78,10 @@ fun DeviceBackupSheetContent(
     }
     Column(Modifier.fillMaxWidth().imePadding()) {
         DeviceBackupSheetBody(
-            folder = DeviceDictionaryBackupManager.documentsFolder(folderUri),
+            folder = DeviceDictionaryBackupManager.folderPath(folderUri),
             state = state,
             onRequestFolderAccess = {
-                folderPicker.launch(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) DeviceDictionaryBackupManager.INITIAL_DOCUMENTS_URI else null)
+                folderPicker.launch(null)
             },
             onUnlock = onUnlock,
             onSync = onSync,

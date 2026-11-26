@@ -84,21 +84,21 @@ class AndroidDeviceBackupStorage(context: Context) : DeviceBackupStorage {
                     }
                 }
             }
-        } ?: throw BackupFolderException("Folder tidak dapat dibaca. Pilih lagi folder di Documents.")
+        } ?: throw BackupFolderException("Folder tidak dapat dibaca. Pilih lagi folder cadangan.")
     }
 
     private inline fun <T> inFolder(folderUri: String, action: (Uri, Uri) -> T): T {
-        if (!DeviceDictionaryBackupManager.isValidDocumentsTreeUri(folderUri)) {
-            throw BackupFolderException("Pilih folder cadangan di dalam Documents.")
+        if (!DeviceDictionaryBackupManager.isValidFolderTreeUri(folderUri)) {
+            throw BackupFolderException("Pilih folder cadangan di penyimpanan perangkat.")
         }
         val tree = Uri.parse(folderUri)
         if (resolver.persistedUriPermissions.none { it.uri == tree && it.isReadPermission && it.isWritePermission }) {
-            throw BackupFolderException("Izin folder hilang. Pilih lagi folder cadangan di Documents.")
+            throw BackupFolderException("Izin folder hilang. Pilih lagi folder cadangan.")
         }
         return try {
             action(tree, DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree)))
         } catch (_: SecurityException) {
-            throw BackupFolderException("Akses folder ditolak. Pilih lagi folder cadangan di Documents.")
+            throw BackupFolderException("Akses folder ditolak. Pilih lagi folder cadangan.")
         }
     }
 
@@ -209,7 +209,6 @@ class DeviceDictionaryBackupManager(
     companion object {
         const val FILE_NAME = "ketikku.vxenc"
         private const val AUTHORITY = "com.android.externalstorage.documents"
-        val INITIAL_DOCUMENTS_URI: Uri by lazy { Uri.parse("content://$AUTHORITY/document/primary%3ADocuments") }
         private val SAFE_ERRORS = setOf(
             "Seed A2F tidak dapat dibaca. Cadangan tidak diubah.",
             "Cadangan berubah di luar aplikasi. Sinkronkan ulang.",
@@ -222,17 +221,23 @@ class DeviceDictionaryBackupManager(
             "ID cadangan bentrok dengan akun A2F. Data tidak diubah."
         )
 
-        fun documentsFolder(treeUri: String): String? = runCatching {
+        fun folderPath(treeUri: String): String? = runCatching {
             val uri = Uri.parse(treeUri)
             require(uri.scheme == "content" && uri.authority == AUTHORITY && DocumentsContract.isTreeUri(uri))
             val id = DocumentsContract.getTreeDocumentId(uri)
-            require(id.startsWith("primary:"))
-            val path = id.removePrefix("primary:")
-            require(path == "Documents" || path.startsWith("Documents/"))
-            require(path.split('/').none { it.isBlank() || it == "." || it == ".." })
-            path
+            val colon = id.indexOf(':')
+            require(colon > 0)
+            val volume = id.substring(0, colon)
+            val segments = id.substring(colon + 1).split('/').filter { it.isNotEmpty() }
+            require(segments.none { it == "." || it == ".." })
+            val relative = segments.joinToString("/")
+            if (volume == "primary") {
+                relative.ifEmpty { "Penyimpanan internal" }
+            } else {
+                "Kartu SD ($volume)" + if (relative.isEmpty()) "" else "/$relative"
+            }
         }.getOrNull()
 
-        fun isValidDocumentsTreeUri(treeUri: String): Boolean = documentsFolder(treeUri) != null
+        fun isValidFolderTreeUri(treeUri: String): Boolean = folderPath(treeUri) != null
     }
 }

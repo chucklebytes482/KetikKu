@@ -125,7 +125,7 @@ Catatan:
 ## 12. Cadangan perangkat
 
 - Kamus pribadi, folder, dan akun A2F dicadangkan ke satu berkas `ketikku.vxenc` (VaultExplorer VXENC v1, AES-256-GCM tanpa keyfile). Papan klip dan setelan tidak ikut.
-- Pilih folder `Documents` atau subfoldernya di **Setelan → Cadangan Perangkat**. Ketik kata sandi (spasi diabaikan), lalu pilih **Buka & sinkronkan**. Jika belum ada berkas, KetikKu membuatnya.
+- Pilih folder mana pun di penyimpanan perangkat (internal atau kartu SD) lewat **Setelan → Cadangan Perangkat**. Android tidak mengizinkan folder `Android/data` dan `Android/obb`. Ketik kata sandi (spasi diabaikan), lalu pilih **Buka & sinkronkan**. Jika belum ada berkas, KetikKu membuatnya.
 - Untuk memulihkan, letakkan `ketikku.vxenc` di folder tersebut dan gunakan kata sandi yang sama. Entri digabungkan menurut ID dan waktu perubahan; entri lokal yang tidak tercantum tetap disimpan. Berkas yang gagal diautentikasi tidak dipakai atau ditimpa.
 - Perubahan kamus disinkronkan otomatis selama sesi cadangan terbuka. **Kunci cadangan** mengakhiri sesi; kata sandi tidak disimpan permanen.
 - Berkas JSON, Base64, atau cadangan lama lain tidak dibaca maupun dihapus. Penyimpanan dilakukan secara luring tanpa Google Drive atau GitHub.
