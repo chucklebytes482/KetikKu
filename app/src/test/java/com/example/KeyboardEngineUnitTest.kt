@@ -885,7 +885,7 @@ class KeyboardEngineUnitTest {
         assertEquals("", controller.currentTypedText)
 
         // Works in password field too and clears after selecting shortcut suggestion
-        controller.configureForEditor(false, true, com.example.ime.EnterActionType.DONE, settings, entries)
+        controller.configureForEditor(true, com.example.ime.EnterActionType.DONE, settings, entries)
         controller.onCharacterTap("p", settings, entries)
         controller.onCharacterTap("w", settings, entries)
         assertEquals("pw", controller.currentTypedText)
