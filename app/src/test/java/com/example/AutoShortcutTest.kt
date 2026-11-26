@@ -14,12 +14,12 @@ class AutoShortcutTest {
 
     @Test
     fun pwShortcutUsesFirstCharPlusPw() {
-        assertEquals("pwg", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KATA_SANDI, "Github", emptyList(), null))
+        assertEquals("pwg", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KATA_SANDI, "Github"))
     }
 
     @Test
     fun numFolderHasNoAutoShortcut() {
-        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_NOMOR, "081234567890", emptyList(), null))
+        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_NOMOR, "081234567890"))
         assertFalse(SettingsRepository.isShortcutLockedFolder(SettingsRepository.FOLDER_NOMOR))
     }
 
@@ -70,31 +70,26 @@ class AutoShortcutTest {
     }
 
     @Test
-    fun pwShortcutUsesPwPlusFirstChar() {
-        assertEquals("pwg", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KATA_SANDI, "Github", emptyList(), null))
-    }
-
-    @Test
     fun kredShortcutUsesWebsiteMainDomain() {
         assertEquals(
             "kredgithub",
-            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "budi\ngithub.com", emptyList(), null)
+            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "budi\ngithub.com")
         )
         assertEquals(
             "kredgithub",
-            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "budi\nhttps://www.github.com/login", emptyList(), null)
+            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "budi\nhttps://www.github.com/login")
         )
     }
 
     @Test
     fun kredAndAutSharedMainDomainUsesSameShortcutPrefix() {
-        assertEquals("kredbca", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "ani\nbca.co.id", emptyList(), null))
-        assertEquals("autbbc", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "x@y.com\nwww.bbc.co.uk", emptyList(), null))
+        assertEquals("kredbca", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "ani\nbca.co.id"))
+        assertEquals("autbbc", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "x@y.com\nwww.bbc.co.uk"))
     }
 
     @Test
     fun kredWithoutWebsiteGetsNoShortcut() {
-        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "BCA", emptyList(), null))
+        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KREDENSIAL, "BCA"))
     }
 
     @Test
@@ -128,22 +123,20 @@ class AutoShortcutTest {
     fun autShortcutUsesWebsiteMainDomain() {
         assertEquals(
             "autgoogle",
-            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\ngoogle.com", emptyList(), null)
+            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\ngoogle.com")
         )
         assertEquals(
             "autgoogle",
-            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\nhttps://myaccount.google.com/x", emptyList(), null)
+            SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\nhttps://myaccount.google.com/x")
         )
     }
 
     @Test
     fun autAccountsWithSameDomainShareShortcut() {
-        val first = SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\ngoogle.com", emptyList(), null)
+        val first = SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\ngoogle.com")
         val second = SettingsRepository.autoShortcut(
             SettingsRepository.FOLDER_A2F,
-            "ani@y.com\naccounts.google.com",
-            listOf(e("x", first, SettingsRepository.FOLDER_A2F)),
-            null
+            "ani@y.com\naccounts.google.com"
         )
         assertEquals(first, second)
         assertEquals("autgoogle", second)
@@ -151,7 +144,7 @@ class AutoShortcutTest {
 
     @Test
     fun autWithoutWebsiteGetsNoShortcut() {
-        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\n", emptyList(), null))
+        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_A2F, "budi@x.com\n"))
     }
 
     @Test
@@ -192,22 +185,43 @@ class AutoShortcutTest {
     }
 
     @Test
-    fun collisionGetsNumberSuffix() {
-        val others = listOf(e("x", "pwg", SettingsRepository.FOLDER_KATA_SANDI))
-        assertEquals("pwg2", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KATA_SANDI, "Github", others, null))
+    fun pwShortcutShowsAllMatchingInitialsIncludingLegacyNumberedEntries() {
+        val entries = (1..7).map { index ->
+            e("pw$index", if (index == 1) "pwg" else "pwg$index", SettingsRepository.FOLDER_KATA_SANDI)
+                .copy(word = "Gambar $index", updatedAtMillis = index.toLong())
+        }
+        val excluded = listOf(
+            entries.first().copy(id = "deleted", word = "Gugur", deleted = true),
+            entries.first().copy(id = "trash", word = "Gugur", folder = SettingsRepository.FOLDER_SAMPAH),
+            entries.first().copy(id = "other", word = "Admin", shortcut = "pwa")
+        )
+        assertEquals((7 downTo 1).map { "Gambar $it" }, DictionaryEngine.findPagedShortcutWords("PWG", entries + excluded))
+        assertEquals("pwg", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KATA_SANDI, "Gambar 2"))
+        assertTrue(DictionaryEngine.findPagedShortcutWords("pw", entries).isEmpty())
     }
 
     @Test
-    fun trashEntriesDoNotBlockShortcuts() {
-        val others = listOf(e("x", "pwg", SettingsRepository.FOLDER_SAMPAH))
-        assertEquals("pwg", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_KATA_SANDI, "Github", others, null))
+    fun domainShortcutsReturnEveryMatchingKredAndA2fAccount() {
+        val kred = (1..7).map { index ->
+            e("k$index", "kredgithub$index", SettingsRepository.FOLDER_KREDENSIAL)
+                .copy(word = "akun $index\nlogin.github.com", updatedAtMillis = index.toLong())
+        }
+        val a2f = (1..7).map { index ->
+            e("a$index", "autgithub", SettingsRepository.FOLDER_A2F)
+                .copy(word = "user$index@example.test\ngithub.com", secretCipher = "synthetic", updatedAtMillis = index.toLong())
+        }
+        val words = (7 downTo 1).map { "akun $it" }
+        assertEquals(words, DictionaryEngine.findPagedShortcutWords("kredgithub", kred + a2f))
+        assertEquals(words, DictionaryEngine.findPagedShortcutWords("kred", kred + a2f))
+        assertEquals((7 downTo 1).map { "a$it" }, DictionaryEngine.findA2fEntries("autgithub", kred + a2f).map { it.id })
+        assertTrue(DictionaryEngine.findPagedShortcutWords("kredgit", kred).isEmpty())
     }
 
     @Test
     fun foldersWithoutAutoRuleGetNoShortcut() {
-        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_PRIBADI, "Halo", emptyList(), null))
-        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_BALASAN_CEPAT, "Halo", emptyList(), null))
-        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_SAMPAH, "Halo", emptyList(), null))
+        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_PRIBADI, "Halo"))
+        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_BALASAN_CEPAT, "Halo"))
+        assertEquals("", SettingsRepository.autoShortcut(SettingsRepository.FOLDER_SAMPAH, "Halo"))
     }
 
     private fun site(folder: String, website: String) =

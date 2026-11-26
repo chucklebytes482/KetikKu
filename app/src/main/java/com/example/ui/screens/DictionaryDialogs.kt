@@ -97,21 +97,23 @@ internal fun DictionaryEntryDialog(
     var shortcut by remember(initialEntry) { mutableStateOf(initialEntry?.shortcut.orEmpty()) }
     var seed by remember(initialEntry) { mutableStateOf("") }
 
-    // Entri yang sudah tersimpan terkunci: kata/email/website/seed tidak bisa diubah. Hanya pintasan non-A2F yang bisa diedit.
+    // Email dan seed A2F tetap terkunci setelah entri disimpan.
     val seedEditable = !inTrash && isNew
     // Folder umum (num, prib, bc): semua field bisa diubah, termasuk kata.
     val openFolder = SettingsRepository.normalizeFolderPath(folder) in SettingsRepository.OPEN_FIELD_FOLDERS
     val fieldsLocked = !isNew && !openFolder
-    // Folder gm/pw/aut/kred: pintasan otomatis. Entri yang sudah tersimpan terkunci penuh.
+    // Folder pw/aut/kred: pintasan otomatis, tetapi website A2F tetap bisa diedit.
     val shortcutLockedFolder = SettingsRepository.isShortcutLockedFolder(folder)
-    val savedLockedFolder = !isNew && shortcutLockedFolder
+    val savedLockedFolder = !isNew && shortcutLockedFolder && !isA2f
+    val websiteEditable = !inTrash && (isA2f || !fieldsLocked)
 
     val emailRegex = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     // Field wajib kosong: menonaktifkan Simpan, tanpa pesan dan tanpa warna merah.
     val emailMissing = isA2f && isNew && email.isBlank()
-    val siteMissing = (isA2f || isKred) && isNew && website.isBlank()
+    val siteMissing = (isA2f || (isKred && isNew)) &&
+        SettingsRepository.normalizeWebsiteDomain(website).isBlank()
     val seedMissing = isA2f && isNew && seed.isBlank()
-    // Pintasan A2F dibuat otomatis saat simpan (email + website), jadi tidak pernah wajib diisi di dialog.
+    // Pintasan A2F dibuat otomatis dari website saat simpan.
     val shortcutMissing = false
     val wordMissing = !isA2f && isNew && word.isBlank()
 
@@ -129,8 +131,7 @@ internal fun DictionaryEntryDialog(
     }
     val shortcutError = when {
         shortcutMissing -> null
-        isA2f && (shortcut.trim().length > 30 || shortcut.trim().any { !it.isLetterOrDigit() }) ->
-            "Pintasan A2F: maksimal 30 huruf/angka tanpa spasi"
+        shortcutLockedFolder -> null
         shortcut.isNotBlank() && usedShortcuts.any { it.equals(shortcut.trim(), true) } -> "Pintasan sudah dipakai"
         else -> null
     }
@@ -167,7 +168,7 @@ internal fun DictionaryEntryDialog(
                     OutlinedTextField(
                         value = website,
                         onValueChange = { website = it },
-                        enabled = !(fieldsLocked),
+                        enabled = websiteEditable,
                         colors = dictFieldColors(),
                         label = { Text("Website") },
                         singleLine = true,

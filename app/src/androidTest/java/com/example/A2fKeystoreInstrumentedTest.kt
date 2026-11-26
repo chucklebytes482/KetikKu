@@ -1,6 +1,11 @@
 package com.example
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.data.DictionaryEngine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import com.example.data.BackupCodec
 import com.example.data.PortableBackupEntry
 import com.example.data.VxencBackupPayload
@@ -15,6 +20,26 @@ import org.junit.runner.RunWith
 /** Must run on an Android device/emulator, not a JVM Keystore substitute. */
 @RunWith(AndroidJUnit4::class)
 class A2fKeystoreInstrumentedTest {
+    @Test fun updateA2fWebsitePreservesEmailAndCipherAndMovesShortcut() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val repository = SettingsRepository(context)
+        val folder = SettingsRepository.FOLDER_A2F
+        val id = java.util.UUID.randomUUID().toString()
+        val seed = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+        val cipher = SecretVault.encrypt(seed)
+        val email = "$id@example.test"
+        repository.upsertDictionaryEntry("", "", "id-ID", id, folder, cipher, email, "site-before.example")
+        repository.upsertDictionaryEntry("", "", "id-ID", id, folder, email = "ignored@example.test",
+            website = "https://login.site-after.example/path")
+        val entries = repository.dictionaryFlow.first { entries -> entries.any { it.id == id } }
+        val saved = entries.single { it.id == id }
+        assertEquals("$email\nsite-after.example", saved.word)
+        assertEquals(cipher, saved.secretCipher)
+        assertEquals(seed, SecretVault.decryptOrNull(saved.secretCipher))
+        assertTrue(DictionaryEngine.findA2fEntries("autsite-before", entries).none { it.id == id })
+        assertTrue(DictionaryEngine.findA2fEntries("autsite-after", entries).any { it.id == id })
+    }
+
     @Test fun localVaultAndPortableBackup_roundTrip() {
         val seed = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
         val local = SecretVault.encrypt(seed)

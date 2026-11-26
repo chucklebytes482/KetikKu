@@ -305,7 +305,7 @@ class KeyboardController(
     /** True saat pintasan A2F cocok; bilah menampilkan kode dan email akun, bukan kata saran. */
     var isA2fActive by mutableStateOf(false)
         private set
-    /** Kata isi folder num saat mengetik `num`. Kosong di luar kondisi itu. */
+    /** Saran lengkap untuk `num` dan pintasan kred/pw. */
     var folderSuggestions by mutableStateOf<List<String>>(emptyList())
         private set
     var isSelectionMode by mutableStateOf(false)
@@ -736,11 +736,12 @@ class KeyboardController(
     fun onSuggestionTap(
         word: String,
         settings: KeyboardSettings,
-        personalEntries: List<PersonalDictionaryEntry>
+        personalEntries: List<PersonalDictionaryEntry>,
+        recordUsage: Boolean = true
     ) {
         val styled = formatOutput(word, settings)
         replaceCurrentWordForSuggestion(if (isPasswordField) styled else "$styled ")
-        recordWordUsageInternal(word, personalEntries, forceRecord = true)
+        if (recordUsage) recordWordUsageInternal(word, personalEntries, forceRecord = true)
         clearSelectedPreview()
         localContextValid = true
         clearLocalWordBuffer()
@@ -932,6 +933,8 @@ class KeyboardController(
         localContextValid = true
         if (suggestions.isNotEmpty()) suggestions = emptyList()
         if (primaryAutoCorrect != null) primaryAutoCorrect = null
+        if (folderSuggestions.isNotEmpty()) folderSuggestions = emptyList()
+        clearA2f()
     }
 
     fun convertSelectionToMonospace(enableMonospace: Boolean) {
@@ -1046,6 +1049,7 @@ class KeyboardController(
         if (isPasswordField && currentWord.isEmpty()) {
             if (suggestions.isNotEmpty()) suggestions = emptyList()
             if (primaryAutoCorrect != null) primaryAutoCorrect = null
+            if (folderSuggestions.isNotEmpty()) folderSuggestions = emptyList()
             clearA2f()
             return
         }
@@ -1059,7 +1063,9 @@ class KeyboardController(
             return
         }
         clearA2f()
-        val folderWords = if (isPasswordField) emptyList() else DictionaryEngine.findFolderEntryWords(currentWord, personalEntries)
+        val shortcutWords = DictionaryEngine.findPagedShortcutWords(currentWord, personalEntries)
+        val folderWords = if (shortcutWords.isNotEmpty() || isPasswordField) shortcutWords
+        else DictionaryEngine.findFolderEntryWords(currentWord, personalEntries)
         if (folderWords.isNotEmpty()) {
             if (suggestions.isNotEmpty()) suggestions = emptyList()
             if (primaryAutoCorrect != null) primaryAutoCorrect = null

@@ -6,12 +6,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.gestures.ScrollScope
+import androidx.compose.foundation.gestures.TargetedFlingBehavior
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,12 +39,8 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.PagerDefaults
-import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -1227,7 +1222,7 @@ private fun TopUtilityAndSuggestionBar(
                         isFloating = isFloating,
                         onTap = { word ->
                             onFeedback()
-                            controller.onSuggestionTap(word, settings, personalEntries)
+                            controller.onSuggestionTap(word, settings, personalEntries, recordUsage = false)
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1442,9 +1437,53 @@ private fun SuggestionChipsRow(
     }
 }
 
-/**
- * Bilah kata folder num: semua entri folder num, tiga kolom terlihat, digeser horizontal.
- */
+private const val SUGGESTION_COLUMNS_PER_PAGE = 3
+
+/** Satu halaman memenuhi lebar bilah: satu geseran berpindah satu kelompok tiga kolom. */
+@Composable
+internal fun ThreeColumnSuggestionPager(
+    itemCount: Int,
+    contentKey: List<String>,
+    dividerColor: Color,
+    modifier: Modifier = Modifier,
+    item: @Composable (Int) -> Unit
+) {
+    val columns = SUGGESTION_COLUMNS_PER_PAGE
+    val pagerState = rememberPagerState(pageCount = { (itemCount + columns - 1) / columns })
+    LaunchedEffect(contentKey) {
+        pagerState.scrollToPage(0)
+    }
+    val snap = PagerDefaults.flingBehavior(state = pagerState, snapPositionalThreshold = 0.25f)
+    val distanceOnlySnap = remember(snap) {
+        object : TargetedFlingBehavior {
+            override suspend fun ScrollScope.performFling(
+                initialVelocity: Float,
+                onRemainingDistanceUpdated: (Float) -> Unit
+            ): Float = with(snap) {
+                // Posisi jari saja menentukan halaman tujuan, bukan kecepatan pelepasannya.
+                performFling(0f, onRemainingDistanceUpdated)
+            }
+        }
+    }
+    HorizontalPager(
+        state = pagerState,
+        modifier = modifier.fillMaxHeight().testTag("paged_suggestions"),
+        flingBehavior = distanceOnlySnap
+    ) { page ->
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            repeat(columns) { column ->
+                if (column > 0) {
+                    SuggestionColumnDivider(color = dividerColor, tag = "paged_suggestion_divider_$column")
+                }
+                val index = page * columns + column
+                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                    if (index < itemCount) item(index)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun FolderWordsRow(
     words: List<String>,
@@ -1459,52 +1498,32 @@ private fun FolderWordsRow(
     val chipHeight = if (isFloating) 30.dp else 32.dp
     val stripFontSize = if (isFloating) 11.sp else 13.sp
 
-    BoxWithConstraints(modifier = modifier.fillMaxHeight()) {
-        val columnWidth = maxWidth / 3
-        val scrollState = rememberScrollState()
-        Row(
+    ThreeColumnSuggestionPager(words.size, words, dividerColor, modifier) { index ->
+        val word = words[index]
+        Box(
             modifier = Modifier
-                .fillMaxHeight()
-                .horizontalScroll(scrollState),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth()
+                .height(chipHeight)
+                .testTag("folder_word_chip")
+                .clickable { onTap(word) }
+                .padding(horizontal = if (isFloating) 4.dp else 6.dp),
+            contentAlignment = Alignment.Center
         ) {
-            words.forEachIndexed { index, word ->
-                if (index > 0) {
-                    SuggestionColumnDivider(
-                        color = dividerColor,
-                        tag = "folder_word_divider_$index"
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .width(columnWidth)
-                        .height(chipHeight)
-                        .testTag("folder_word_chip")
-                        .clickable { onTap(word) }
-                        .padding(horizontal = if (isFloating) 4.dp else 6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = word,
-                        color = palette.keyText,
-                        fontSize = stripFontSize,
-                        fontWeight = FontWeight.Medium,
-                        fontFamily = fontFamily,
-                        fontStyle = fontStyle,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
+            Text(
+                text = word,
+                color = palette.keyText,
+                fontSize = stripFontSize,
+                fontWeight = FontWeight.Medium,
+                fontFamily = fontFamily,
+                fontStyle = fontStyle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
 
-/**
- * Bilah A2F: satu kolom per akun (kode di atas, email kecil di bawah), 3 kolom terlihat, digeser dan berhenti per kolom.
- * Kode dan email masing-masing bisa disentuh.
- */
-@OptIn(ExperimentalFoundationApi::class)
+/** Satu kolom per akun A2F, kode dan email masing-masing bisa disentuh. */
 @Composable
 private fun A2fChipsRow(
     chips: List<A2fChip>,
@@ -1514,72 +1533,44 @@ private fun A2fChipsRow(
     onTap: (A2fChip, A2fChip.Part) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Kunci daftar berdasarkan id akun saja: kode yang berganti tiap 30 detik tidak mereset posisi geser.
-    val chipIdsKey = chips.joinToString("|") { it.entryId }
-    val pagerState = rememberPagerState(pageCount = { chips.size })
-    LaunchedEffect(chipIdsKey) {
-        pagerState.scrollToPage(0)
-    }
-    BoxWithConstraints(modifier = modifier.fillMaxHeight()) {
-        val columnWidth = maxWidth / 3
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-            // Tiga kolom terlihat. Satu geseran selalu pindah satu kolom, sekencang apa pun geserannya.
-            pageSize = PageSize.Fixed(columnWidth),
-            flingBehavior = PagerDefaults.flingBehavior(
-                state = pagerState,
-                pagerSnapDistance = PagerSnapDistance.atMost(1)
-            ),
-            key = { page -> chips[page].entryId }
-        ) { index ->
-            val chip = chips[index]
-            Column(
+    // Perubahan kode tiap 30 detik tidak mereset halaman yang sedang dibuka.
+    ThreeColumnSuggestionPager(chips.size, chips.map { it.entryId }, dividerColor, modifier) { index ->
+        val chip = chips[index]
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("a2f_chip")
+                .padding(horizontal = if (isFloating) 2.dp else 4.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = chip.code,
+                color = palette.accentBg,
+                fontSize = if (isFloating) 12.sp else 13.sp,
+                lineHeight = if (isFloating) 13.sp else 14.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .drawBehind {
-                        if (index > 0) {
-                            drawLine(
-                                color = dividerColor,
-                                start = Offset(0f, 0f),
-                                end = Offset(0f, size.height),
-                                strokeWidth = 1.dp.toPx()
-                            )
-                        }
-                    }
-                    .testTag("a2f_chip")
-                    .padding(horizontal = if (isFloating) 2.dp else 4.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+                    .fillMaxWidth()
+                    .clickable { onTap(chip, A2fChip.Part.CODE) }
+            )
+            if (chip.shortEmail.isNotEmpty()) {
                 Text(
-                    text = chip.code,
-                    color = palette.accentBg,
-                    fontSize = if (isFloating) 12.sp else 13.sp,
-                    lineHeight = if (isFloating) 13.sp else 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
+                    text = chip.shortEmail,
+                    color = palette.keyText,
+                    fontSize = if (isFloating) 8.sp else 9.sp,
+                    lineHeight = if (isFloating) 9.sp else 10.sp,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onTap(chip, A2fChip.Part.CODE) }
+                        .clickable { onTap(chip, A2fChip.Part.EMAIL) }
                 )
-                if (chip.shortEmail.isNotEmpty()) {
-                    Text(
-                        text = chip.shortEmail,
-                        color = palette.keyText,
-                        fontSize = if (isFloating) 8.sp else 9.sp,
-                        lineHeight = if (isFloating) 9.sp else 10.sp,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onTap(chip, A2fChip.Part.EMAIL) }
-                    )
-                }
             }
         }
     }

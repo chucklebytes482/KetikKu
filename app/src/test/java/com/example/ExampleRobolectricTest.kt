@@ -2,6 +2,15 @@ package com.example
 
 import android.content.Context
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.unit.dp
+import com.example.ime.ThreeColumnSuggestionPager
+import com.example.ui.screens.DictionaryEntryDialog
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +35,7 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -73,6 +83,61 @@ class ExampleRobolectricTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun pagedSuggestionsMoveThreeColumnsPerSwipeAtDifferentSpeeds() {
+        val labels = (1..11).map { "Kolom $it" }
+        composeRule.setContent {
+            KetikKuTheme {
+                ThreeColumnSuggestionPager(labels.size, labels, Color.Gray, Modifier.size(270.dp, 36.dp)) {
+                    Text(labels[it])
+                }
+            }
+        }
+        fun assertPage(vararg visible: Int) {
+            for (index in visible) composeRule.onNodeWithText("Kolom $index").assertIsDisplayed()
+        }
+        val pager = composeRule.onNodeWithTag("paged_suggestions")
+        assertPage(1, 2, 3)
+        pager.performTouchInput { swipeLeft(durationMillis = 650) }
+        assertPage(4, 5, 6)
+        pager.performTouchInput { swipeLeft(durationMillis = 65) }
+        assertPage(7, 8, 9)
+        pager.performTouchInput { swipeLeft(durationMillis = 65) }
+        assertPage(10, 11)
+        pager.performTouchInput { swipeRight(durationMillis = 65) }
+        assertPage(7, 8, 9)
+        pager.performTouchInput { swipeRight(durationMillis = 65) }
+        assertPage(4, 5, 6)
+    }
+
+    @Test
+    fun existingA2fWebsiteIsEditableButEmailRemainsLocked() {
+        val entry = PersonalDictionaryEntry(
+            id = "edit-aut", word = "user@example.test\nold.example", shortcut = "autold", folder = "aut"
+        )
+        var savedWebsite: String? = null
+        composeRule.setContent {
+            KetikKuTheme {
+                DictionaryEntryDialog(
+                    initialEntry = entry,
+                    defaultFolderPath = "aut",
+                    isA2f = true,
+                    usedShortcuts = listOf("autold"),
+                    onDismiss = {},
+                    onSave = { _, _, _, _, seed, email, website ->
+                        assertNull(seed)
+                        assertEquals("user@example.test", email)
+                        savedWebsite = website
+                    }
+                )
+            }
+        }
+        composeRule.onNodeWithTag("a2f_email_input").assertIsNotEnabled()
+        composeRule.onNodeWithTag("a2f_website_input").performTextReplacement("https://new.example/login")
+        composeRule.onNodeWithTag("save_dictionary_button").performClick()
+        assertEquals("https://new.example/login", savedWebsite)
+    }
 
     @Test
     fun readAppNameAndSerializeVxencPayload() {

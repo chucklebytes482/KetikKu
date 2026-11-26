@@ -95,7 +95,8 @@ object DictionaryEngine {
                 !entry.deleted &&
                     isA2fEntry(entry) &&
                     entry.secretCipher.isNotBlank() &&
-                    entry.shortcut.trim().equals(key, ignoreCase = true)
+                    (entry.shortcut.trim().equals(key, ignoreCase = true) ||
+                        SettingsRepository.autoShortcut(entry.folder, entry.word).equals(key, ignoreCase = true))
             }
             .sortedByDescending { it.updatedAtMillis }
             .toList()
@@ -119,6 +120,30 @@ object DictionaryEngine {
             .sortedByDescending { it.updatedAtMillis }
             .map { it.word.trim() }
             .distinct()
+            .toList()
+    }
+
+    /** Hasil lengkap untuk pintasan pw/kred, terpisah dari tiga saran kata biasa. */
+    fun findPagedShortcutWords(
+        currentWord: String,
+        personalEntries: List<PersonalDictionaryEntry>
+    ): List<String> {
+        val key = currentWord.trim().lowercase(Locale.ROOT)
+        val folder = when {
+            key.startsWith(KRED_TRIGGER) -> SettingsRepository.FOLDER_KREDENSIAL
+            key.startsWith(SettingsRepository.FOLDER_KATA_SANDI) && key.length > 2 ->
+                SettingsRepository.FOLDER_KATA_SANDI
+            else -> return emptyList()
+        }
+        return personalEntries.asSequence()
+            .filter { entry ->
+                !entry.deleted && SettingsRepository.normalizeFolderPath(entry.folder) == folder &&
+                    (key == KRED_TRIGGER || SettingsRepository.autoShortcut(folder, entry.word) == key ||
+                        entry.shortcut.trim().equals(key, ignoreCase = true))
+            }
+            .sortedByDescending { it.updatedAtMillis }
+            .map(::displayWord)
+            .filter(String::isNotEmpty)
             .toList()
     }
 
@@ -235,14 +260,7 @@ object DictionaryEngine {
     ): List<String> {
         if (currentWord.isEmpty() || personalEntries.isEmpty()) return emptyList()
         if (currentWord.trim().lowercase(Locale.ROOT) == KRED_TRIGGER) {
-            // Semua kredensial aktif, yang paling baru diubah dulu. Bilah saran hanya menampilkan 3 pertama.
-            return personalEntries.asSequence()
-                .filter { !it.deleted && SettingsRepository.normalizeFolderPath(it.folder) == SettingsRepository.FOLDER_KREDENSIAL }
-                .sortedByDescending { it.updatedAtMillis }
-                .map { displayWord(it) }
-                .filter { it.isNotEmpty() }
-                .distinct()
-                .toList()
+            return findPagedShortcutWords(currentWord, personalEntries).distinct()
         }
         val index = getOrBuildIndex(personalEntries)
         val rawMatches = index.shortcutMap[currentWord.trim().lowercase(Locale.ROOT)] ?: return emptyList()

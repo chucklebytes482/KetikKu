@@ -36,7 +36,7 @@ Keterangan status:
 - Hapus entri berarti memindahkannya ke **Sampah**. Dari Sampah entri bisa dipulihkan (`restoreDictionaryEntries`) atau dihapus permanen (`deleteDictionaryItems`).
 - Di layar Kamus tersedia pencarian, mode pilih (multi-pilih) untuk aksi massal, dan opsi folder (`DictionaryScreen.kt`, `DictionaryDialogs.kt`).
 - Urutan entri di dalam folder: entri yang punya pintasan dulu. Lalu entri A2F dan Kredensial yang punya website, diurutkan menurut **domain utama tanpa TLD** (`SettingsRepository.mainDomainSortKey`): `google.com` dan `myaccount.google.com` masuk ke urutan "google", bukan "com". `bbc.co.uk` masuk ke "bbc". Entri tanpa website diletakkan setelahnya. Sisanya diurutkan menurut kata.
-- Urutan bilah saran `kred` tidak berubah: paling baru diubah dulu, maksimal 3.
+- Bilah saran `kred` menampilkan semua entri aktif, yang paling baru diubah dulu.
 
 ## 3. Pintasan
 
@@ -44,13 +44,13 @@ Pintasan adalah kata pemicu yang memunculkan chip di bilah saran. Teks **tidak**
 
 | Pintasan | Pola | Contoh | Perilaku |
 |---|---|---|---|
-| Kata Sandi | `pw` + huruf pertama entri | `pwg` | Muncul hanya saat diawali `pw` |
-| Kredensial | `kred` + domain utama | `kredgithub` | Wajib website. `kred` utuh menampilkan maksimal 3 entri terbaru. Muncul hanya saat diketik |
+| Kata Sandi | `pw` + huruf pertama entri | `pwg` | Semua entri dengan huruf awal yang sama memakai satu pintasan |
+| Kredensial | `kred` + domain utama | `kredgithub` | Entri dengan domain sama berbagi pintasan. `kred` utuh menampilkan semua kredensial aktif |
 | A2F | `aut` + domain utama | `autgoogle` | Akun dengan domain sama berbagi pintasan. Menampilkan kode TOTP |
-| Nomor | `num` + 4 digit pertama | `num0812` | Untuk entri di folder Nomor |
+| Nomor | `num` | `num` | Menampilkan isi folder Nomor |
 
 Catatan:
-- Entri A2F tanpa website tidak punya pintasan. Pesan yang muncul: "Pintasan A2F tidak dapat dibuat dari email dan website".
+- Entri A2F tanpa website tidak punya pintasan. Pesan yang muncul: "Pintasan A2F tidak dapat dibuat dari website".
 - Kredensial lama tanpa website tetap ada dan tetap muncul lewat `kred`, tetapi tidak punya pintasan.
 
 ## 4. Kredensial (kred)
@@ -63,6 +63,7 @@ Catatan:
 ## 5. Autentikasi dua faktor (A2F)
 
 - Bilah A2F menampilkan **satu kolom per akun**.
+- Website bisa diedit setelah akun disimpan. Email dan seed tetap terkunci, dan pintasan mengikuti domain website terbaru.
 - Kode TOTP: SHA-1, 6 digit, periode 30 detik.
 - Seed A2F dilindungi Android Keystore.
 - Seed A2F ikut dalam cadangan VXENC terenkripsi. Saat dipulihkan, seed dienkripsi ulang dengan Android Keystore perangkat tujuan.
@@ -70,8 +71,8 @@ Catatan:
 ## 6. Saran kata
 
 - Kamus pribadi mulai menyarankan kata dari **3 huruf**. Di bawah 3 huruf tidak ada saran kata dari kamus pribadi.
-- Email (aut) dan website (aut, kred) ikut muncul sebagai saran setelah **3 huruf** pertama diketik, misalnya `goog` -> `google.com`. Kata sandi dan pw tidak pernah muncul. Entri di Sampah tidak muncul.
-- Pintasan muncul dari huruf pertama pemicu (lihat bagian 3).
+- Email (aut) dan website (aut, kred) ikut muncul sebagai saran setelah **3 huruf** pertama diketik, misalnya `goog` -> `google.com`. Isi `pw` dan kata sandi `kred` hanya muncul ketika pintasannya diketik. Entri di Sampah tidak muncul.
+- Hasil A2F, kredensial, nomor, dan kata sandi ditampilkan tiga kolom per halaman. Satu geseran berpindah ke halaman berikutnya atau sebelumnya.
 - Idle suggestion: saran muncul saat tidak mengetik.
 - Autocorrect utama (`primaryAutoCorrect`).
 - Personalisasi perilaku pengguna: menyimpan hingga 600 entri (`PERSONALITY_MAX_ENTRIES = 600`).
@@ -157,7 +158,7 @@ Catatan:
 
 - [ ] Ketik 1–2 huruf: tidak ada saran kata dari kamus pribadi.
 - [ ] Ketik 3 huruf: saran kata muncul.
-- [ ] Ketik `kred`: kredensial muncul (maks 3 terbaru).
+- [ ] Ketik `kred`: semua kredensial aktif bisa dilihat dengan menggeser tiga kolom sekaligus.
 - [ ] Ketik `kredgithub`: pintasan kredensial muncul.
 - [ ] Ketik `goog`: saran `google.com` muncul dari folder aut.
 - [ ] Bilah A2F: satu kolom per akun.
@@ -165,7 +166,6 @@ Catatan:
 
 ## Keputusan default yang belum dikonfirmasi
 
-- `kred` menampilkan maksimal 3 entri terbaru.
 - Pemicu `kred` hanya saat kata utuh `kred`.
 - Kredensial lama tanpa website tetap ada tanpa pintasan.
 - Pintasan kredensial boleh sama untuk domain yang sama.
