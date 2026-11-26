@@ -75,7 +75,15 @@ internal fun DictionaryEntryDialog(
     // Entri kredensial menyimpan "kata\nwebsite" di kolom kata.
     val kredParts = if (isKred) initialEntry?.word?.split('\n').orEmpty() else emptyList()
 
-    var email by remember(initialEntry) { mutableStateOf(if (isA2f) a2fParts.getOrElse(0) { "" } else "") }
+    var email by remember(initialEntry) {
+        mutableStateOf(
+            when {
+                isA2f -> a2fParts.getOrElse(0) { "" }
+                isKred -> kredParts.getOrElse(2) { "" }
+                else -> ""
+            }
+        )
+    }
     var website by remember(initialEntry) {
         mutableStateOf(
             when {
@@ -109,7 +117,7 @@ internal fun DictionaryEntryDialog(
 
     val emailRegex = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     // Field wajib kosong: menonaktifkan Simpan, tanpa pesan dan tanpa warna merah.
-    val emailMissing = isA2f && isNew && email.isBlank()
+    val emailMissing = (isA2f || isKred) && isNew && email.isBlank()
     val siteMissing = (isA2f || (isKred && isNew)) &&
         SettingsRepository.normalizeWebsiteDomain(website).isBlank()
     val seedMissing = isA2f && isNew && seed.isBlank()
@@ -119,7 +127,7 @@ internal fun DictionaryEntryDialog(
 
     // Pesan format (bukan kosong) tetap ditampilkan.
     val emailError = when {
-        !isA2f || !isNew -> null
+        !(isA2f || isKred) || !isNew -> null
         !email.trim().matches(emailRegex) -> "Email tidak valid"
         else -> null
     }
@@ -211,6 +219,20 @@ internal fun DictionaryEntryDialog(
                         label = { Text("Kata atau Frasa") },
                         singleLine = false,
                         modifier = Modifier.fillMaxWidth().testTag("dictionary_word_input")
+                    )
+                    }
+                }
+                // Email kred wajib saat membuat entri baru, dan terkunci setelah disimpan.
+                if (isKred) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        enabled = !(fieldsLocked),
+                        colors = dictFieldColors(),
+                        label = { Text("Email") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("kred_email_input")
                     )
                     }
                 }

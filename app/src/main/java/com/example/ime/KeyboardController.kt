@@ -679,10 +679,14 @@ class KeyboardController(
                 localWordRawTotalLen = (localWordRawTotalLen - poppedRaw).coerceAtLeast(0)
             }
             applySuggestionResult(personalEntries)
-        } else {
+        } else if (isPasswordField) {
             // Crossed into previous word or whitespace: avoid blocking IPC during rapid backspacing
             localContextValid = false
             clearLocalWordBuffer()
+            applySuggestionResult(personalEntries)
+        } else {
+            // Kata sebelumnya kembali menjadi kata aktif (mis. spasi dihapus), jadi baca ulang dari editor.
+            seedLocalWordFromTarget()
             applySuggestionResult(personalEntries)
         }
     }
@@ -722,22 +726,29 @@ class KeyboardController(
         personalEntries: List<PersonalDictionaryEntry>
     ) {
         folderEntryIdByWord[word]?.let { recordEntryUsage(it) }
-        onSuggestionTap(word, settings, personalEntries, recordUsage = false)
+        // Isi kata folder (kata sandi, nomor) tidak dimasukkan ke buffer kata aktif.
+        onSuggestionTap(word, settings, personalEntries, recordUsage = false, seedActiveWord = false)
     }
 
     fun onSuggestionTap(
         word: String,
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>,
-        recordUsage: Boolean = true
+        recordUsage: Boolean = true,
+        seedActiveWord: Boolean = true
     ) {
         val styled = formatOutput(word, settings)
-        replaceCurrentWordForSuggestion(if (isPasswordField) styled else "$styled ")
+        replaceCurrentWordForSuggestion(styled)
         if (recordUsage) recordWordUsageInternal(word, personalEntries, forceRecord = true)
         clearSelectedPreview()
-        localContextValid = true
-        clearLocalWordBuffer()
         clearLivePreviewBuffer()
+        if (isPasswordField || !seedActiveWord) {
+            localContextValid = true
+            clearLocalWordBuffer()
+        } else {
+            // Tanpa spasi, kata hasil tap tetap menjadi kata aktif: saran pintasan dan A2F ikut muncul.
+            seedLocalWordFromTarget()
+        }
         applySuggestionResult(personalEntries)
     }
 

@@ -1568,9 +1568,9 @@ class ExampleRobolectricTest {
         val kerjaBounds = composeRule.onNodeWithTag("folder_item_Kerja").fetchSemanticsNode().boundsInRoot
         val rootEntryBounds = composeRule.onNodeWithTag("dictionary_item_e_root").fetchSemanticsNode().boundsInRoot
 
-        assertTrue("pw must be above kred", sandiBounds.bottom <= kredBounds.top + 1f)
         assertTrue("kred must be above num", kredBounds.bottom <= nomorBounds.top + 1f)
-        assertTrue("num must be above prib", nomorBounds.bottom <= pribadiBounds.top + 1f)
+        assertTrue("num must be above pw", nomorBounds.bottom <= sandiBounds.top + 1f)
+        assertTrue("pw must be above prib", sandiBounds.bottom <= pribadiBounds.top + 1f)
         assertTrue("prib must be above bc", pribadiBounds.bottom <= balasanBounds.top + 1f)
         assertTrue("bc must be above custom folders", balasanBounds.bottom <= kerjaBounds.top + 1f)
         assertTrue("Custom folders must be above unfoldered entries", kerjaBounds.bottom <= rootEntryBounds.top + 1f)

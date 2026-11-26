@@ -444,8 +444,9 @@ class SettingsRepository(
             } else if (isKred && existing == null) {
                 require(trimmedWord.isNotEmpty()) { "Kata wajib diisi" }
                 require(cleanSite.isNotBlank()) { "Website kred wajib diisi" }
-                // Kata dan domain utama disimpan bersama: "kata\ndomain".
-                wordStored = "$trimmedWord\n$cleanSite"
+                require(EMAIL_REGEX.matches(cleanEmail)) { "Email kred wajib diisi dengan benar" }
+                // Kata, domain utama, dan email disimpan bersama: "kata\ndomain\nemail".
+                wordStored = "$trimmedWord\n$cleanSite\n$cleanEmail"
             } else if (existing != null && normalizeFolderPath(existing.folder) !in OPEN_FIELD_FOLDERS) {
                 // Entri tersimpan terkunci (termasuk kred lama tanpa website).
                 wordStored = existing.word
@@ -956,9 +957,9 @@ class SettingsRepository(
 
         val PRIMARY_FOLDERS: List<String> = listOf(
             FOLDER_A2F,
-            FOLDER_KATA_SANDI,
             FOLDER_KREDENSIAL,
             FOLDER_NOMOR,
+            FOLDER_KATA_SANDI,
             FOLDER_PRIBADI,
             FOLDER_BALASAN_CEPAT,
             FOLDER_SAMPAH
@@ -1192,7 +1193,7 @@ class SettingsRepository(
         /**
          * Preserves ordered single-level folder list (no subfolders):
          * - 7 permanent primary folders pinned at top in exact order (kode folder):
-         *   aut, pw, kred, num, prib, bc, tras. Folder gm sudah dihapus dan tidak pernah masuk daftar.
+         *   aut, kred, num, pw, prib, bc, tras. Folder gm sudah dihapus dan tidak pernah masuk daftar.
          * - All other custom folders preserve existing order (newest-first on creation).
          */
         fun normalizeOrderedFolders(

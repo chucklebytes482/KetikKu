@@ -162,9 +162,8 @@ class KeyboardEngineUnitTest {
         controller.onCharacterTap("d", settings, entries)
         assertTrue(controller.suggestions.contains("Hormat kami"))
         controller.onSuggestionTap("Hormat kami", settings, entries)
-        assertEquals("ttd Hormat kami ", tf.text)
+        assertEquals("ttd Hormat kami", tf.text)
 
-        controller.onBackspaceTap(settings, entries)
         controller.onBackspaceTap(settings, entries)
         assertEquals("ttd Hormat kam", tf.text)
     }
