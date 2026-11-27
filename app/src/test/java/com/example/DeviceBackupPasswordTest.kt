@@ -23,7 +23,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /** Pengganti Android Keystore: nilai "fake:<sandi>" bisa dibuka, selain itu dianggap rusak. */
-private object FakeCipher : BackupPasswordCipher {
+internal object FakeCipher : BackupPasswordCipher {
     override fun encrypt(password: String): String = "fake:$password"
     override fun decryptOrNull(value: String): String? = value.takeIf { it.startsWith("fake:") }?.removePrefix("fake:")
 }

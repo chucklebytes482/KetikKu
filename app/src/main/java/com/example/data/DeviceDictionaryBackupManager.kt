@@ -231,7 +231,7 @@ class DeviceDictionaryBackupManager(
             val folder = settingsRepository.getCurrentSyncLocalState().deviceBackupTreeUri
             val existing = storage.read(folder)
             // Authenticate and validate the entire file before changing local data or replacing the file.
-            val remote = existing?.let { VxencBackupPayload.decode(BackupCodec.decode(it, password)) }
+            val remote = existing?.let { decodeRemote(it, password) }
             val local = settingsRepository.mergeVxencBackup(remote)
             val entries = local.entries.map(PortableBackupEntry::fromLocal).sortedBy { it.entry.id }
             val changed = remote == null || local.folders != remote.folders || entries != remote.entries.sortedBy { it.entry.id }

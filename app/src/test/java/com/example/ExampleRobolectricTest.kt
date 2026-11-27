@@ -884,7 +884,7 @@ class ExampleRobolectricTest {
         repo.createFolder("Kerja")
         repo.upsertDictionaryEntry("Kata uji", "ku", KeyboardLanguage.INDONESIAN.code, "local", "Kerja")
         val storage = MemoryBackup()
-        val manager = DeviceDictionaryBackupManager(repo, storage)
+        val manager = DeviceDictionaryBackupManager(repo, storage, FakeCipher)
         val password = "sandi-uji"
         assertEquals(DeviceSyncResult.Locked, manager.syncNow())
         assertEquals(0, storage.reads)
@@ -922,7 +922,7 @@ class ExampleRobolectricTest {
         storage.file = BackupCodec.encode(VxencBackupPayload(at, emptyList(), listOf(
             PortableBackupEntry(deleted), PortableBackupEntry(added)
         )).encode(), password.toByteArray())
-        val manager = DeviceDictionaryBackupManager(repo, storage)
+        val manager = DeviceDictionaryBackupManager(repo, storage, FakeCipher)
         assertTrue(manager.unlockAndSync(password) is DeviceSyncResult.Synced)
         val merged = repo.getCurrentDictionary().associateBy { it.id }
         assertTrue(merged.getValue("one").deleted)
