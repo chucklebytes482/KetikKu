@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verifikasi kebijakan 100% luring (plan/02-struktur-proyek.md bagian 6).
+"""Verifikasi kebijakan 100% luring (aturan luring khusus repo ini).
 
 Gagal (exit 1) bila ada izin jaringan atau dependensi jaringan/Firebase/Auth.
 """
