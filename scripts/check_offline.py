@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verifikasi kebijakan 100% luring (panduan/01-build-ui-sync.md).
+"""Verifikasi kebijakan 100% luring (plan/02-struktur-proyek.md bagian 6).
 
 Gagal (exit 1) bila ada izin jaringan atau dependensi jaringan/Firebase/Auth.
 """
