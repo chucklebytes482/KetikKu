@@ -61,6 +61,9 @@ fun DeviceBackupSheetContent(
     onMessage: (String) -> Unit
 ) {
     val resolver = LocalContext.current.contentResolver
+    val autosyncStartUri = android.provider.DocumentsContract.buildDocumentUri(
+        "com.android.externalstorage.documents", DeviceDictionaryBackupManager.AUTOSYNC_VOLUME_ID
+    )
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             val chosen = uri.toString()
@@ -81,7 +84,7 @@ fun DeviceBackupSheetContent(
             folder = DeviceDictionaryBackupManager.folderPath(folderUri),
             state = state,
             onRequestFolderAccess = {
-                folderPicker.launch(null)
+                folderPicker.launch(autosyncStartUri)
             },
             onUnlock = onUnlock,
             onSync = onSync,
@@ -121,7 +124,7 @@ internal fun DeviceBackupSheetBody(
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Lokasi berkas", style = MaterialTheme.typography.labelLarge)
                 Text(
-                    if (folder == null) "Belum dipilih" else "$folder/${DeviceDictionaryBackupManager.FILE_NAME}",
+                    if (folder == null) "Belum dipilih" else "$folder/${DeviceDictionaryBackupManager.BACKUP_FOLDER_NAME}/${DeviceDictionaryBackupManager.FILE_NAME}",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.testTag("device_backup_path_text")
                 )

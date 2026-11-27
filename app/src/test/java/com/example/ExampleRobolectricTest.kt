@@ -1437,7 +1437,7 @@ class ExampleRobolectricTest {
         }
         composeRule.onNodeWithTag("device_sync_button").assertIsNotEnabled()
         composeRule.onNodeWithTag("device_grant_folder_button").assertIsDisplayed().performClick()
-        composeRule.onNodeWithTag("device_backup_path_text").assertTextEquals("Documents/Catatan/ketikku.vxenc")
+        composeRule.onNodeWithTag("device_backup_path_text").assertTextEquals("Documents/Catatan/ketikku_backup_vxenc/ketikku.vxenc")
         composeRule.onNodeWithTag("device_backup_password").performScrollTo().performTextInput(" sa ndi ")
         composeRule.onNodeWithTag("device_sync_button").performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals("sandi", submitted) }

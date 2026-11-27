@@ -96,10 +96,29 @@ class AndroidDeviceBackupStorage(context: Context) : DeviceBackupStorage {
             throw BackupFolderException("Izin folder hilang. Pilih lagi folder cadangan.")
         }
         return try {
-            action(tree, DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree)))
+            val root = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+            action(tree, backupFolder(tree, root))
         } catch (_: SecurityException) {
             throw BackupFolderException("Akses folder ditolak. Pilih lagi folder cadangan.")
         }
+    }
+
+    // Folder cadangan otomatis: <folder pilihan>/ketikku_backup_vxenc. Dibuat jika belum ada.
+    private fun backupFolder(tree: Uri, root: Uri): Uri {
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getDocumentId(root))
+        val columns = arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+        val existing = resolver.query(children, columns, null, null, null)?.use { rows ->
+            var found: Uri? = null
+            while (rows.moveToNext() && found == null) {
+                if (rows.getString(0) == DeviceDictionaryBackupManager.BACKUP_FOLDER_NAME) {
+                    found = DocumentsContract.buildDocumentUriUsingTree(tree, rows.getString(1))
+                }
+            }
+            found
+        } ?: throw BackupFolderException("Folder tidak dapat dibaca. Pilih lagi folder cadangan.")
+        return existing ?: DocumentsContract.createDocument(
+            resolver, root, DocumentsContract.Document.MIME_TYPE_DIR, DeviceDictionaryBackupManager.BACKUP_FOLDER_NAME
+        ) ?: throw BackupFolderException("Folder cadangan tidak dapat dibuat.")
     }
 
     private fun InputStream.readBounded(): ByteArray {
@@ -208,6 +227,10 @@ class DeviceDictionaryBackupManager(
 
     companion object {
         const val FILE_NAME = "ketikku.vxenc"
+        // Nama folder = nama apk + jenis file + format file.
+        const val BACKUP_FOLDER_NAME = "ketikku_backup_vxenc"
+        // Lokasi awal pemilih folder: /storage/emulated/0/autosync.
+        const val AUTOSYNC_VOLUME_ID = "primary:autosync"
         private const val AUTHORITY = "com.android.externalstorage.documents"
         private val SAFE_ERRORS = setOf(
             "Seed A2F tidak dapat dibaca. Cadangan tidak diubah.",
