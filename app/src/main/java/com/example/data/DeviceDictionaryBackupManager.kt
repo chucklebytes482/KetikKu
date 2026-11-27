@@ -164,9 +164,35 @@ class DeviceDictionaryBackupManager(
     suspend fun unlockAndSync(password: String): DeviceSyncResult = mutex.withLock {
         clearPassword()
         if (!BackupCodec.isValidPassword(password)) return@withLock DeviceSyncResult.Error("Masukkan kata sandi tanpa spasi (maks. 128 byte).")
+        unlockWith(password)
+    }
+
+    /** Dipakai saat aplikasi dibuka: memakai kata sandi tersimpan di perangkat. */
+    suspend fun autoUnlock(): DeviceSyncResult = mutex.withLock {
+        clearPassword()
+        val password = withContext(Dispatchers.IO) {
+            BackupPasswordVault.decryptOrNull(settingsRepository.getDeviceBackupPasswordCipher().orEmpty())
+        } ?: return@withLock DeviceSyncResult.Locked
+        if (!BackupCodec.isValidPassword(password)) return@withLock DeviceSyncResult.Locked
+        unlockWith(password)
+    }
+
+    suspend fun forgetPassword() = mutex.withLock {
+        clearPassword()
+        settingsRepository.saveDeviceBackupPassword(null)
+    }
+
+    private suspend fun unlockWith(password: String): DeviceSyncResult {
         val candidate = password.toByteArray(Charsets.UTF_8)
         try {
-            sync(candidate).also { if (it is DeviceSyncResult.Synced) key = candidate }
+            return sync(candidate).also {
+                if (it is DeviceSyncResult.Synced) {
+                    key = candidate
+                    settingsRepository.saveDeviceBackupPassword(
+                        withContext(Dispatchers.IO) { BackupPasswordVault.encrypt(password) }
+                    )
+                }
+            }
         } finally {
             if (key !== candidate) candidate.fill(0)
         }
@@ -221,6 +247,8 @@ class DeviceDictionaryBackupManager(
                 is IllegalStateException, is IllegalArgumentException -> e.message?.takeIf { it in SAFE_ERRORS }
                 else -> null
             }
+            // Kata sandi tersimpan tidak cocok lagi: hapus agar tidak terus dipakai otomatis.
+            if (e is BackupCodec.AuthenticationException) settingsRepository.saveDeviceBackupPassword(null)
             DeviceSyncResult.Error(message ?: "Cadangan tidak dapat disinkronkan. Periksa folder dan coba lagi.")
         }
     }

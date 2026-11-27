@@ -84,5 +84,6 @@ data class SyncLocalState(
     val lastSyncedAtMillis: Long = 0L,
     val lastSyncMessage: String = "Belum pernah disinkronkan",
     val deviceBackupTreeUri: String = "",
-    val pendingChanges: Boolean = false
+    val pendingChanges: Boolean = false,
+    val hasSavedBackupPassword: Boolean = false
 )

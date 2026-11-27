@@ -19,12 +19,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -43,7 +42,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.data.BackupCodec
 import com.example.data.DeviceDictionaryBackupManager
@@ -58,7 +56,9 @@ fun DeviceBackupSheetContent(
     onUnlock: (String) -> Unit,
     onSync: () -> Unit,
     onLock: () -> Unit,
-    onMessage: (String) -> Unit
+    onMessage: (String) -> Unit,
+    hasSavedPassword: Boolean = false,
+    onForgetPassword: () -> Unit = {}
 ) {
     val resolver = LocalContext.current.contentResolver
     val autosyncStartUri = android.provider.DocumentsContract.buildDocumentUri(
@@ -83,6 +83,8 @@ fun DeviceBackupSheetContent(
         DeviceBackupSheetBody(
             folder = DeviceDictionaryBackupManager.folderPath(folderUri),
             state = state,
+            hasSavedPassword = hasSavedPassword,
+            onForgetPassword = onForgetPassword,
             onRequestFolderAccess = {
                 folderPicker.launch(autosyncStartUri)
             },
@@ -95,6 +97,8 @@ fun DeviceBackupSheetContent(
     }
 }
 
+private const val SAVED_PASSWORD_MASK = "••••••••"
+
 @Composable
 internal fun DeviceBackupSheetBody(
     folder: String?,
@@ -103,12 +107,13 @@ internal fun DeviceBackupSheetBody(
     onUnlock: (String) -> Unit,
     onSync: () -> Unit,
     onLock: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    hasSavedPassword: Boolean = false,
+    onForgetPassword: () -> Unit = {}
 ) {
     val syncing = state == DeviceSyncUiState.Syncing
     val unlocked = state == DeviceSyncUiState.Unlocked
     var password by remember(folder) { mutableStateOf("") }
-    var visible by remember(folder) { mutableStateOf(false) }
     val passwordValid = BackupCodec.isValidPassword(password)
     Column(
         modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
@@ -145,38 +150,42 @@ internal fun DeviceBackupSheetBody(
             },
             style = MaterialTheme.typography.labelLarge
         )
+        // Kata sandi selalu tersembunyi: tanpa tombol lihat, tanpa salin dari kolom.
         if (!unlocked) OutlinedTextField(
-            value = password,
-            onValueChange = { password = BackupCodec.withoutWhitespace(it) },
-            enabled = folder != null && !syncing && !unlocked,
+            value = if (hasSavedPassword) SAVED_PASSWORD_MASK else password,
+            onValueChange = { if (!hasSavedPassword) password = BackupCodec.withoutWhitespace(it) },
+            enabled = folder != null && !syncing && !hasSavedPassword,
             modifier = Modifier.fillMaxWidth().testTag("device_backup_password"),
             label = { Text("Kata sandi cadangan") },
             singleLine = true,
-            isError = password.isNotEmpty() && !passwordValid,
+            isError = !hasSavedPassword && password.isNotEmpty() && !passwordValid,
             supportingText = {
-                Text(if (password.isNotEmpty() && !passwordValid) "Maksimum 128 byte (karakter non-ASCII bisa memakai lebih dari satu byte)."
-                    else "Spasi diabaikan. Gunakan kata sandi yang panjang dan simpan untuk pemulihan.")
+                Text(
+                    when {
+                        hasSavedPassword -> "Terisi otomatis dari penyimpanan perangkat."
+                        password.isNotEmpty() && !passwordValid -> "Maksimum 128 byte (karakter non-ASCII bisa memakai lebih dari satu byte)."
+                        else -> "Spasi diabaikan. Gunakan kata sandi yang panjang dan simpan untuk pemulihan."
+                    }
+                )
             },
-            visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            trailingIcon = {
-                IconButton(onClick = { visible = !visible }, enabled = folder != null && !syncing && !unlocked) {
-                    Icon(if (visible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = if (visible) "Sembunyikan kata sandi" else "Tampilkan kata sandi")
-                }
-            }
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
+        if (hasSavedPassword && !unlocked) TextButton(
+            onClick = onForgetPassword, enabled = !syncing,
+            modifier = Modifier.heightIn(min = 48.dp).testTag("device_forget_password_button")
+        ) { Text("Hapus kata sandi tersimpan") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Button(
                 onClick = {
                     if (unlocked) onSync() else {
-                        val submitted = password
+                        // Kata sandi kosong: sheet memakai kata sandi tersimpan di perangkat.
+                        val submitted = if (hasSavedPassword) "" else password
                         password = ""
-                        visible = false
                         onUnlock(submitted)
                     }
                 },
-                enabled = folder != null && !syncing && (unlocked || passwordValid),
+                enabled = folder != null && !syncing && (unlocked || hasSavedPassword || passwordValid),
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("device_sync_button")
             ) {
                 if (syncing) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)

@@ -82,6 +82,7 @@ class SettingsRepository(
         val LAST_SYNCED_AT = longPreferencesKey("vxenc_last_synced_at")
         val LAST_SYNC_MESSAGE = stringPreferencesKey("vxenc_last_sync_message")
         val DEVICE_BACKUP_TREE_URI = stringPreferencesKey("device_backup_tree_uri")
+        val DEVICE_BACKUP_PASSWORD_CIPHER = stringPreferencesKey("device_backup_password_cipher")
         val PENDING_CHANGES = booleanPreferencesKey("pending_changes")
     }
 
@@ -174,7 +175,8 @@ class SettingsRepository(
                 lastSyncedAtMillis = prefs[Keys.LAST_SYNCED_AT] ?: 0L,
                 lastSyncMessage = prefs[Keys.LAST_SYNC_MESSAGE] ?: "Belum pernah disinkronkan",
                 deviceBackupTreeUri = prefs[Keys.DEVICE_BACKUP_TREE_URI] ?: "",
-                pendingChanges = prefs[Keys.PENDING_CHANGES] ?: false
+                pendingChanges = prefs[Keys.PENDING_CHANGES] ?: false,
+                hasSavedBackupPassword = !prefs[Keys.DEVICE_BACKUP_PASSWORD_CIPHER].isNullOrEmpty()
             )
         }
         .distinctUntilChanged()
@@ -906,6 +908,17 @@ class SettingsRepository(
             Unit
         }
     }
+
+    /** Kata sandi cadangan terenkripsi (lihat BackupPasswordVault). Null untuk menghapus. */
+    suspend fun saveDeviceBackupPassword(cipher: String?) {
+        dataStore.edit { prefs ->
+            if (cipher == null) prefs.remove(Keys.DEVICE_BACKUP_PASSWORD_CIPHER)
+            else prefs[Keys.DEVICE_BACKUP_PASSWORD_CIPHER] = cipher
+        }
+    }
+
+    suspend fun getDeviceBackupPasswordCipher(): String? =
+        dataStore.data.map { it[Keys.DEVICE_BACKUP_PASSWORD_CIPHER] }.first()
 
     suspend fun saveDeviceBackupTreeUri(treeUri: String) {
         dataStore.edit { prefs ->

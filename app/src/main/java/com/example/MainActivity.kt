@@ -251,7 +251,9 @@ private fun KetikKuMainScaffold(
                 onUnlock = mainViewModel::unlockDeviceBackup,
                 onSync = { mainViewModel.syncDictionaryWithDevice(notify = true) },
                 onLock = mainViewModel::lockDeviceBackup,
-                onMessage = mainViewModel::showBackupMessage
+                onMessage = mainViewModel::showBackupMessage,
+                hasSavedPassword = syncLocalState.hasSavedBackupPassword,
+                onForgetPassword = mainViewModel::forgetDeviceBackupPassword
             )
         }
     }

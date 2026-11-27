@@ -85,6 +85,13 @@ class MainViewModel(
                 if (pending) syncDictionaryWithDevice()
             }
         }
+        // Saat aplikasi dibuka: buka cadangan otomatis memakai kata sandi tersimpan.
+        viewModelScope.launch {
+            val local = settingsRepository.getCurrentSyncLocalState()
+            if (local.deviceBackupTreeUri.isNotEmpty() && local.hasSavedBackupPassword) {
+                runBackupAction(notify = false) { it.autoUnlock() }
+            }
+        }
     }
 
     private val _searchQuery = MutableStateFlow("")
@@ -291,7 +298,15 @@ class MainViewModel(
         }
     }
 
-    fun unlockDeviceBackup(password: String) = runBackupAction(notify = true) { it.unlockAndSync(password) }
+    /** Kata sandi kosong berarti memakai kata sandi tersimpan di perangkat. */
+    fun unlockDeviceBackup(password: String) = runBackupAction(notify = true) {
+        if (password.isEmpty()) it.autoUnlock() else it.unlockAndSync(password)
+    }
+
+    fun forgetDeviceBackupPassword() = runBackupAction(notify = false) {
+        it.forgetPassword()
+        DeviceSyncResult.Locked
+    }
 
     fun lockDeviceBackup() = runBackupAction(notify = false) {
         it.lock()
