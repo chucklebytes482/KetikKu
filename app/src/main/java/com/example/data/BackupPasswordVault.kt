@@ -13,7 +13,14 @@ import javax.crypto.spec.GCMParameterSpec
  * Kata sandi cadangan yang diingat di perangkat. Dienkripsi dengan kunci AES-GCM
  * non-exportable di Android Keystore. Format: k1:base64(iv):base64(ciphertext).
  */
-object BackupPasswordVault {
+/** Pembungkus kata sandi tersimpan. Dipisah agar manajer cadangan bisa diuji tanpa Android Keystore. */
+interface BackupPasswordCipher {
+    fun encrypt(password: String): String
+    /** Null jika nilai tersimpan tidak bisa dibuka (format salah atau kunci sudah tidak ada). */
+    fun decryptOrNull(value: String): String?
+}
+
+object BackupPasswordVault : BackupPasswordCipher {
     private const val ALIAS = "ketikku.backup.password.v1"
     private const val TRANSFORMATION = "AES/GCM/NoPadding"
     private const val GCM_TAG_BITS = 128
@@ -32,7 +39,7 @@ object BackupPasswordVault {
         }.generateKey()
     }
 
-    fun encrypt(password: String): String {
+    override fun encrypt(password: String): String {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, deviceKey())
         val bytes = cipher.doFinal(password.toByteArray(Charsets.UTF_8))
@@ -40,7 +47,7 @@ object BackupPasswordVault {
     }
 
     /** Null jika kosong, format tidak cocok, atau kunci sudah tidak ada. */
-    fun decryptOrNull(value: String): String? {
+    override fun decryptOrNull(value: String): String? {
         if (!value.startsWith("k1:")) return null
         return try {
             val parts = value.removePrefix("k1:").split(':')

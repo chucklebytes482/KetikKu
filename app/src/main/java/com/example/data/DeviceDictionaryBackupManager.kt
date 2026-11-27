@@ -12,6 +12,9 @@ import java.io.InputStream
 
 internal class BackupFolderException(message: String) : Exception(message)
 
+/** Berkas di folder bukan VXENC yang valid (format, ukuran, atau parameter salah). */
+internal class UnreadableBackupException(message: String) : Exception(message)
+
 interface DeviceBackupStorage {
     fun read(folderUri: String): ByteArray?
     fun replace(folderUri: String, bytes: ByteArray, expected: ByteArray?)
@@ -156,7 +159,8 @@ sealed interface DeviceSyncResult {
 
 class DeviceDictionaryBackupManager(
     private val settingsRepository: SettingsRepository,
-    private val storage: DeviceBackupStorage
+    private val storage: DeviceBackupStorage,
+    private val passwordCipher: BackupPasswordCipher = BackupPasswordVault
 ) {
     private val mutex = Mutex()
     private var key: ByteArray? = null
@@ -170,10 +174,14 @@ class DeviceDictionaryBackupManager(
     /** Dipakai saat aplikasi dibuka: memakai kata sandi tersimpan di perangkat. */
     suspend fun autoUnlock(): DeviceSyncResult = mutex.withLock {
         clearPassword()
-        val password = withContext(Dispatchers.IO) {
-            BackupPasswordVault.decryptOrNull(settingsRepository.getDeviceBackupPasswordCipher().orEmpty())
-        } ?: return@withLock DeviceSyncResult.Locked
-        if (!BackupCodec.isValidPassword(password)) return@withLock DeviceSyncResult.Locked
+        val stored = settingsRepository.getDeviceBackupPasswordCipher().orEmpty()
+        if (stored.isEmpty()) return@withLock DeviceSyncResult.Locked
+        val password = withContext(Dispatchers.IO) { passwordCipher.decryptOrNull(stored) }
+        // Kunci Keystore hilang atau nilai rusak: kata sandi tersimpan tidak berguna lagi.
+        if (password == null || !BackupCodec.isValidPassword(password)) {
+            settingsRepository.saveDeviceBackupPassword(null)
+            return@withLock DeviceSyncResult.Locked
+        }
         unlockWith(password)
     }
 
@@ -189,7 +197,7 @@ class DeviceDictionaryBackupManager(
                 if (it is DeviceSyncResult.Synced) {
                     key = candidate
                     settingsRepository.saveDeviceBackupPassword(
-                        withContext(Dispatchers.IO) { BackupPasswordVault.encrypt(password) }
+                        withContext(Dispatchers.IO) { passwordCipher.encrypt(password) }
                     )
                 }
             }
@@ -243,14 +251,26 @@ class DeviceDictionaryBackupManager(
             throw e
         } catch (e: Exception) {
             val message = when (e) {
-                is BackupFolderException, is BackupCodec.AuthenticationException -> e.message
+                is BackupFolderException, is BackupCodec.AuthenticationException, is UnreadableBackupException -> e.message
                 is IllegalStateException, is IllegalArgumentException -> e.message?.takeIf { it in SAFE_ERRORS }
                 else -> null
             }
-            // Kata sandi tersimpan tidak cocok lagi: hapus agar tidak terus dipakai otomatis.
-            if (e is BackupCodec.AuthenticationException) settingsRepository.saveDeviceBackupPassword(null)
+            // Kata sandi tersimpan tidak bisa dipakai lagi (salah, atau berkas bukan VXENC): hapus agar
+            // tidak terus dicoba otomatis. Error folder atau izin tidak menghapus kata sandi.
+            if (e is BackupCodec.AuthenticationException || e is UnreadableBackupException) {
+                settingsRepository.saveDeviceBackupPassword(null)
+            }
             DeviceSyncResult.Error(message ?: "Cadangan tidak dapat disinkronkan. Periksa folder dan coba lagi.")
         }
+    }
+
+    private fun decodeRemote(file: ByteArray, password: ByteArray): VxencBackupPayload {
+        val json = try {
+            BackupCodec.decode(file, password)
+        } catch (e: IllegalArgumentException) {
+            throw UnreadableBackupException("Berkas cadangan tidak dapat dibaca sebagai VXENC. Cadangan tidak diubah.")
+        }
+        return VxencBackupPayload.decode(json)
     }
 
     companion object {
