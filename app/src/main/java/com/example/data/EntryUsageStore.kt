@@ -22,9 +22,13 @@ class EntryUsageStore private constructor(context: Context) :
     }
 
     init {
-        runCatching {
-            readableDatabase.rawQuery("SELECT entry_id, uses FROM entry_usage", null).use { c ->
-                while (c.moveToNext()) cache[c.getString(0)] = c.getInt(1)
+        // Muat dari SQLite di thread penulis, bukan di main thread saat service dibuat.
+        // Tap yang sudah terjadi sebelum muat selesai dijumlahkan, jadi tidak tertimpa.
+        writer.execute {
+            runCatching {
+                readableDatabase.rawQuery("SELECT entry_id, uses FROM entry_usage", null).use { c ->
+                    while (c.moveToNext()) cache.merge(c.getString(0), c.getInt(1)) { mem, saved -> mem + saved }
+                }
             }
         }
     }
