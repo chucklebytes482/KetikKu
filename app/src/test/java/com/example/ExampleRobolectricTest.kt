@@ -415,7 +415,6 @@ class ExampleRobolectricTest {
     @Test
     fun keyboardView_clipboardUsesGridModeAndClearAllButton() {
         var value = TextFieldValue("")
-        var clearedAllCount = 0
         val controller = KeyboardController(
             TextFieldImeTarget(
                 getValue = { value },
@@ -436,7 +435,6 @@ class ExampleRobolectricTest {
                     clipboardItems = items,
                     onPasteClipboard = { text -> controller.pasteText(text, KeyboardSettings(), emptyList()) },
                     onCopySelectionToClipboard = {},
-                    onClearAllClipboard = { clearedAllCount++ },
                     onToggleSerifMiring = {}
                 )
             }
@@ -451,9 +449,7 @@ class ExampleRobolectricTest {
         assertTrue(composeRule.onAllNodesWithContentDescription("Sematkan").fetchSemanticsNodes().isEmpty())
         assertTrue(composeRule.onAllNodesWithContentDescription("Hapus klip").fetchSemanticsNodes().isEmpty())
 
-        composeRule.onNodeWithTag("clipboard_clear_all").assertIsDisplayed().performClick()
-        composeRule.waitForIdle()
-        assertEquals(1, clearedAllCount)
+        assertTrue(composeRule.onAllNodesWithTag("clipboard_clear_all").fetchSemanticsNodes().isEmpty())
     }
 
     @Test

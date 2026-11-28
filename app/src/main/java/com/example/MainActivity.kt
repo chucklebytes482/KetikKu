@@ -58,6 +58,7 @@ import com.example.ui.screens.DictionaryScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.KetikKuTheme
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.runBlocking
 
 const val ROUTE_SETTINGS = "settings"
 const val ROUTE_DICTIONARY = "dictionary"
@@ -78,6 +79,14 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        if (isFinishing) {
+            // Riwayat papan klip hanya di memori; bersihkan saat aplikasi ditutup.
+            runBlocking { SettingsRepository(applicationContext).clearAllClipboard() }
+        }
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {

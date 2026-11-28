@@ -236,12 +236,6 @@ class KetikKuImeService : InputMethodService() {
                             }
                         }
                     },
-                    onClearAllClipboard = {
-                        serviceScope.launch {
-                            settingsRepository.clearAllClipboard()
-                                .onFailure { showBriefClipboardError("Gagal membersihkan papan klip") }
-                        }
-                    },
                     onToggleFloatingMode = {
                         serviceScope.launch {
                             settingsRepository.updateSettings { it.copy(floatingModeEnabled = !it.floatingModeEnabled) }

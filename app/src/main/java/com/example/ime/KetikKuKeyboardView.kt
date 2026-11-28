@@ -543,7 +543,6 @@ fun KetikKuKeyboardView(
     onRequestCtrlPaste: (() -> Unit)? = null,
     @Suppress("UNUSED_PARAMETER") onDismissRecentClipboard: (String) -> Unit = {},
     onCopySelectionToClipboard: (String) -> Unit,
-    onClearAllClipboard: () -> Unit = {},
     onToggleSerifMiring: () -> Unit = {},
     onToggleArialItalic: () -> Unit = {},
     onShowInputMethodPicker: () -> Unit = {},
@@ -763,7 +762,6 @@ fun KetikKuKeyboardView(
                     onPasteClipboardItem = onPasteClipboardItemStable,
                     onRequestCtrlPaste = onRequestCtrlPasteStable,
                     onCopySelectionToClipboard = onCopySelectionToClipboard,
-                    onClearAllClipboard = onClearAllClipboard,
                     onShowInputMethodPicker = onShowInputMethodPicker,
                     onKeyPopupStart = onKeyPopupStartStable,
                     onKeyPopupDrag = onKeyPopupDragStable,
@@ -1060,7 +1058,6 @@ private fun KeyboardBodyContent(
     onPasteClipboardItem: (ClipboardItem) -> Unit,
     onRequestCtrlPaste: () -> Unit,
     onCopySelectionToClipboard: (String) -> Unit,
-    onClearAllClipboard: () -> Unit,
     onShowInputMethodPicker: () -> Unit,
     onKeyPopupStart: (String, LayoutCoordinates?, Offset, List<String>) -> Unit,
     onKeyPopupDrag: (Offset) -> Unit,
@@ -1079,10 +1076,6 @@ private fun KeyboardBodyContent(
                     onFeedback()
                     onPasteClipboardItem(item)
                     controller.closeUtilityPanel()
-                },
-                onClearAll = {
-                    onFeedback()
-                    onClearAllClipboard()
                 }
             )
         }
@@ -2690,8 +2683,7 @@ private fun ClipboardPanel(
     enabled: Boolean,
     statusMessage: String?,
     height: Dp,
-    onPasteItem: (ClipboardItem) -> Unit,
-    onClearAll: () -> Unit
+    onPasteItem: (ClipboardItem) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -2720,19 +2712,6 @@ private fun ClipboardPanel(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-            }
-            if (items.isNotEmpty()) {
-                Text(
-                    text = "Bersihkan semua",
-                    color = palette.accentBg,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(onClick = onClearAll)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                        .testTag("clipboard_clear_all")
-                )
             }
         }
         Spacer(Modifier.height(6.dp))

@@ -291,13 +291,6 @@ class MainViewModel(
         }
     }
 
-    fun clearAllClipboard() {
-        viewModelScope.launch {
-            settingsRepository.clearAllClipboard()
-                .onFailure { playgroundController.showClipboardStatus("Gagal membersihkan papan klip") }
-        }
-    }
-
     /** Kata sandi kosong berarti memakai kata sandi tersimpan di perangkat. */
     fun unlockDeviceBackup(password: String) = runBackupAction(notify = true) {
         if (password.isEmpty()) it.autoUnlock() else it.unlockAndSync(password)

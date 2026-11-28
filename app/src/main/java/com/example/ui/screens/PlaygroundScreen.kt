@@ -145,9 +145,6 @@ fun PlaygroundScreen(
             viewModel.addClipboardText(selected)
         }
     }
-    val onClearAllClipboard = remember(viewModel) {
-        { viewModel.clearAllClipboard() }
-    }
     val onToggleFloatingMode = remember(viewModel) {
         { viewModel.toggleFloatingMode() }
     }
@@ -218,7 +215,6 @@ fun PlaygroundScreen(
                 onRequestCtrlPaste = onRequestCtrlPaste,
                 onDismissRecentClipboard = onDismissRecentClipboard,
                 onCopySelectionToClipboard = onCopySelectionToClipboard,
-                onClearAllClipboard = onClearAllClipboard,
                 onToggleFloatingMode = onToggleFloatingMode,
                 onSaveFloatingPosition = onSaveFloatingPosition,
                 onShowInputMethodPicker = onShowInputMethodPicker,
@@ -265,7 +261,6 @@ fun PlaygroundScreen(
                 onRequestCtrlPaste = onRequestCtrlPaste,
                 onDismissRecentClipboard = onDismissRecentClipboard,
                 onCopySelectionToClipboard = onCopySelectionToClipboard,
-                onClearAllClipboard = onClearAllClipboard,
                 onToggleFloatingMode = onToggleFloatingMode,
                 onSaveFloatingPosition = onSaveFloatingPosition,
                 onShowInputMethodPicker = onShowInputMethodPicker,
