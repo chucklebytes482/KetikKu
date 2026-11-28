@@ -964,9 +964,10 @@ private fun DictionaryItemCard(
                     }
                 }
             }
-            // Kode A2F di pojok kanan kartu: akun aut, atau akun aut yang ada di Sampah.
-            if (SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_A2F ||
-                SettingsRepository.normalizeFolderPath(entry.trashedFrom) == SettingsRepository.FOLDER_A2F
+            // Kode A2F di pojok kanan kartu: akun aut (atau yang ada di Sampah) yang belum mengisi website.
+            val a2fWebsiteBlank = entry.word.split('\n').getOrElse(1) { "" }.isBlank()
+            if (a2fWebsiteBlank && (SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_A2F ||
+                SettingsRepository.normalizeFolderPath(entry.trashedFrom) == SettingsRepository.FOLDER_A2F)
             ) {
                 A2fCodeText(entry)
             }

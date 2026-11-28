@@ -516,6 +516,25 @@ class KeyboardEngineUnitTest {
     }
 
     @Test
+    fun dictionaryEngine_prefixBucketKeepsAllWordsSoPersonalityCanRankThem() {
+        // Lebih dari 32 kata dengan awalan "kan": kata yang paling sering dipakai di urutan terakhir tetap harus muncul.
+        val personal = (1..40).map {
+            PersonalDictionaryEntry(id = "k$it", word = "kanto$it", updatedAtMillis = it.toLong())
+        } + PersonalDictionaryEntry(id = "utama", word = "Kantor utama", updatedAtMillis = 0L)
+        val personality = mapOf(
+            "kantor utama" to WordPersonalityStat(word = "Kantor utama", usageCount = 50, lastUsedMillis = 1_000L)
+        )
+        val suggestions = DictionaryEngine.getSuggestions(
+            currentWord = "kan",
+            previousWord = "",
+            personalEntries = personal,
+            personality = personality,
+            nowMillis = 1_000L
+        ).suggestions
+        assertEquals("Kantor utama", suggestions.first())
+    }
+
+    @Test
     fun dictionaryEngine_threeSuggestionsAndMutableListReplacementStayConsistent() {
         assertTrue(DictionaryEngine.getSuggestions("", "", emptyList()).suggestions.isEmpty())
         val personal = mutableListOf(

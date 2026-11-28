@@ -19,6 +19,17 @@ class TypedWordStore private constructor(context: Context) :
         Thread(r, "typed-word-writer").apply { isDaemon = true }
     }
 
+    /**
+     * Salinan kata paling sering dipakai (maks [MAX_ROWS], urut uses lalu last_used). Diperbarui di thread penulis
+     * setiap kali tabel berubah, sehingga pencarian saran di jalur ketik tidak membaca SQLite.
+     */
+    @Volatile
+    private var habitSnapshot: List<Pair<String, Int>> = emptyList()
+
+    init {
+        writer.execute { runCatching { refreshSnapshot(readableDatabase) } }
+    }
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE IF NOT EXISTS typed_words (" +
@@ -66,6 +77,18 @@ class TypedWordStore private constructor(context: Context) :
         } finally {
             db.endTransaction()
         }
+        refreshSnapshot(db)
+    }
+
+    private fun refreshSnapshot(db: SQLiteDatabase) {
+        val rows = ArrayList<Pair<String, Int>>(MAX_ROWS)
+        db.rawQuery(
+            "SELECT word, uses FROM typed_words ORDER BY uses DESC, last_used DESC LIMIT ?",
+            arrayOf(MAX_ROWS.toString())
+        ).use { c ->
+            while (c.moveToNext()) rows.add(c.getString(0) to c.getInt(1))
+        }
+        habitSnapshot = rows
     }
 
     /**
@@ -76,16 +99,9 @@ class TypedWordStore private constructor(context: Context) :
         val p = prefix.trim().lowercase(Locale.ROOT)
         if (p.length < MIN_PREFIX_LEN || !LETTERS.matches(p)) return emptyMap()
         val result = LinkedHashMap<String, Int>()
-        runCatching {
-            readableDatabase.rawQuery(
-                "SELECT word, uses FROM typed_words WHERE word >= ? AND word < ? " +
-                    "ORDER BY uses DESC, last_used DESC LIMIT ?",
-                arrayOf(p, p + '\uFFFF', limit.toString())
-            ).use { c ->
-                while (c.moveToNext()) {
-                    result[c.getString(0)] = c.getInt(1)
-                }
-            }
+        for ((word, uses) in habitSnapshot) {
+            if (result.size >= limit) break
+            if (word.startsWith(p)) result[word] = uses
         }
         return result
     }

@@ -30,7 +30,6 @@ object DictionaryEngine {
     const val EMAIL_TRIGGER = "em"
     private val EMAIL_PREFIX_KEY_REGEX = Regex("^em[a-z]+$")
     private val EMAIL_LINE_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
-    private const val MAX_PERSONAL_PREFIX_BUCKET = 32
     private const val SHORTCUT_PERSONALIZATION_BONUS = 25.0
 
     private class IndexedDictionary(
@@ -274,10 +273,7 @@ object DictionaryEngine {
             if (seenLowerWords.add(lowerWord)) {
                 val maxLen = minOf(lowerWord.length, MAX_INDEX_PREFIX_LEN)
                 for (length in 1..maxLen) {
-                    val bucket = wordsByPrefix.getOrPut(lowerWord.substring(0, length)) { ArrayList(4) }
-                    if (bucket.size < MAX_PERSONAL_PREFIX_BUCKET) {
-                        bucket.add(lowerWord to trimmedWord)
-                    }
+                    wordsByPrefix.getOrPut(lowerWord.substring(0, length)) { ArrayList(4) }.add(lowerWord to trimmedWord)
                 }
             }
         }
@@ -291,10 +287,7 @@ object DictionaryEngine {
                 if (!seenLowerWords.add(lowerContact)) continue
                 val maxLen = minOf(lowerContact.length, MAX_INDEX_PREFIX_LEN)
                 for (length in 1..maxLen) {
-                    val bucket = wordsByPrefix.getOrPut(lowerContact.substring(0, length)) { ArrayList(4) }
-                    if (bucket.size < MAX_PERSONAL_PREFIX_BUCKET) {
-                        bucket.add(lowerContact to contact)
-                    }
+                    wordsByPrefix.getOrPut(lowerContact.substring(0, length)) { ArrayList(4) }.add(lowerContact to contact)
                 }
             }
         }
