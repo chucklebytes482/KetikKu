@@ -1271,7 +1271,8 @@ class ExampleRobolectricTest {
         db.clearAll()
 
         val hugeText = "Awal teks super panjang 😀 " + "B".repeat(349_950) + " Akhir"
-        val saved = db.saveClipboardText(rawText = hugeText, nowMillis = 12345L)
+        // Harus waktu sekarang: klip dengan timestamp lama sudah kedaluwarsa (TTL 1 jam).
+        val saved = db.saveClipboardText(rawText = hugeText, nowMillis = System.currentTimeMillis())
         assertNotNull(saved)
 
         val previews = db.getPreviews(limit = 15)
