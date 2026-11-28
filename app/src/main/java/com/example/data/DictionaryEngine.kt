@@ -14,7 +14,6 @@ data class FolderChoice(val entryId: String, val word: String)
 
 /** Batas habit sesi: kata yang sering diketik (hanya di memori, tidak pernah ditulis ke berkas). */
 const val HABIT_MIN_USES = 2
-const val HABIT_MAX_WORDS = 200
 
 object DictionaryEngine {
 
@@ -39,8 +38,7 @@ object DictionaryEngine {
         val shortcutMap: Map<String, List<PersonalDictionaryEntry>>,
         val wordsByPrefix: Map<String, List<Pair<String, String>>>,
         val wordLowerSet: Set<String>,
-        val shortcutOwnedLowerWords: Set<String>,
-        val defaultSuggestions: List<String>
+        val shortcutOwnedLowerWords: Set<String>
     )
 
     @Volatile
@@ -245,7 +243,6 @@ object DictionaryEngine {
         val seenLowerWords = HashSet<String>(active.size)
         val shortcutOwnedLowerWords = HashSet<String>(active.size)
         val wordsByPrefix = HashMap<String, MutableList<Pair<String, String>>>(active.size * 4)
-        val defaults = ArrayList<String>(24)
 
         for (entry in active) {
             val trimmedWord = displayWord(entry)
@@ -267,9 +264,6 @@ object DictionaryEngine {
             // Sensitive folders (pw & kred) must NEVER leak into idle, exact, or prefix suggestions.
             if (shortcutOnly) continue
 
-            if (defaults.size < 24 && !defaults.contains(trimmedWord)) {
-                defaults.add(trimmedWord)
-            }
             if (seenLowerWords.add(lowerWord)) {
                 val maxLen = minOf(lowerWord.length, MAX_INDEX_PREFIX_LEN)
                 for (length in 1..maxLen) {
@@ -299,8 +293,7 @@ object DictionaryEngine {
             shortcutMap = shortcutMap,
             wordsByPrefix = wordsByPrefix,
             wordLowerSet = seenLowerWords,
-            shortcutOwnedLowerWords = shortcutOwnedLowerWords,
-            defaultSuggestions = defaults
+            shortcutOwnedLowerWords = shortcutOwnedLowerWords
         )
         cachedIndex = built
         return built
@@ -310,9 +303,16 @@ object DictionaryEngine {
         word: String,
         personality: Map<String, WordPersonalityStat>,
         nowMillis: Long = System.currentTimeMillis()
+    ): Double = personalityScoreForKey(word.trim().lowercase(Locale.ROOT), personality, nowMillis)
+
+    /** Sama seperti [personalityScore], tapi kunci sudah di-trim dan lowercase (tanpa alokasi ulang per kandidat). */
+    private fun personalityScoreForKey(
+        key: String,
+        personality: Map<String, WordPersonalityStat>,
+        nowMillis: Long
     ): Double {
         if (personality.isEmpty()) return 0.0
-        val stat = personality[word.trim().lowercase(Locale.ROOT)] ?: return 0.0
+        val stat = personality[key] ?: return 0.0
         if (stat.usageCount <= 0) return 0.0
         val ageDays = ((nowMillis - stat.lastUsedMillis).coerceAtLeast(0L)) / 86_400_000.0
         val recencyBonus = 50.0 / (1.0 + ageDays)
@@ -411,7 +411,7 @@ object DictionaryEngine {
 
         if (exactPersonalExists) {
             seenPoolLower.add(lowerWord)
-            val baseScore = personalityScore(boundedWord, personality, nowMillis)
+            val baseScore = personalityScoreForKey(lowerWord, personality, nowMillis)
             val shortcutBonus = if (index.shortcutOwnedLowerWords.contains(lowerWord)) {
                 SHORTCUT_PERSONALIZATION_BONUS
             } else {
@@ -425,7 +425,7 @@ object DictionaryEngine {
             for ((lowerDict, rawDict) in personalBucket) {
                 if (lowerDict != lowerWord && lowerDict.startsWith(lowerWord) && seenPoolLower.add(lowerDict)) {
                     val styled = applyCase(rawDict)
-                    val score = personalityScore(rawDict, personality, nowMillis)
+                    val score = personalityScoreForKey(lowerDict, personality, nowMillis)
                     val shortcutBonus = if (index.shortcutOwnedLowerWords.contains(lowerDict)) {
                         SHORTCUT_PERSONALIZATION_BONUS
                     } else {
