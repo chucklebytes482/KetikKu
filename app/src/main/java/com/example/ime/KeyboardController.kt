@@ -985,6 +985,11 @@ class KeyboardController(
     }
 
     private var lastPersonalEntries: List<PersonalDictionaryEntry> = emptyList()
+
+    /** Kode TOTP per entri untuk periode [a2fCodeWindow]. Hanya kode, tanpa seed. */
+    private class A2fCodeCacheEntry(val cipher: String, val code: String?)
+    private val a2fCodeCache = HashMap<String, A2fCodeCacheEntry>()
+    private var a2fCodeWindow = -1L
     private fun applySuggestionResult(personalEntries: List<PersonalDictionaryEntry>) {
         lastPersonalEntries = personalEntries
         val currentWord = localWordPlain.toString()
@@ -1046,9 +1051,24 @@ class KeyboardController(
             compareByDescending<PersonalDictionaryEntry> { usage?.invoke(it.id) ?: 0 }
                 .thenByDescending { it.updatedAtMillis }
         )
+        val window = System.currentTimeMillis() / 1000L / TotpGenerator.PERIOD_SECONDS
+        if (window != a2fCodeWindow) {
+            // Periode baru: kode lama tidak berlaku lagi. Buang semua, termasuk entri yang sudah dihapus.
+            a2fCodeCache.clear()
+            a2fCodeWindow = window
+        }
         ordered.forEach { entry ->
-            val seed = SecretVault.decryptOrNull(entry.secretCipher) ?: return@forEach
-            val code = TotpGenerator.currentCodeFromBase32(seed) ?: return@forEach
+            // Kode dihitung ulang hanya sekali per entri per periode 30 detik. Seed tidak disimpan,
+            // yang disimpan hanya kode 6 digit. Ciphertext ikut dibandingkan agar edit akun langsung terpakai.
+            val cached = a2fCodeCache[entry.id]
+            val code = if (cached != null && cached.cipher == entry.secretCipher) {
+                cached.code
+            } else {
+                val seed = SecretVault.decryptOrNull(entry.secretCipher)
+                val fresh = seed?.let { TotpGenerator.currentCodeFromBase32(it) }
+                a2fCodeCache[entry.id] = A2fCodeCacheEntry(entry.secretCipher, fresh)
+                fresh
+            } ?: return@forEach
             val email = entry.word.substringBefore('\n').trim()
             chips += A2fChip(
                 entryId = entry.id,
