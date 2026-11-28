@@ -26,6 +26,9 @@ object DictionaryEngine {
     const val MIN_PREFIX_SUGGEST_LEN = 3
     /** Mengetik ini (utuh) menampilkan semua entri kredensial di bilah saran. */
     const val KRED_TRIGGER = "kred"
+    /** Mengetik ini (utuh) menampilkan semua email dari folder aut dan kred di bilah saran. */
+    const val EMAIL_TRIGGER = "em"
+    private val EMAIL_LINE_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     private const val MAX_PERSONAL_PREFIX_BUCKET = 32
     private const val SHORTCUT_PERSONALIZATION_BONUS = 25.0
 
@@ -163,6 +166,7 @@ object DictionaryEngine {
         nowMillis: Long = System.currentTimeMillis()
     ): List<FolderChoice> {
         val key = currentWord.trim().lowercase(Locale.ROOT)
+        if (key == EMAIL_TRIGGER) return emailChoices(personalEntries)
         val folder = when {
             key.startsWith(KRED_TRIGGER) -> SettingsRepository.FOLDER_KREDENSIAL
             key.startsWith(SettingsRepository.FOLDER_KATA_SANDI) && key.length > 2 ->
@@ -177,6 +181,23 @@ object DictionaryEngine {
         return rankByUsage(matches, personality, nowMillis)
             .map { FolderChoice(it.id, displayWord(it)) }
             .filter { it.word.isNotEmpty() }
+    }
+
+    /** Email dari folder aut dan kred, unik (tanpa huruf besar/kecil), diurutkan abjad. */
+    private fun emailChoices(personalEntries: List<PersonalDictionaryEntry>): List<FolderChoice> {
+        return personalEntries
+            .asSequence()
+            .filter { entry ->
+                val norm = SettingsRepository.normalizeFolderPath(entry.folder)
+                !entry.deleted &&
+                    (norm == SettingsRepository.FOLDER_A2F || norm == SettingsRepository.FOLDER_KREDENSIAL)
+            }
+            .map { entry -> entry.id to displayWord(entry) }
+            .filter { (_, email) -> EMAIL_LINE_REGEX.matches(email) }
+            .distinctBy { (_, email) -> email.lowercase(Locale.ROOT) }
+            .sortedBy { (_, email) -> email.lowercase(Locale.ROOT) }
+            .map { (id, email) -> FolderChoice(id, email) }
+            .toList()
     }
 
     /** Hasil lengkap untuk pintasan pw/kred, terpisah dari tiga saran kata biasa. */
