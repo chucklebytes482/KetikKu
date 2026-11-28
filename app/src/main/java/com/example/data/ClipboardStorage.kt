@@ -188,6 +188,11 @@ class InMemoryClipboardBackingStore : ClipboardBackingStore {
     private val lock = Any()
     private val entries = ArrayList<StoredEntry>()
 
+    /** Buang item yang sudah lewat masa berlaku, dihitung dari waktu copy. Dipanggil di dalam lock. */
+    private fun pruneExpiredLocked(nowMillis: Long = System.currentTimeMillis()) {
+        entries.removeAll { nowMillis - it.item.timestampMillis > ClipboardMemory.TTL_MILLIS }
+    }
+
     override fun saveClipboardText(rawText: String, nowMillis: Long): ClipboardItem? {
         val (start, end) = TextChunker.trimmedBounds(rawText)
         if (start >= end) return null
@@ -202,6 +207,7 @@ class InMemoryClipboardBackingStore : ClipboardBackingStore {
             contentHash = hash
         )
         synchronized(lock) {
+            pruneExpiredLocked()
             entries.removeAll { it.hash == hash && it.item.charCount == charCount }
             entries.add(0, StoredEntry(item = item, hash = hash, fullText = cleaned))
             if (entries.size > ClipboardMemory.HISTORY_LIMIT) {
@@ -212,18 +218,22 @@ class InMemoryClipboardBackingStore : ClipboardBackingStore {
     }
 
     override fun getPreviews(limit: Int): List<ClipboardItem> = synchronized(lock) {
+        pruneExpiredLocked()
         entries.take(limit).map { it.item }
     }
 
     override fun getFullText(id: String): String? = synchronized(lock) {
+        pruneExpiredLocked()
         entries.firstOrNull { it.item.id == id }?.fullText
     }
 
     override fun getContentHash(id: String): String? = synchronized(lock) {
+        pruneExpiredLocked()
         entries.firstOrNull { it.item.id == id }?.let { "${it.item.charCount}:${it.hash}" }
     }
 
     override fun getLatestFullText(): String? = synchronized(lock) {
+        pruneExpiredLocked()
         entries.firstOrNull()?.fullText
     }
 
@@ -233,6 +243,7 @@ class InMemoryClipboardBackingStore : ClipboardBackingStore {
         val charCount = end - start
         val hash = TextChunker.sha256OfSlice(rawText, start, end)
         return synchronized(lock) {
+            pruneExpiredLocked()
             val latest = entries.firstOrNull() ?: return false
             latest.item.charCount == charCount && latest.hash == hash
         }
@@ -245,5 +256,7 @@ class InMemoryClipboardBackingStore : ClipboardBackingStore {
 
 object ClipboardMemory {
     const val HISTORY_LIMIT = 25
+    /** Item papan klip hilang 1 jam setelah dicopy. */
+    const val TTL_MILLIS = 60L * 60L * 1000L
     val store: ClipboardBackingStore by lazy { InMemoryClipboardBackingStore() }
 }
