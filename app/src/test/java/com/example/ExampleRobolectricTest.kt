@@ -1417,7 +1417,7 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun deviceBackupSheetBody_requiresFolderAndSubmitsPasswordWithoutWhitespace() {
+    fun deviceBackupSheetBody_requiresFolderAndSubmitsPasswordTrimmedOnlyAtEdges() {
         var folder by mutableStateOf<String?>(null)
         var submitted: String? = null
         composeRule.setContent {
