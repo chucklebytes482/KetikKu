@@ -167,8 +167,8 @@ class DeviceDictionaryBackupManager(
 
     suspend fun unlockAndSync(password: String): DeviceSyncResult = mutex.withLock {
         clearPassword()
-        if (!BackupCodec.isValidPassword(password)) return@withLock DeviceSyncResult.Error("Masukkan kata sandi tanpa spasi (maks. 128 byte).")
-        unlockWith(password)
+        if (!BackupCodec.isValidPassword(password)) return@withLock DeviceSyncResult.Error("Masukkan kata sandi (maks. 128 byte).")
+        unlockWith(BackupCodec.trimPassword(password))
     }
 
     /** Dipakai saat aplikasi dibuka: memakai kata sandi tersimpan di perangkat. */
@@ -182,7 +182,7 @@ class DeviceDictionaryBackupManager(
             settingsRepository.saveDeviceBackupPassword(null)
             return@withLock DeviceSyncResult.Locked
         }
-        unlockWith(password)
+        unlockWith(BackupCodec.trimPassword(password))
     }
 
     suspend fun forgetPassword() = mutex.withLock {

@@ -37,11 +37,14 @@ class BackupCodecTest {
         assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode("{}".toByteArray(), password) }
     }
 
-    @Test fun filtersUnicodeWhitespaceAndChecksUtf8Length() {
-        assertEquals("ab🔒c", BackupCodec.withoutWhitespace("\t a\u00a0b🔒\u0085c\n"))
-        assertFalse(BackupCodec.isValidPassword("a b"))
+    @Test fun trimsOnlyEdgeSpacesAndTabsAndChecksUtf8Length() {
+        assertEquals("a b🔒", BackupCodec.trimPassword("\t  a b🔒 \t"))
+        assertEquals("\u00a0a\n", BackupCodec.trimPassword("\u00a0a\n"))
+        assertTrue(BackupCodec.isValidPassword("a b"))
+        assertTrue(BackupCodec.isValidPassword("a"))
         assertFalse(BackupCodec.isValidPassword(""))
-        assertTrue(BackupCodec.isValidPassword("🔒".repeat(32)))
+        assertFalse(BackupCodec.isValidPassword("   \t "))
+        assertTrue(BackupCodec.isValidPassword(" ${"🔒".repeat(32)} "))
         assertFalse(BackupCodec.isValidPassword("🔒".repeat(33)))
     }
 }

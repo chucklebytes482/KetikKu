@@ -22,13 +22,20 @@ object BackupCodec {
 
     class AuthenticationException : Exception("Kata sandi salah atau berkas VXENC rusak.")
 
-    fun withoutWhitespace(value: String): String = value.filterNot { it.isWhitespace() || it == '\u0085' }
+    /** Membuang spasi dan tab ASCII hanya di awal dan akhir. Spasi di tengah tetap dipakai. */
+    fun trimPassword(value: String): String = value.trim(' ', '\t')
 
-    fun isValidPassword(value: String): Boolean =
-        value.isNotEmpty() && value.length <= 128 && value == withoutWhitespace(value) &&
-            value.toByteArray(Charsets.UTF_8).let { bytes ->
-                try { bytes.size <= 128 } finally { bytes.fill(0) }
-            }
+    /** Kata sandi dinilai setelah [trimPassword]. Tidak ada minimal karakter; maks 128 byte UTF-8. */
+    fun isValidPassword(value: String): Boolean {
+        val password = trimPassword(value)
+        if (password.isEmpty()) return false
+        val bytes = password.toByteArray(Charsets.UTF_8)
+        try {
+            return bytes.size <= 128
+        } finally {
+            bytes.fill(0)
+        }
+    }
 
     internal fun encode(json: String, password: ByteArray): ByteArray {
         val plain = json.toByteArray(Charsets.UTF_8)

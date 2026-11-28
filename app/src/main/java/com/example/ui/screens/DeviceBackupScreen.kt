@@ -153,7 +153,7 @@ internal fun DeviceBackupSheetBody(
         // Kata sandi selalu tersembunyi: tanpa tombol lihat, tanpa salin dari kolom.
         if (!unlocked) OutlinedTextField(
             value = if (hasSavedPassword) SAVED_PASSWORD_MASK else password,
-            onValueChange = { if (!hasSavedPassword) password = BackupCodec.withoutWhitespace(it) },
+            onValueChange = { if (!hasSavedPassword) password = it },
             enabled = folder != null && !syncing && !hasSavedPassword,
             modifier = Modifier.fillMaxWidth().testTag("device_backup_password"),
             label = { Text("Kata sandi cadangan") },
