@@ -108,9 +108,12 @@ class KetikKuImeService : InputMethodService() {
         clipboardManager?.addPrimaryClipChangedListener(clipListener)
 
         val typedWords = com.example.data.TypedWordStore.get(applicationContext)
+        val entryUsage = com.example.data.EntryUsageStore.get(applicationContext)
         controller = KeyboardController(target = target).apply {
             typedWordSuggester = { prefix -> typedWords.suggestPrefix(prefix) }
             onTypedWordCompleted = { word -> typedWords.recordAsync(word) }
+            entryUsageReader = { id -> entryUsage.usesOf(id) }
+            onA2fEntryUsed = { id -> entryUsage.record(id) }
         }
         serviceScope.launch {
             settingsRepository.dropLegacyPersonality()

@@ -302,6 +302,12 @@ class KeyboardController(
     /** Dipanggil saat kata yang diketik selesai (spasi/enter/tanda baca). Penyimpanan diatur pemanggil. */
     var onTypedWordCompleted: ((String) -> Unit)? = null
 
+    /** Jumlah tap per entri A2F (dari SQLite). Dipakai untuk mengurutkan kolom A2F. */
+    var entryUsageReader: ((String) -> Int)? = null
+
+    /** Dipanggil saat kolom A2F diketuk. Penyimpanan diatur pemanggil. */
+    var onA2fEntryUsed: ((String) -> Unit)? = null
+
     /** Kata folder yang sedang tampil -> ID entrinya, untuk mencatat pemakaian saat diketuk. */
     private var folderEntryIdByWord: Map<String, String> = emptyMap()
 
@@ -725,7 +731,7 @@ class KeyboardController(
 
     /**
      * Tap kolom A2F. Hanya kode 6 digit yang ditempel (tanpa email). Kode dihitung ulang dari seed saat ini.
-     * Kode tidak dicatat; yang dicatat hanya pemakaian entri akun untuk urutan kolom.
+     * Kode tidak dicatat; yang dicatat hanya jumlah tap entri akun untuk urutan kolom.
      */
     fun onA2fChipTap(
         chip: A2fChip,
@@ -735,6 +741,7 @@ class KeyboardController(
             ?.let { SecretVault.decryptOrNull(it.secretCipher) } ?: return
         val code = TotpGenerator.currentCodeFromBase32(seed) ?: return
         replaceCurrentWordForSuggestion(code)
+        onA2fEntryUsed?.invoke(chip.entryId)
         clearSelectedPreview()
         localContextValid = true
         clearLocalWordBuffer()
@@ -1033,7 +1040,13 @@ class KeyboardController(
         personalEntries: List<PersonalDictionaryEntry>
     ): List<A2fChip> {
         val chips = ArrayList<A2fChip>()
-        DictionaryEngine.findA2fEntries(currentWord, personalEntries).forEach { entry ->
+        val usage = entryUsageReader
+        // Paling sering diketuk dulu, lalu yang paling baru diubah.
+        val ordered = DictionaryEngine.findA2fEntries(currentWord, personalEntries).sortedWith(
+            compareByDescending<PersonalDictionaryEntry> { usage?.invoke(it.id) ?: 0 }
+                .thenByDescending { it.updatedAtMillis }
+        )
+        ordered.forEach { entry ->
             val seed = SecretVault.decryptOrNull(entry.secretCipher) ?: return@forEach
             val code = TotpGenerator.currentCodeFromBase32(seed) ?: return@forEach
             val email = entry.word.substringBefore('\n').trim()
