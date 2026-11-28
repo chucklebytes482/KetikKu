@@ -26,7 +26,7 @@ object DictionaryEngine {
     const val MIN_PREFIX_SUGGEST_LEN = 3
     /** Mengetik ini (utuh) menampilkan semua entri kredensial di bilah saran. */
     const val KRED_TRIGGER = "kred"
-    /** Mengetik ini menampilkan semua email dari folder aut dan kred. "em" + huruf a-z menyaring email yang diawali huruf itu. */
+    /** "em" + huruf a-z menyaring email dari folder aut dan kred yang diawali huruf itu. "em" saja tidak menampilkan email. */
     const val EMAIL_TRIGGER = "em"
     private val EMAIL_PREFIX_KEY_REGEX = Regex("^em[a-z]+$")
     private val EMAIL_LINE_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
@@ -167,7 +167,6 @@ object DictionaryEngine {
         nowMillis: Long = System.currentTimeMillis()
     ): List<FolderChoice> {
         val key = currentWord.trim().lowercase(Locale.ROOT)
-        if (key == EMAIL_TRIGGER) return emailChoices(personalEntries)
         // "em" + huruf (mis. "ema") menyaring email; pintasan pribadi yang persis cocok tetap didahulukan.
         if (EMAIL_PREFIX_KEY_REGEX.matches(key) && personalEntries.none { entry ->
                 !entry.deleted && (entry.shortcut.trim().equals(key, ignoreCase = true) ||

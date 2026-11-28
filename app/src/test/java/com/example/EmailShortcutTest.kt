@@ -15,7 +15,7 @@ class EmailShortcutTest {
     ) = PersonalDictionaryEntry(id = id, word = word, shortcut = "", folder = folder, deleted = deleted)
 
     @Test
-    fun emShowsEmailsFromAutAndKredOnly_sortedAndDeduped() {
+    fun emAloneShowsNoEmails() {
         val entries = listOf(
             e("1", "zeta@mail.com\nsite.com", SettingsRepository.FOLDER_A2F),
             e("2", "Alpha@mail.com\nsite.com", SettingsRepository.FOLDER_KREDENSIAL),
@@ -26,8 +26,7 @@ class EmailShortcutTest {
             e("7", "del@mail.com", SettingsRepository.FOLDER_A2F, deleted = true),
             e("8", "pribadi@mail.com", SettingsRepository.FOLDER_PRIBADI)
         )
-        val words = DictionaryEngine.findPagedShortcutWords("em", entries)
-        assertEquals(listOf("Alpha@mail.com", "zeta@mail.com"), words)
+        assertEquals(emptyList<String>(), DictionaryEngine.findPagedShortcutWords("em", entries))
     }
 
     @Test
@@ -50,8 +49,7 @@ class EmailShortcutTest {
             DictionaryEngine.findPagedShortcutWords("ema", entries))
         assertEquals(listOf("zeta@mail.com"), DictionaryEngine.findPagedShortcutWords("emz", entries))
         assertEquals(emptyList<String>(), DictionaryEngine.findPagedShortcutWords("emq", entries))
-        // "em" saja tetap semua email
-        assertEquals(listOf("Alpha@mail.com", "andi@mail.com", "ANISA@mail.com", "zeta@mail.com"),
-            DictionaryEngine.findPagedShortcutWords("em", entries))
+        // "em" saja tidak menampilkan email
+        assertEquals(emptyList<String>(), DictionaryEngine.findPagedShortcutWords("em", entries))
     }
 }
