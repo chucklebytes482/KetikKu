@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -61,6 +62,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,6 +72,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,6 +81,8 @@ import com.example.data.DictionaryEngine
 import com.example.data.SecretVault
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
+import com.example.data.TotpGenerator
+import kotlinx.coroutines.delay
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 
@@ -825,6 +830,27 @@ private fun FolderRowCard(
     }
 }
 
+/** Kode 6 digit A2F di pojok kanan kartu. Seed tidak pernah ditampilkan. Diperbarui tiap periode TOTP. */
+@Composable
+private fun RowScope.A2fCodeText(entry: PersonalDictionaryEntry) {
+    var code by remember(entry.id, entry.secretCipher) { mutableStateOf<String?>(null) }
+    LaunchedEffect(entry.id, entry.secretCipher) {
+        while (true) {
+            code = SecretVault.decryptOrNull(entry.secretCipher)?.let { TotpGenerator.currentCodeFromBase32(it) }
+            delay(TotpGenerator.millisUntilNextPeriod() + 50L)
+        }
+    }
+    Text(
+        text = code?.chunked(3)?.joinToString(" ") ?: "--- ---",
+        style = MaterialTheme.typography.labelLarge,
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        maxLines = 1,
+        modifier = Modifier.align(Alignment.Top).testTag("a2f_code_text")
+    )
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DictionaryItemCard(
@@ -937,6 +963,12 @@ private fun DictionaryItemCard(
                         }
                     }
                 }
+            }
+            // Kode A2F di pojok kanan kartu: akun aut, atau akun aut yang ada di Sampah.
+            if (SettingsRepository.normalizeFolderPath(entry.folder) == SettingsRepository.FOLDER_A2F ||
+                SettingsRepository.normalizeFolderPath(entry.trashedFrom) == SettingsRepository.FOLDER_A2F
+            ) {
+                A2fCodeText(entry)
             }
         }
     }
