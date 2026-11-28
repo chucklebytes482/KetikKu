@@ -2697,12 +2697,6 @@ private fun ClipboardPanel(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Papan Klip",
-                    color = palette.keyText,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp
-                )
                 if (!statusMessage.isNullOrBlank()) {
                     Text(
                         text = statusMessage,
