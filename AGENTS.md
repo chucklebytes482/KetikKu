@@ -20,3 +20,6 @@ Baca dan ikuti berkas berikut, dalam urutan ini:
 - Identitas git: `KetikKu Bot <bot@users.noreply.github.com>`.
 - Nama `KetikKu` dan paket yang sudah ada tidak diubah. Aturan penamaan Euskara berlaku untuk aplikasi baru.
 - Folder cadangan: `ketikku_backup_vxenc` (lihat `01-penamaan.md` bagian 4).
+
+## Izin push perbaikan CI
+- Pengguna mengizinkan push otomatis untuk perbaikan CI yang release APK di repo ini (lihat 03-build-dan-kualitas.md bagian 4). Pemantauan 6 menit setelah push mengikuti skill ci-release-watch.
