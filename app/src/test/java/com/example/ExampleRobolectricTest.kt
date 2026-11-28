@@ -1417,7 +1417,7 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(qualifiers = "w411dp-h891dp")
-    fun deviceBackupSheetBody_requiresFolderAndSubmitsPasswordTrimmedOnlyAtEdges() {
+    fun deviceBackupSheetBody_requiresFolderAndSubmitsPasswordAsTyped() {
         var folder by mutableStateOf<String?>(null)
         var submitted: String? = null
         composeRule.setContent {
@@ -1881,6 +1881,9 @@ class ExampleRobolectricTest {
         assertEquals(0, deletedCalls)
         assertTrue(composeRule.onAllNodesWithText("Pindahkan ke tras?").fetchSemanticsNodes().isNotEmpty())
         composeRule.onNodeWithTag("confirm_delete_items_button").assertIsDisplayed()
+
+        // Dismiss with Batal -> nothing deleted
+        composeRule.irm_delete_items_button").assertIsDisplayed()
 
         // Dismiss with Batal -> nothing deleted
         composeRule.onAllNodesWithText("Batal")[0].performClick()
