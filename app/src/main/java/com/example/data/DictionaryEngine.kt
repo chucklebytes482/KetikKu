@@ -26,8 +26,9 @@ object DictionaryEngine {
     const val MIN_PREFIX_SUGGEST_LEN = 3
     /** Mengetik ini (utuh) menampilkan semua entri kredensial di bilah saran. */
     const val KRED_TRIGGER = "kred"
-    /** Mengetik ini (utuh) menampilkan semua email dari folder aut dan kred di bilah saran. */
+    /** Mengetik ini menampilkan semua email dari folder aut dan kred. "em" + huruf a-z menyaring email yang diawali huruf itu. */
     const val EMAIL_TRIGGER = "em"
+    private val EMAIL_PREFIX_KEY_REGEX = Regex("^em[a-z]+$")
     private val EMAIL_LINE_REGEX = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
     private const val MAX_PERSONAL_PREFIX_BUCKET = 32
     private const val SHORTCUT_PERSONALIZATION_BONUS = 25.0
@@ -167,6 +168,14 @@ object DictionaryEngine {
     ): List<FolderChoice> {
         val key = currentWord.trim().lowercase(Locale.ROOT)
         if (key == EMAIL_TRIGGER) return emailChoices(personalEntries)
+        // "em" + huruf (mis. "ema") menyaring email; pintasan pribadi yang persis cocok tetap didahulukan.
+        if (EMAIL_PREFIX_KEY_REGEX.matches(key) && personalEntries.none { entry ->
+                !entry.deleted && (entry.shortcut.trim().equals(key, ignoreCase = true) ||
+                    SettingsRepository.autoShortcut(entry.folder, entry.word).equals(key, ignoreCase = true))
+            }
+        ) {
+            return emailChoices(personalEntries, key.removePrefix(EMAIL_TRIGGER))
+        }
         val folder = when {
             key.startsWith(KRED_TRIGGER) -> SettingsRepository.FOLDER_KREDENSIAL
             key.startsWith(SettingsRepository.FOLDER_KATA_SANDI) && key.length > 2 ->
@@ -184,7 +193,11 @@ object DictionaryEngine {
     }
 
     /** Email dari folder aut dan kred, unik (tanpa huruf besar/kecil), diurutkan abjad. */
-    private fun emailChoices(personalEntries: List<PersonalDictionaryEntry>): List<FolderChoice> {
+    private fun emailChoices(
+        personalEntries: List<PersonalDictionaryEntry>,
+        emailPrefix: String = ""
+    ): List<FolderChoice> {
+        val prefix = emailPrefix.lowercase(Locale.ROOT)
         return personalEntries
             .asSequence()
             .filter { entry ->
@@ -194,6 +207,7 @@ object DictionaryEngine {
             }
             .map { entry -> entry.id to displayWord(entry) }
             .filter { (_, email) -> EMAIL_LINE_REGEX.matches(email) }
+            .filter { (_, email) -> email.lowercase(Locale.ROOT).startsWith(prefix) }
             .distinctBy { (_, email) -> email.lowercase(Locale.ROOT) }
             .sortedBy { (_, email) -> email.lowercase(Locale.ROOT) }
             .map { (id, email) -> FolderChoice(id, email) }

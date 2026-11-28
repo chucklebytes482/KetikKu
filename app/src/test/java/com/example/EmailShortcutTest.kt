@@ -35,4 +35,23 @@ class EmailShortcutTest {
         val entries = listOf(e("1", "a@mail.com", SettingsRepository.FOLDER_A2F))
         assertEquals(emptyList<String>(), DictionaryEngine.findPagedShortcutWords("emas", entries))
     }
+
+    @Test
+    fun emPlusLetterFiltersEmailsByPrefix() {
+        val entries = listOf(
+            e("1", "zeta@mail.com", SettingsRepository.FOLDER_A2F),
+            e("2", "Alpha@mail.com", SettingsRepository.FOLDER_KREDENSIAL),
+            e("3", "andi@mail.com", SettingsRepository.FOLDER_A2F),
+            e("4", "ANISA@mail.com", SettingsRepository.FOLDER_A2F),
+            e("5", "bukan@email", SettingsRepository.FOLDER_A2F)
+        )
+        // "ema" -> hanya email berawalan "a" (tanpa membedakan huruf besar)
+        assertEquals(listOf("Alpha@mail.com", "andi@mail.com", "ANISA@mail.com"),
+            DictionaryEngine.findPagedShortcutWords("ema", entries))
+        assertEquals(listOf("zeta@mail.com"), DictionaryEngine.findPagedShortcutWords("emz", entries))
+        assertEquals(emptyList<String>(), DictionaryEngine.findPagedShortcutWords("emq", entries))
+        // "em" saja tetap semua email
+        assertEquals(listOf("Alpha@mail.com", "andi@mail.com", "ANISA@mail.com", "zeta@mail.com"),
+            DictionaryEngine.findPagedShortcutWords("em", entries))
+    }
 }
