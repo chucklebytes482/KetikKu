@@ -1730,9 +1730,8 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithText("Rahasia!2026").assertIsDisplayed().performClick()
         composeRule.waitForIdle()
 
-        // Replaces "pw" cleanly with NO trailing space and does NOT record into personality stats
+        // Replaces "pw" cleanly with NO trailing space
         assertEquals("Rahasia!2026", buffer)
-        assertTrue(controller.getPersonalitySnapshot().isEmpty())
     }
 
     @Test

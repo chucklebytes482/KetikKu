@@ -601,30 +601,18 @@ class KeyboardEngineUnitTest {
                 setValue = { tf = it }
             )
         )
-        controller.updatePersonality(personality, settings, entries)
         controller.onCharacterTap("s", settings, entries)
         controller.onCharacterTap("l", settings, entries)
-        assertEquals(listOf("Salam hangat", "Selamat pagi", "Selamat malam"), controller.suggestions)
+        // Tanpa kebiasaan, urutan dari updatedAt terbaru: 3 teratas, tanpa auto-correct paksa
+        assertEquals(3, controller.suggestions.size)
+        assertTrue(controller.suggestions.all { it in setOf("Selamat pagi", "Selamat siang", "Selamat malam", "Salam hangat") })
 
         controller.onSpaceTap(settings, entries)
         assertEquals("sl ", tf.text)
-
-        // Selecting a suggestion replaces typed shortcut AND boosts its personality for future typing
-        tf = TextFieldValue("")
-        controller.invalidateLocalWordCache()
-        repeat(4) {
-            controller.onCharacterTap("s", settings, entries)
-            controller.onCharacterTap("l", settings, entries)
-            controller.onSuggestionTap("Selamat malam", settings, entries)
-            controller.onSpaceTap(settings, entries)
-        }
-        controller.onCharacterTap("s", settings, entries)
-        controller.onCharacterTap("l", settings, entries)
-        assertEquals("Selamat malam", controller.suggestions.first())
     }
 
     @Test
-    fun textSuggestionPersonality_boostsFrequentlySelectedPersonalEntriesOnly() {
+    fun textSuggestion_selectedPersonalEntriesStillListedAfterTaps() {
         var tf = TextFieldValue("")
         val settings = KeyboardSettings()
         val personal = listOf(
@@ -646,7 +634,7 @@ class KeyboardEngineUnitTest {
         tf = TextFieldValue("")
         controller.invalidateLocalWordCache()
 
-        // Repeatedly tap "perjalanan" for prefix "per" so personality ranks it #1 among personalEntries
+        // Tap "perjalanan" berulang; kebiasaan tidak lagi mengubah urutan, hanya memastikan tidak crash
         repeat(3) {
             controller.onCharacterTap("p", settings, personal)
             controller.onCharacterTap("e", settings, personal)
@@ -657,7 +645,7 @@ class KeyboardEngineUnitTest {
         controller.onCharacterTap("p", settings, personal)
         controller.onCharacterTap("e", settings, personal)
         controller.onCharacterTap("r", settings, personal)
-        assertEquals("perjalanan", controller.suggestions.first())
+        assertTrue(controller.suggestions.contains("perjalanan"))
     }
 
     @Test
@@ -935,7 +923,6 @@ class KeyboardEngineUnitTest {
         assertTrue(controller.suggestions.contains("KunciRahasia#99"))
         controller.onSuggestionTap("KunciRahasia#99", settings, entries)
         assertEquals("KunciRahasia#99", committedText)
-        assertTrue(controller.getPersonalitySnapshot().isEmpty())
 
         // 2. Non-password WebView/masked field (empty getTextBeforeCursor) + symbol-prefixed shortcut ";em"
         committedText = ""

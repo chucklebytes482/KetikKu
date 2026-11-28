@@ -107,12 +107,13 @@ class KetikKuImeService : InputMethodService() {
         clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         clipboardManager?.addPrimaryClipChangedListener(clipListener)
 
+        val typedWords = com.example.data.TypedWordStore.get(applicationContext)
         controller = KeyboardController(target = target).apply {
-            onRecordWordUsage = { word ->
-                serviceScope.launch {
-                    settingsRepository.recordWordUsage(word)
-                }
-            }
+            typedWordSuggester = { prefix -> typedWords.suggestPrefix(prefix) }
+            onTypedWordCompleted = { word -> typedWords.recordAsync(word) }
+        }
+        serviceScope.launch {
+            settingsRepository.dropLegacyPersonality()
         }
 
         serviceScope.launch {
@@ -131,11 +132,6 @@ class KetikKuImeService : InputMethodService() {
                 }
                 latestDictionary = entries
                 controller.refreshState(latestSettings, latestDictionary)
-            }
-        }
-        serviceScope.launch {
-            settingsRepository.personalityFlow.collectLatest { stats ->
-                controller.updatePersonality(stats, latestSettings, latestDictionary)
             }
         }
     }

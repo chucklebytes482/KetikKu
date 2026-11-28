@@ -15,7 +15,6 @@ import com.example.model.KeyboardLanguage
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
 import com.example.model.SyncLocalState
-import com.example.model.WordPersonalityStat
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import kotlinx.coroutines.Dispatchers
@@ -46,12 +45,6 @@ class SettingsRepository(
 
     private val dictListType = Types.newParameterizedType(List::class.java, PersonalDictionaryEntry::class.java)
     private val dictListAdapter = moshi.adapter<List<PersonalDictionaryEntry>>(dictListType)
-    private val personalityMapType = Types.newParameterizedType(
-        Map::class.java,
-        String::class.java,
-        WordPersonalityStat::class.java
-    )
-    private val personalityMapAdapter = moshi.adapter<Map<String, WordPersonalityStat>>(personalityMapType)
 
     private object Keys {
         val HEIGHT_PRESET = stringPreferencesKey("height_preset")
@@ -157,17 +150,6 @@ class SettingsRepository(
     val dismissedClipboardSignatureFlow: Flow<String?> = dataStore.data
         .map { prefs -> prefs[Keys.DISMISSED_CLIPBOARD_SIGNATURE]?.takeIf { it.isNotBlank() } }
         .distinctUntilChanged()
-
-    val personalityFlow: Flow<Map<String, WordPersonalityStat>> = dataStore.data
-        .map { prefs -> prefs[Keys.PERSONALITY_JSON] }
-        .distinctUntilChanged()
-        .map { raw ->
-            if (raw.isNullOrBlank()) {
-                emptyMap()
-            } else {
-                runCatching { personalityMapAdapter.fromJson(raw) }.getOrNull() ?: emptyMap()
-            }
-        }
 
     val syncLocalStateFlow: Flow<SyncLocalState> = dataStore.data
         .map { prefs ->
@@ -771,34 +753,10 @@ class SettingsRepository(
         return normalizedEntries to normalizedFolders
     }
 
-    suspend fun recordWordUsage(word: String, countDelta: Int = 1) {
-        val clean = word.trim()
-        if (clean.isEmpty() || countDelta <= 0) return
-        val key = clean.lowercase(Locale.ROOT)
-        val now = System.currentTimeMillis()
+    /** Hapus data kebiasaan lama (JSON personality di DataStore). Kata yang sering diketik kini di SQLite. */
+    suspend fun dropLegacyPersonality() {
         runCatching {
-            dataStore.edit { prefs ->
-                val current = prefs[Keys.PERSONALITY_JSON]?.let { raw ->
-                    runCatching { personalityMapAdapter.fromJson(raw) }.getOrNull()
-                }?.toMutableMap() ?: LinkedHashMap()
-
-                val existing = current[key]
-                current[key] = WordPersonalityStat(
-                    word = clean,
-                    usageCount = (existing?.usageCount ?: 0) + countDelta,
-                    lastUsedMillis = now
-                )
-
-                val trimmed = if (current.size > PERSONALITY_MAX_ENTRIES) {
-                    current.entries
-                        .sortedByDescending { DictionaryEngine.personalityScore(it.key, current, now) }
-                        .take(PERSONALITY_MAX_ENTRIES)
-                        .associate { it.key to it.value }
-                } else {
-                    current
-                }
-                prefs[Keys.PERSONALITY_JSON] = personalityMapAdapter.toJson(trimmed)
-            }
+            dataStore.edit { prefs -> prefs.remove(Keys.PERSONALITY_JSON) }
         }
     }
 
@@ -952,7 +910,6 @@ class SettingsRepository(
     )
 
     companion object {
-        private const val PERSONALITY_MAX_ENTRIES = 600
         private const val LEGACY_CLIPBOARD_DB_NAME = "ketikku_clipboard.db"
         /** Folder gm sudah dihapus. Kodenya hanya dipakai untuk migrasi entri lama dan tidak bisa dibuat lagi. */
         private const val FOLDER_GMAIL_DIHAPUS = "gm"

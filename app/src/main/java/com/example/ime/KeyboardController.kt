@@ -8,7 +8,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.example.data.DictionaryEngine
-import com.example.data.HABIT_MAX_WORDS
 import com.example.data.SettingsRepository
 import com.example.data.SecretVault
 import com.example.data.TotpGenerator
@@ -17,7 +16,6 @@ import com.example.data.TextChunker
 import com.example.model.ClipboardItem
 import com.example.model.KeyboardSettings
 import com.example.model.PersonalDictionaryEntry
-import com.example.model.WordPersonalityStat
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -298,39 +296,14 @@ class KeyboardController(
     var dismissedClipboardSignature by mutableStateOf<String?>(null)
         private set
 
-    var onRecordWordUsage: ((String) -> Unit)? = null
+    /** Saran kata yang sering diketik (dari SQLite), key = kata huruf kecil, value = jumlah pemakaian. */
+    var typedWordSuggester: ((String) -> Map<String, Int>)? = null
 
-    private var personalityStats: MutableMap<String, WordPersonalityStat> = LinkedHashMap()
-
-    /**
-     * Kebiasaan sesi: jumlah kata yang diketik lalu diselesaikan (spasi/enter/tanda baca).
-     * Hanya di memori: tidak ditulis ke berkas, tidak masuk kamus pribadi, hilang saat controller dibuat ulang.
-     */
-    private val habitCounts = HashMap<String, Int>()
+    /** Dipanggil saat kata yang diketik selesai (spasi/enter/tanda baca). Penyimpanan diatur pemanggil. */
+    var onTypedWordCompleted: ((String) -> Unit)? = null
 
     /** Kata folder yang sedang tampil -> ID entrinya, untuk mencatat pemakaian saat diketuk. */
     private var folderEntryIdByWord: Map<String, String> = emptyMap()
-
-    fun updatePersonality(
-        stats: Map<String, WordPersonalityStat>,
-        settings: KeyboardSettings? = null,
-        personalEntries: List<PersonalDictionaryEntry> = emptyList()
-    ) {
-        val merged = LinkedHashMap<String, WordPersonalityStat>(stats.size + personalityStats.size)
-        merged.putAll(stats)
-        for ((k, localStat) in personalityStats) {
-            val remoteStat = merged[k]
-            if (remoteStat == null || localStat.usageCount > remoteStat.usageCount || localStat.lastUsedMillis > remoteStat.lastUsedMillis) {
-                merged[k] = localStat
-            }
-        }
-        personalityStats = merged
-        if (settings != null) {
-            refreshState(settings, personalEntries)
-        }
-    }
-
-    fun getPersonalitySnapshot(): Map<String, WordPersonalityStat> = personalityStats
 
     fun dismissClipboardItem(clipboardId: String) {
         dismissedClipboardId = clipboardId
@@ -725,7 +698,6 @@ class KeyboardController(
         settings: KeyboardSettings,
         personalEntries: List<PersonalDictionaryEntry>
     ) {
-        folderEntryIdByWord[word]?.let { recordEntryUsage(it) }
         // Isi kata folder (kata sandi, nomor) tidak dimasukkan ke buffer kata aktif.
         onSuggestionTap(word, settings, personalEntries, recordUsage = false, seedActiveWord = false)
     }
@@ -739,7 +711,6 @@ class KeyboardController(
     ) {
         val styled = formatOutput(word, settings)
         replaceCurrentWordForSuggestion(styled)
-        if (recordUsage) recordWordUsageInternal(word, personalEntries, forceRecord = true)
         clearSelectedPreview()
         clearLivePreviewBuffer()
         if (isPasswordField || !seedActiveWord) {
@@ -763,7 +734,6 @@ class KeyboardController(
         val seed = personalEntries.firstOrNull { it.id == chip.entryId && !it.deleted }
             ?.let { SecretVault.decryptOrNull(it.secretCipher) } ?: return
         val code = TotpGenerator.currentCodeFromBase32(seed) ?: return
-        recordEntryUsage(chip.entryId)
         replaceCurrentWordForSuggestion(code)
         clearSelectedPreview()
         localContextValid = true
@@ -1003,54 +973,8 @@ class KeyboardController(
             FontStyleConverter.extractCurrentWordRawAndPlain(target.getTextBeforeCursor(48)).second
         }
         if (typed.isNotBlank()) {
-            recordWordUsageInternal(typed, personalEntries, forceRecord = false)
-            recordHabitWord(typed)
+            onTypedWordCompleted?.invoke(typed.trim())
         }
-    }
-
-    /** Hitung kata yang selesai diketik untuk saran sesi. Hanya huruf, 3–30 karakter, batas jumlah kata. */
-    private fun recordHabitWord(word: String) {
-        val clean = word.trim().lowercase(Locale.ROOT)
-        if (clean.length !in 3..30 || !HABIT_WORD_REGEX.matches(clean)) return
-        val existing = habitCounts[clean]
-        if (existing == null && habitCounts.size >= HABIT_MAX_WORDS) return
-        habitCounts[clean] = (existing ?: 0) + 1
-    }
-
-    /** Catat pemakaian satu entri (A2F, kred, pw, num). Kunci hanya ID entri, tidak memuat isi entri. */
-    private fun recordEntryUsage(entryId: String) {
-        val key = DictionaryEngine.entryUsageKey(entryId)
-        val existing = personalityStats[key]
-        personalityStats[key] = WordPersonalityStat(
-            word = key,
-            usageCount = (existing?.usageCount ?: 0) + 1,
-            lastUsedMillis = System.currentTimeMillis()
-        )
-        onRecordWordUsage?.invoke(key)
-    }
-
-    private fun recordWordUsageInternal(
-        word: String,
-        personalEntries: List<PersonalDictionaryEntry>,
-        forceRecord: Boolean
-    ) {
-        if (isPasswordField) return
-        val clean = word.trim()
-        if (clean.isEmpty()) return
-        val lower = clean.lowercase(Locale.ROOT)
-        val isPersonalWord = personalEntries.any {
-            !it.deleted && it.word.trim().equals(clean, ignoreCase = true)
-        }
-        if (!forceRecord && !isPersonalWord) return
-
-        val now = System.currentTimeMillis()
-        val existing = personalityStats[lower]
-        personalityStats[lower] = WordPersonalityStat(
-            word = clean,
-            usageCount = (existing?.usageCount ?: 0) + 1,
-            lastUsedMillis = now
-        )
-        onRecordWordUsage?.invoke(clean)
     }
 
     private var lastPersonalEntries: List<PersonalDictionaryEntry> = emptyList()
@@ -1075,9 +999,9 @@ class KeyboardController(
         }
         clearA2f()
         val now = System.currentTimeMillis()
-        val shortcutChoices = DictionaryEngine.findPagedShortcutChoices(currentWord, personalEntries, personalityStats, now)
+        val shortcutChoices = DictionaryEngine.findPagedShortcutChoices(currentWord, personalEntries, nowMillis = now)
         val folderChoices = if (shortcutChoices.isNotEmpty() || isPasswordField) shortcutChoices
-        else DictionaryEngine.findFolderEntryChoices(currentWord, personalEntries, personalityStats, now)
+        else DictionaryEngine.findFolderEntryChoices(currentWord, personalEntries, nowMillis = now)
         if (folderChoices.isNotEmpty()) {
             val folderWords = folderChoices.map { it.word }.distinct()
             if (suggestions.isNotEmpty()) suggestions = emptyList()
@@ -1092,9 +1016,8 @@ class KeyboardController(
             currentWord = currentWord,
             previousWord = "",
             personalEntries = personalEntries,
-            personality = personalityStats,
             nowMillis = now,
-            habit = habitCounts
+            habit = typedWordSuggester?.invoke(currentWord.trim()) ?: emptyMap()
         )
         if (suggestions != result.suggestions) {
             suggestions = result.suggestions
@@ -1110,7 +1033,7 @@ class KeyboardController(
         personalEntries: List<PersonalDictionaryEntry>
     ): List<A2fChip> {
         val chips = ArrayList<A2fChip>()
-        DictionaryEngine.findA2fEntries(currentWord, personalEntries, personalityStats).forEach { entry ->
+        DictionaryEngine.findA2fEntries(currentWord, personalEntries).forEach { entry ->
             val seed = SecretVault.decryptOrNull(entry.secretCipher) ?: return@forEach
             val code = TotpGenerator.currentCodeFromBase32(seed) ?: return@forEach
             val email = entry.word.substringBefore('\n').trim()
@@ -1137,7 +1060,6 @@ class KeyboardController(
 
     companion object {
         const val MAX_ACTIVE_WORD_CHARS = 30
-        private val HABIT_WORD_REGEX = Regex("^\\p{L}+$")
         const val MAX_LIVE_PREVIEW_CHARS = 120
         const val CTRL_STICKY_CHAR_LIMIT = 1
         /** Satu-satunya kombinasi Ctrl+huruf yang didukung. */
