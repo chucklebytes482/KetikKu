@@ -14,7 +14,8 @@ Baca dan ikuti berkas berikut, dalam urutan ini:
 - `08-checklist-app-baru.md`
 
 ## Aturan khusus repo ini
-- Commit langsung ke `main`.
+- Commit kecil dilakukan lokal di `main`. Jangan push sebelum pengguna mengetik `push` (00-prinsip-kerja.md bagian 6). Saat diminta, semua commit yang menunggu di-push sekaligus.
+- Sebelum push, build dan unit test diperiksa sesuai 03-build-dan-kualitas.md.
 - Build APK hanya lewat GitHub Actions. Jangan build di sandbox.
 - Identitas git: `KetikKu Bot <bot@users.noreply.github.com>`.
 - Nama `KetikKu` dan paket yang sudah ada tidak diubah. Aturan penamaan Euskara berlaku untuk aplikasi baru.
