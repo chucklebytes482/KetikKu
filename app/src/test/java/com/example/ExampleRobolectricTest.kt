@@ -1437,7 +1437,8 @@ class ExampleRobolectricTest {
         composeRule.onNodeWithTag("device_backup_path_text").assertTextEquals("Documents/Catatan/ketikku_backup_vxenc/ketikku.vxenc")
         composeRule.onNodeWithTag("device_backup_password").performScrollTo().performTextInput(" sa ndi ")
         composeRule.onNodeWithTag("device_sync_button").performScrollTo().performClick()
-        composeRule.runOnIdle { assertEquals("sa ndi", submitted) }
+        // Sheet meneruskan teks apa adanya; pemangkasan tepi dilakukan DeviceDictionaryBackupManager.
+        composeRule.runOnIdle { assertEquals(" sa ndi ", submitted) }
     }
 
     @Test
@@ -1881,9 +1882,6 @@ class ExampleRobolectricTest {
         assertEquals(0, deletedCalls)
         assertTrue(composeRule.onAllNodesWithText("Pindahkan ke tras?").fetchSemanticsNodes().isNotEmpty())
         composeRule.onNodeWithTag("confirm_delete_items_button").assertIsDisplayed()
-
-        // Dismiss with Batal -> nothing deleted
-        composeRule.irm_delete_items_button").assertIsDisplayed()
 
         // Dismiss with Batal -> nothing deleted
         composeRule.onAllNodesWithText("Batal")[0].performClick()
