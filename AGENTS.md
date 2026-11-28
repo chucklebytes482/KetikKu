@@ -15,7 +15,7 @@ Baca dan ikuti berkas berikut, dalam urutan ini:
 
 ## Aturan khusus repo ini
 - Commit kecil dilakukan lokal di `main`. Jangan push sebelum pengguna mengetik `push` (00-prinsip-kerja.md bagian 6). Saat diminta, semua commit yang menunggu di-push sekaligus.
-- Sebelum push, build dan unit test diperiksa sesuai 03-build-dan-kualitas.md.
+- Build dan unit test diperiksa lewat GitHub Actions (`release.yml`) sesuai 03-build-dan-kualitas.md. Sandbox tidak punya Android SDK. Keputusan ini mengikuti aturan repo, yang diutamakan di atas panduan. Pekerjaan belum selesai sebelum CI hijau, dan kegagalan CI dilaporkan apa adanya.
 - Build APK hanya lewat GitHub Actions. Jangan build di sandbox.
 - Identitas git: `KetikKu Bot <bot@users.noreply.github.com>`.
 - Nama `KetikKu` dan paket yang sudah ada tidak diubah. Aturan penamaan Euskara berlaku untuk aplikasi baru.
